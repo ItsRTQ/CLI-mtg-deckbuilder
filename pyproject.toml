@@ -1,0 +1,18 @@
+[project]
+name = "cli-mtg-deckbuilder"
+version = "0.1.0"
+description = "CLI tools and agent prompts for building Magic: The Gathering Commander decks."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+mtgcli = "mtgcli.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

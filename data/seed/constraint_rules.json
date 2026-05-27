@@ -1,0 +1,57 @@
+{
+  "preference_adjustments": {
+    "more_ramp": {
+      "ramp": 2,
+      "synergy": -2
+    },
+    "less_ramp": {
+      "ramp": -2,
+      "synergy": 2
+    },
+    "more_card_draw": {
+      "card_draw": 2,
+      "synergy": -2
+    },
+    "less_card_draw": {
+      "card_draw": -2,
+      "synergy": 2
+    },
+    "more_removal": {
+      "removal": 2,
+      "synergy": -2
+    },
+    "less_removal": {
+      "removal": -2,
+      "synergy": 2
+    },
+    "more_creatures": {
+      "synergy": 3,
+      "board_wipes": -1,
+      "protection": -1,
+      "win_conditions": -1
+    },
+    "fewer_board_wipes": {
+      "board_wipes": -1,
+      "synergy": 1
+    },
+    "more_equipment": {
+      "synergy": 2,
+      "protection": -1,
+      "win_conditions": -1
+    }
+  },
+  "minimum_safety_counts": {
+    "lands": 30,
+    "ramp": 6,
+    "card_draw": 6,
+    "removal": 5,
+    "board_wipes": 0
+  },
+  "maximum_safety_counts": {
+    "lands": 42,
+    "ramp": 18,
+    "card_draw": 18,
+    "removal": 16,
+    "board_wipes": 5
+  }
+}

@@ -141,6 +141,26 @@ The agent should:
 
 The agent must not claim the deck is valid unless validation passes.
 
+## Deckbuilding constraints
+
+The agent can follow user constraints when building decks.
+
+Examples:
+
+```text
+Create a Commander deck with Krenko, Mob Boss as commander. Theme: Goblins. Use exactly 33 lands.
+Create a Chishiro deck with more equipment and fewer board wipes.
+Create a Wilhelt Zombie sacrifice deck with 35 lands and no infinite combos.
+```
+
+Supported constraint types:
+
+- **exact counts**: 33 lands, 12 ramp, 2 board wipes
+- **minimum counts**: at least 30 creatures
+- **maximum counts**: no more than 3 board wipes
+- **preferences**: more ramp, less removal, more equipment
+- **avoids**: no infinite combos, avoid tutors
+
 ## Output files
 
 Generated files are written to `output/`.

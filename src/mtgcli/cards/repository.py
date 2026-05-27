@@ -58,7 +58,7 @@ class CardRepository:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT * FROM cards WHERE name = ? AND set_code = ? AND collector_number = ?",
+                    "SELECT * FROM cards WHERE name = ? COLLATE NOCASE AND set_code = ? AND collector_number = ?",
                     (name, set_code, str(collector_number))
                 )
                 row = cursor.fetchone()

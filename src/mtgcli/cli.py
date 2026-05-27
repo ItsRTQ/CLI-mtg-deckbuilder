@@ -12,6 +12,9 @@ from mtgcli.utils.json_io import read_json, write_json
 from mtgcli.export.moxfield import export_deck_to_moxfield
 from mtgcli.validator.deck_validator import validate_commander_deck
 from mtgcli.deckbuilder.enrich_deck import enrich_deck
+from mtgcli.deckbuilder.basic_lands import suggest_basic_lands
+from mtgcli.deckbuilder.deck_check import check_deck_quality
+from mtgcli.deckbuilder.suggestion_scorer import score_suggestion
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -127,10 +130,14 @@ def search_tags(
 def suggest(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
     role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, synergy)"),
+    theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment"),
+    max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
+    exclude_deck: Optional[Path] = typer.Option(None, "--exclude", help="Deck JSON file with cards to exclude"),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
+    dedupe: bool = typer.Option(True, "--dedupe/--no-dedupe", help="Deduplicate repeated printings"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
-    """Suggest cards for a commander based on a specific role."""
+    """Suggest cards for a commander based on a specific role and optional theme."""
     if not SQLITE_PATH.exists():
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
@@ -154,21 +161,77 @@ def suggest(
         print(f"[yellow]Available roles: {', '.join(role_defs.keys())}[/yellow]")
         raise typer.Exit(code=1)
 
-    tags = role_defs[role].get("tags", [])
+    tags = list(role_defs[role].get("tags", []))
+    if theme:
+        tags.append(theme)
+        
     colors = "".join(commander_card.get("color_identity", []))
     
-    results = search_by_tags(tags=tags, colors=colors, limit=limit)
+    # Handle exclusions
+    exclude_names = set()
+    if exclude_deck and exclude_deck.exists():
+        try:
+            deck_data = read_json(exclude_deck)
+            for entry in deck_data:
+                if isinstance(entry, dict) and "name" in entry:
+                    exclude_names.add(entry["name"])
+                elif isinstance(entry, str):
+                    exclude_names.add(entry)
+        except Exception as e:
+            print(f"[yellow]Warning: Could not read exclude deck: {e}[/yellow]")
+
+    results = search_by_tags(
+        tags=tags, 
+        colors=colors, 
+        limit=limit * 2, # Get more results to allow for better sorting after scoring
+        max_price=max_price,
+        exclude_names=list(exclude_names),
+        dedupe=dedupe
+    )
 
     if not results:
         print(f"[yellow]No suggestions found for role '{role}' in colors '{colors}'[/yellow]")
         return
 
+    # Score and enrich results
+    scored_results = []
+    for card in results:
+        score_data = score_suggestion(card, role, theme)
+        card["suggestion_score"] = score_data["score"]
+        card["matched_tags"] = score_data["matched_tags"]
+        card["reason_hint"] = score_data["reason_hint"]
+        scored_results.append(card)
+
+    # Sort by score descending, then mana_value ascending
+    scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
+
+    # Apply final limit
+    final_results = scored_results[:limit]
+
     if json_output:
-        print(json.dumps(results, indent=2))
+        # Define output fields for clean JSON
+        output_fields = [
+            "name", "mana_cost", "mana_value", "type_line", "oracle_text",
+            "color_identity", "set_code", "collector_number", "usd_price",
+            "suggestion_score", "matched_tags", "reason_hint"
+        ]
+        json_results = []
+        for card in final_results:
+            json_results.append({k: card.get(k) for k in output_fields})
+        print(json.dumps(json_results, indent=2))
     else:
-        print(f"[bold blue]Suggestions for {commander} ({role}):[/bold blue]")
-        for card in results:
-            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}")
+        title = f"Suggestions for {commander} ({role})"
+        if theme:
+            title += f" [Theme: {theme}]"
+        if max_price:
+            title += f" [Max Price: ${max_price}]"
+            
+        print(f"[bold blue]{title}:[/bold blue]")
+        for card in final_results:
+            price_str = f" [green]${card['usd_price']}[/green]" if card['usd_price'] else ""
+            score_str = f" [yellow](Score: {card['suggestion_score']})[/yellow]"
+            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}{price_str}{score_str}")
+            print(f"  [italic white]{card['reason_hint']}[/italic white]")
 
 
 @app.command()
@@ -183,8 +246,9 @@ def validate(
         raise typer.Exit(code=1)
 
     try:
-        deck_cards = read_json(deck_path)
-        report = validate_commander_deck(commander, deck_cards)
+        repo = CardRepository(str(SQLITE_PATH))
+        deck_entries = read_json(deck_path)
+        report = validate_commander_deck(commander, deck_entries, repo)
         
         # Save report
         report_path = Path("output/validation_report.json")
@@ -247,6 +311,85 @@ def export(
         print(f"[green]Exported deck to {output_path}[/green]")
     except Exception as e:
         print(f"[red]Failed to export deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def suggest_lands(
+    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    count: int = typer.Option(37, "--count", help="Number of lands to suggest"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
+):
+    """Suggest basic lands based on commander color identity."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    commander_card = repo.get_card_by_exact_name(commander)
+    
+    if not commander_card:
+        print(f"[red]Commander '{commander}' not found.[/red]")
+        raise typer.Exit(code=1)
+
+    colors = commander_card.get("color_identity", [])
+    lands = suggest_basic_lands(colors, count)
+
+    if json_output:
+        print(json.dumps(lands, indent=2))
+    else:
+        print(f"[bold blue]Land suggestions for {commander} ({''.join(colors)}):[/bold blue]")
+        for land in lands:
+            print(f"- {land['quantity']}x {land['name']}")
+
+
+@app.command()
+def deck_check(
+    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output report as JSON")
+):
+    """Check deck quality: land count, ramp, draw, removal, etc."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        repo = CardRepository(str(SQLITE_PATH))
+        deck_entries = read_json(deck_path)
+        
+        # Hydrate deck cards for analysis
+        deck_cards = []
+        for entry in deck_entries:
+            name = entry.get("name")
+            if not name: continue
+            card = repo.get_card_by_exact_match(name, entry.get("set_code"), entry.get("collector_number"))
+            if card:
+                card["quantity"] = entry.get("quantity", 1)
+                deck_cards.append(card)
+        
+        report = check_deck_quality(deck_cards)
+        
+        if json_output:
+            print(json.dumps(report, indent=2))
+        else:
+            print(f"[bold blue]Deck Quality Report for {commander}:[/bold blue]")
+            for cat, count in report["stats"].items():
+                print(f"- {cat.replace('_', ' ').title()}: {count}")
+            
+            if report["warnings"]:
+                print("\n[bold yellow]Warnings:[/bold yellow]")
+                for warning in report["warnings"]:
+                    print(f"- [yellow]{warning}[/yellow]")
+            else:
+                print("\n[bold green]No major issues found![/bold green]")
+                
+    except Exception as e:
+        print(f"[red]Failed to check deck: {e}[/red]")
         raise typer.Exit(code=1)
 
 

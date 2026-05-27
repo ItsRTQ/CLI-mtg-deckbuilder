@@ -46,6 +46,26 @@ Adjust slightly if needed, but never create an obviously unbalanced deck.
 - Include enough removal.
 - Include at least a few realistic win conditions.
 
+## User constraints
+
+User constraints override the default deck skeleton unless they make the deck invalid.
+
+Examples:
+- "33 lands" means exactly 33 lands.
+- "12 ramp cards" means exactly 12 ramp cards.
+- "more ramp" means increase ramp count above default.
+- "less removal" means reduce removal count below default.
+- "more equipment" means prioritize equipment cards.
+- "fewer board wipes" means reduce board wipe count.
+- "no infinite combos" means avoid combo-focused win conditions.
+
+Always preserve:
+- exactly 100 cards total
+- commander legality
+- color identity legality
+- singleton rule
+- no banned cards
+
 ## Internal deck JSON format
 
 Create `output/deck.json` using this structure:

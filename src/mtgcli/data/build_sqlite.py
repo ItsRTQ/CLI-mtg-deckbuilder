@@ -6,6 +6,7 @@ from typing import List, Dict, Any
 
 from mtgcli.config import RAW_CARDS_PATH, SQLITE_PATH
 from mtgcli.data.normalize_cards import normalize_card
+from mtgcli.utils.json_io import safe_float
 
 # Read and normalize cards using ijson for streaming
 CHUNK_SIZE = 1000
@@ -88,7 +89,7 @@ def build_sqlite_database() -> Path:
                 1 if norm["commander_legal"] else 0,
                 1 if norm["can_be_commander"] else 0,
                 norm["rarity"],
-                float(norm["usd_price"]) if norm["usd_price"] is not None else None,
+                safe_float(norm["usd_price"]),
                 norm["layout"],
                 json.dumps(norm["games"]),
                 1 if norm["digital"] else 0,

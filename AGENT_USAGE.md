@@ -26,9 +26,11 @@ python -m src.mtgcli.cli card "<commander>" --json-output
 
 5. Read `agents/theme_detector.md`.
 
-6. Determine the deck theme.
+6. Determine the deck theme and identify any user-provided constraints (e.g., land count, role priorities).
 
-7. Search/suggest cards by role:
+7. Adjust the deck skeleton based on constraints before searching for cards.
+
+8. Search/suggest cards by role:
 
 ```bash
 python -m src.mtgcli.cli suggest --commander "<commander>" --role ramp --json-output

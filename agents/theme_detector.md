@@ -88,6 +88,26 @@ control
 combat
 ```
 
+## User constraints
+
+User constraints override the default deck skeleton unless they make the deck invalid.
+
+Examples:
+- "33 lands" means exactly 33 lands.
+- "12 ramp cards" means exactly 12 ramp cards.
+- "more ramp" means increase ramp count above default.
+- "less removal" means reduce removal count below default.
+- "more equipment" means prioritize equipment cards.
+- "fewer board wipes" means reduce board wipe count.
+- "no infinite combos" means avoid combo-focused win conditions.
+
+Always preserve:
+- exactly 100 cards total
+- commander legality
+- color identity legality
+- singleton rule
+- no banned cards
+
 ## Output format
 
 Return only JSON.
@@ -128,6 +148,12 @@ Return only JSON.
     "protection": "medium",
     "synergy": "very_high",
     "win_conditions": "medium"
+  },
+  "constraints": {
+    "lands": 33,
+    "ramp": "increase",
+    "board_wipe": "decrease",
+    "no_infinite_combos": true
   },
   "notes": "Short explanation of why this theme fits."
 }

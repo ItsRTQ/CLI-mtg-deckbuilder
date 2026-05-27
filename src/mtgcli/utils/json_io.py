@@ -13,3 +13,13 @@ def write_json(path: Path, data: Any) -> None:
 
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
+
+
+def safe_float(value: Any, default: Any = None) -> Any:
+    """Safely convert a value to float, returning default if conversion fails."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default

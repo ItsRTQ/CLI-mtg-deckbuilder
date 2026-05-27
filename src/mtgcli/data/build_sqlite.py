@@ -1,11 +1,14 @@
 import sqlite3
 import json
+import ijson
 from pathlib import Path
 from typing import List, Dict, Any
 
 from mtgcli.config import RAW_CARDS_PATH, SQLITE_PATH
 from mtgcli.data.normalize_cards import normalize_card
 
+# Read and normalize cards using ijson for streaming
+CHUNK_SIZE = 1000
 
 def build_sqlite_database() -> Path:
     """
@@ -52,49 +55,56 @@ def build_sqlite_database() -> Path:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_commander_legal ON cards(commander_legal);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_can_be_commander ON cards(can_be_commander);")
 
-    # Read and normalize cards
-    with open(RAW_CARDS_PATH, "r", encoding="utf-8") as f:
-        raw_cards = json.load(f)
-
-    # Prepare data for insertion
-    data_to_insert = []
-    for raw_card in raw_cards:
-        norm = normalize_card(raw_card)
-        
-        # Prepare the tuple for SQL insertion
-        data_to_insert.append((
-            norm["scryfall_id"],
-            norm["oracle_id"],
-            norm["name"],
-            norm["set_code"],
-            norm["collector_number"],
-            norm["mana_cost"],
-            norm["mana_value"],
-            norm["type_line"],
-            norm["oracle_text"],
-            json.dumps(norm["colors"]),
-            json.dumps(norm["color_identity"]),
-            1 if norm["commander_legal"] else 0,
-            1 if norm["can_be_commander"] else 0,
-            norm["rarity"],
-            float(norm["usd_price"]) if norm["usd_price"] is not None else None,
-            norm["layout"],
-            json.dumps(norm["games"]),
-            1 if norm["digital"] else 0,
-            json.dumps(norm["finishes"])
-        ))
-
-    # Bulk insert
-    cursor.executemany("""
+    insert_sql = """
     INSERT OR REPLACE INTO cards (
         scryfall_id, oracle_id, name, set_code, collector_number,
         mana_cost, mana_value, type_line, oracle_text,
         colors, color_identity, commander_legal, can_be_commander,
         rarity, usd_price, layout, games, digital, finishes
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, data_to_insert)
+    """
 
-    conn.commit()
+    with open(RAW_CARDS_PATH, "rb") as f:
+        # ijson.items streams objects from the root array
+        parser = ijson.items(f, 'item')
+        
+        chunk = []
+        for raw_card in parser:
+            norm = normalize_card(raw_card)
+            
+            # Prepare the tuple for SQL insertion
+            chunk.append((
+                norm["scryfall_id"],
+                norm["oracle_id"],
+                norm["name"],
+                norm["set_code"],
+                norm["collector_number"],
+                norm["mana_cost"],
+                float(norm["mana_value"]),
+                norm["type_line"],
+                norm["oracle_text"],
+                json.dumps(norm["colors"]),
+                json.dumps(norm["color_identity"]),
+                1 if norm["commander_legal"] else 0,
+                1 if norm["can_be_commander"] else 0,
+                norm["rarity"],
+                float(norm["usd_price"]) if norm["usd_price"] is not None else None,
+                norm["layout"],
+                json.dumps(norm["games"]),
+                1 if norm["digital"] else 0,
+                json.dumps(norm["finishes"])
+            ))
+
+            if len(chunk) >= CHUNK_SIZE:
+                cursor.executemany(insert_sql, chunk)
+                conn.commit()
+                chunk = []
+        
+        # Insert remaining cards
+        if chunk:
+            cursor.executemany(insert_sql, chunk)
+            conn.commit()
+
     conn.close()
 
     return SQLITE_PATH

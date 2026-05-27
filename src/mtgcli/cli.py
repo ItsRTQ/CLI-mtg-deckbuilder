@@ -11,6 +11,7 @@ from mtgcli.cards.search import search_commander_legal_cards, search_by_tags
 from mtgcli.utils.json_io import read_json, write_json
 from mtgcli.export.moxfield import export_deck_to_moxfield
 from mtgcli.validator.deck_validator import validate_commander_deck
+from mtgcli.deckbuilder.enrich_deck import enrich_deck
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -205,6 +206,28 @@ def validate(
                     
     except Exception as e:
         print(f"[red]Failed to validate deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def enrich(
+    input_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    output_path: Optional[Path] = typer.Option(None, "--output", "-o", help="Output JSON file path")
+):
+    """Enrich a deck JSON with full card data from the database."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not input_path.exists():
+        print(f"[red]Input file not found: {input_path}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        final_output = enrich_deck(input_path, SQLITE_PATH, output_path)
+        print(f"[green]Enriched deck saved to {final_output}[/green]")
+    except Exception as e:
+        print(f"[red]Failed to enrich deck: {e}[/red]")
         raise typer.Exit(code=1)
 
 

@@ -1,0 +1,45 @@
+{
+  "ramp": [
+    "add one mana",
+    "add two mana",
+    "search your library for a basic land",
+    "search your library for a land",
+    "treasure token"
+  ],
+  "card_draw": [
+    "draw a card",
+    "draw two cards",
+    "draw cards"
+  ],
+  "removal": [
+    "destroy target creature",
+    "exile target creature",
+    "destroy target artifact",
+    "destroy target enchantment",
+    "deals damage to target creature"
+  ],
+  "board_wipe": [
+    "destroy all creatures",
+    "exile all creatures",
+    "deals damage to each creature"
+  ],
+  "equipment": [
+    "Equipment"
+  ],
+  "aura": [
+    "Aura"
+  ],
+  "counter_synergy": [
+    "+1/+1 counter",
+    "modified"
+  ],
+  "token_maker": [
+    "create",
+    "token"
+  ],
+  "protection": [
+    "hexproof",
+    "indestructible",
+    "protection from"
+  ]
+}

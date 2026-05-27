@@ -1,0 +1,22 @@
+{
+  "default_commander": {
+    "commander": 1,
+    "lands": 37,
+    "ramp": 10,
+    "card_draw": 10,
+    "removal": 9,
+    "board_wipes": 3,
+    "synergy": 25,
+    "win_conditions": 5
+  },
+  "combat_creatures": {
+    "commander": 1,
+    "lands": 37,
+    "ramp": 10,
+    "card_draw": 9,
+    "removal": 8,
+    "board_wipes": 2,
+    "synergy": 29,
+    "win_conditions": 4
+  }
+}

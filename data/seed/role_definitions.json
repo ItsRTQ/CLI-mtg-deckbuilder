@@ -1,0 +1,20 @@
+{
+  "ramp": {
+    "tags": ["ramp"]
+  },
+  "card_draw": {
+    "tags": ["card_draw"]
+  },
+  "removal": {
+    "tags": ["removal"]
+  },
+  "board_wipe": {
+    "tags": ["board_wipe"]
+  },
+  "protection": {
+    "tags": ["protection"]
+  },
+  "synergy": {
+    "tags": ["equipment", "aura", "counter_synergy", "token_maker"]
+  }
+}

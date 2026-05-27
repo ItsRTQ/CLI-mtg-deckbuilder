@@ -1,5 +1,52 @@
 # CLI-mtg-deckbuilder
-This program intends to guide and help a CLI agent build a comprehensive MTG commander deck.
+
+Local CLI tools for building and validating Magic: The Gathering Commander decks.
+
+## Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Windows PowerShell:**
+```powershell
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Initialize card data
+```bash
+python -m mtgcli.cli init-data
+```
+
+### Look up a card
+```bash
+python -m mtgcli.cli card "Sol Ring"
+```
+
+### Search cards
+```bash
+python -m mtgcli.cli search "draw a card" --colors RG
+```
+
+### Suggest cards by role
+```bash
+python -m mtgcli.cli suggest --commander "Chishiro, the Shattered Blade" --role ramp --limit 20
+```
+
+### Validate deck
+```bash
+python -m mtgcli.cli validate --commander "Chishiro, the Shattered Blade" --deck output/deck.json
+```
+
+### Export to Moxfield
+```bash
+python -m mtgcli.cli export output/deck.json --output output/deck.moxfield.txt
+```
 
 ## Deck JSON Format
 

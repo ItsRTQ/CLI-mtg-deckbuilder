@@ -1,0 +1,196 @@
+{
+  "modified_creatures": {
+    "description": "Decks that want creatures to become modified through Equipment, Auras, or counters, then win through combat and value.",
+    "packages": {
+      "modified_enablers": {
+        "description": "Cards that help creatures become modified.",
+        "min": 12,
+        "ideal": 16,
+        "tags": [
+          "equipment",
+          "aura",
+          "counter_enabler",
+          "modified_enabler"
+        ],
+        "search_phrases": [
+          "Equipment",
+          "Aura",
+          "+1/+1 counter",
+          "modified"
+        ]
+      },
+      "modified_payoffs": {
+        "description": "Cards that reward modified creatures, counters, combat, or equipped/enchanted creatures.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "modified_payoff",
+          "counter_payoff",
+          "combat_damage",
+          "equipment_payoff",
+          "aura_payoff"
+        ],
+        "search_phrases": [
+          "modified",
+          "equipped creature",
+          "enchanted creature",
+          "+1/+1 counter",
+          "combat damage"
+        ]
+      },
+      "token_support": {
+        "description": "Cards that create creature tokens or benefit from tokens.",
+        "min": 3,
+        "ideal": 6,
+        "tags": [
+          "token_maker",
+          "token_payoff"
+        ],
+        "search_phrases": [
+          "create",
+          "token"
+        ]
+      },
+      "combat_finishers": {
+        "description": "Cards that help close the game through combat.",
+        "min": 2,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "trample",
+          "extra_combat",
+          "overrun"
+        ],
+        "search_phrases": [
+          "trample",
+          "additional combat",
+          "double strike",
+          "creatures you control get"
+        ]
+      }
+    }
+  },
+
+  "goblins": {
+    "description": "Goblin tribal decks focused on low-cost Goblins, token creation, lords, sacrifice value, and combat pressure.",
+    "packages": {
+      "goblin_creatures": {
+        "description": "Goblin creature cards that form the main tribal body of the deck.",
+        "min": 24,
+        "ideal": 30,
+        "tags": [
+          "goblin",
+          "tribal_creature"
+        ],
+        "search_phrases": [
+          "Goblin"
+        ]
+      },
+      "goblin_token_makers": {
+        "description": "Cards that create Goblin tokens or multiple creature bodies.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "goblin",
+          "token_maker"
+        ],
+        "search_phrases": [
+          "create",
+          "Goblin token"
+        ]
+      },
+      "goblin_payoffs": {
+        "description": "Cards that reward having many Goblins or attacking with Goblins.",
+        "min": 5,
+        "ideal": 8,
+        "tags": [
+          "goblin_payoff",
+          "tribal_lord",
+          "combat_damage"
+        ],
+        "search_phrases": [
+          "Goblins you control",
+          "Goblin creatures you control",
+          "whenever a Goblin"
+        ]
+      },
+      "combat_finishers": {
+        "description": "Cards that close the game by making a Goblin army lethal.",
+        "min": 2,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "haste",
+          "extra_combat",
+          "damage_multiplier"
+        ],
+        "search_phrases": [
+          "haste",
+          "additional combat",
+          "double damage",
+          "creatures you control get"
+        ]
+      }
+    }
+  },
+
+  "zombie_sacrifice": {
+    "description": "Zombie decks focused on tribal value, sacrifice outlets, death triggers, graveyard recursion, and drain effects.",
+    "packages": {
+      "zombie_creatures": {
+        "description": "Zombie creature cards that support the tribal plan.",
+        "min": 20,
+        "ideal": 28,
+        "tags": [
+          "zombie",
+          "tribal_creature"
+        ],
+        "search_phrases": [
+          "Zombie"
+        ]
+      },
+      "sacrifice_outlets": {
+        "description": "Cards that let you sacrifice creatures for value.",
+        "min": 5,
+        "ideal": 8,
+        "tags": [
+          "sacrifice_outlet"
+        ],
+        "search_phrases": [
+          "sacrifice a creature",
+          "sacrifice another creature"
+        ]
+      },
+      "death_payoffs": {
+        "description": "Cards that reward creatures dying.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "death_trigger",
+          "lifedrain",
+          "aristocrats"
+        ],
+        "search_phrases": [
+          "whenever a creature dies",
+          "whenever another creature dies",
+          "loses 1 life",
+          "you gain 1 life"
+        ]
+      },
+      "graveyard_recursion": {
+        "description": "Cards that return creatures from graveyard or let you use the graveyard.",
+        "min": 4,
+        "ideal": 7,
+        "tags": [
+          "graveyard_recursion",
+          "reanimation"
+        ],
+        "search_phrases": [
+          "return target creature card",
+          "from your graveyard",
+          "from a graveyard"
+        ]
+      }
+    }
+  }
+}

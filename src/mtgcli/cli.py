@@ -15,6 +15,9 @@ from mtgcli.deckbuilder.enrich_deck import enrich_deck
 from mtgcli.deckbuilder.basic_lands import suggest_basic_lands
 from mtgcli.deckbuilder.deck_check import check_deck_quality
 from mtgcli.deckbuilder.suggestion_scorer import score_suggestion
+from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_theme_profile
+from mtgcli.deckbuilder.package_search import search_theme_package
+from mtgcli.deckbuilder.package_scorer import score_package_card
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -130,14 +133,15 @@ def search_tags(
 def suggest(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
     role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, synergy)"),
-    theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment"),
+    theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment, modified_creatures"),
+    package: Optional[str] = typer.Option(None, "--package", help="Optional theme package, e.g. modified_enablers"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
     exclude_deck: Optional[Path] = typer.Option(None, "--exclude", help="Deck JSON file with cards to exclude"),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
     dedupe: bool = typer.Option(True, "--dedupe/--no-dedupe", help="Deduplicate repeated printings"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
-    """Suggest cards for a commander based on a specific role and optional theme."""
+    """Suggest cards for a commander based on a specific role, theme, and package."""
     if not SQLITE_PATH.exists():
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
@@ -162,7 +166,7 @@ def suggest(
         raise typer.Exit(code=1)
 
     tags = list(role_defs[role].get("tags", []))
-    if theme:
+    if theme and not package:
         tags.append(theme)
         
     colors = "".join(commander_card.get("color_identity", []))
@@ -180,33 +184,70 @@ def suggest(
         except Exception as e:
             print(f"[yellow]Warning: Could not read exclude deck: {e}[/yellow]")
 
-    results = search_by_tags(
-        tags=tags, 
-        colors=colors, 
-        limit=limit * 2, # Get more results to allow for better sorting after scoring
-        max_price=max_price,
-        exclude_names=list(exclude_names),
-        dedupe=dedupe
-    )
+    if package:
+        if not theme:
+            print("[red]--package requires --theme[/red]")
+            raise typer.Exit(code=1)
 
-    if not results:
-        print(f"[yellow]No suggestions found for role '{role}' in colors '{colors}'[/yellow]")
-        return
+        results = search_theme_package(
+            theme=theme,
+            package=package,
+            colors=colors,
+            limit=limit * 2
+        )
 
-    # Score and enrich results
-    scored_results = []
-    for card in results:
-        score_data = score_suggestion(card, role, theme)
-        card["suggestion_score"] = score_data["score"]
-        card["matched_tags"] = score_data["matched_tags"]
-        card["reason_hint"] = score_data["reason_hint"]
-        scored_results.append(card)
+        # Filter by price and exclusions manually for package results for now
+        # search_theme_package doesn't support them directly yet
+        filtered_results = []
+        for card in results:
+            if max_price is not None and card.get("usd_price") is not None and card["usd_price"] > max_price:
+                continue
+            if card["name"] in exclude_names:
+                continue
+            filtered_results.append(card)
+        results = filtered_results
 
-    # Sort by score descending, then mana_value ascending
-    scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
+        scored_results = []
+        for card in results:
+            scoring = score_package_card(card, theme, package)
+            card.update(scoring)
+            scored_results.append(card)
 
-    # Apply final limit
-    final_results = scored_results[:limit]
+        # Sort by score descending, then mana_value ascending
+        scored_results.sort(
+            key=lambda c: (
+                -c.get("suggestion_score", 0),
+                c.get("mana_value") or 99,
+                c.get("name", "")
+            )
+        )
+        final_results = scored_results[:limit]
+    else:
+        results = search_by_tags(
+            tags=tags, 
+            colors=colors, 
+            limit=limit * 2, # Get more results to allow for better sorting after scoring
+            max_price=max_price,
+            exclude_names=list(exclude_names),
+            dedupe=dedupe
+        )
+
+        if not results:
+            print(f"[yellow]No suggestions found for role '{role}' in colors '{colors}'[/yellow]")
+            return
+
+        # Score and enrich results
+        scored_results = []
+        for card in results:
+            score_data = score_suggestion(card, role, theme)
+            card["suggestion_score"] = score_data["score"]
+            card["matched_tags"] = score_data["matched_tags"]
+            card["reason_hint"] = score_data["reason_hint"]
+            scored_results.append(card)
+
+        # Sort by score descending, then mana_value ascending
+        scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
+        final_results = scored_results[:limit]
 
     if json_output:
         # Define output fields for clean JSON
@@ -223,6 +264,8 @@ def suggest(
         title = f"Suggestions for {commander} ({role})"
         if theme:
             title += f" [Theme: {theme}]"
+        if package:
+            title += f" [Package: {package}]"
         if max_price:
             title += f" [Max Price: ${max_price}]"
             
@@ -347,9 +390,10 @@ def suggest_lands(
 def deck_check(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
     deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON file"),
+    theme: Optional[str] = typer.Option(None, "--theme", help="Optional theme profile for package validation"),
     json_output: bool = typer.Option(False, "--json-output", help="Output report as JSON")
 ):
-    """Check deck quality: land count, ramp, draw, removal, etc."""
+    """Check deck quality: land count, ramp, draw, removal, and thematic packages."""
     if not SQLITE_PATH.exists():
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
@@ -372,15 +416,25 @@ def deck_check(
                 card["quantity"] = entry.get("quantity", 1)
                 deck_cards.append(card)
         
-        report = check_deck_quality(deck_cards)
+        report = check_deck_quality(deck_cards, theme=theme)
         
         if json_output:
             print(json.dumps(report, indent=2))
         else:
             print(f"[bold blue]Deck Quality Report for {commander}:[/bold blue]")
+            if theme:
+                print(f"Theme: [bold green]{theme}[/bold green]")
+                
+            print("\n[bold]Core Stats:[/bold]")
             for cat, count in report["stats"].items():
                 print(f"- {cat.replace('_', ' ').title()}: {count}")
             
+            if "theme_check" in report:
+                print("\n[bold]Theme Package Analysis:[/bold]")
+                tc = report["theme_check"]
+                for pkg, data in tc["package_counts"].items():
+                    print(f"- {pkg}: {data['count']} (min {data['min']}, ideal {data['ideal']})")
+
             if report["warnings"]:
                 print("\n[bold yellow]Warnings:[/bold yellow]")
                 for warning in report["warnings"]:
@@ -391,6 +445,47 @@ def deck_check(
     except Exception as e:
         print(f"[red]Failed to check deck: {e}[/red]")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def themes(
+    json_output: bool = typer.Option(False, "--json-output", help="Output themes as JSON")
+):
+    """List available deck themes."""
+    themes_list = list_themes()
+
+    if json_output:
+        print(json.dumps(themes_list, indent=2))
+    else:
+        print("[bold blue]Available themes:[/bold blue]")
+        for theme in themes_list:
+            print(f"- {theme}")
+
+
+@app.command()
+def theme_info(
+    theme: str,
+    json_output: bool = typer.Option(False, "--json-output", help="Output theme info as JSON")
+):
+    """Show a theme profile and its packages."""
+    profile = get_theme_profile(theme)
+
+    if not profile:
+        print(f"[red]Unknown theme: {theme}[/red]")
+        raise typer.Exit(code=1)
+
+    if json_output:
+        print(json.dumps(profile, indent=2))
+    else:
+        print(f"[bold blue]Theme: {theme}[/bold blue]")
+        print(profile.get("description", ""))
+
+        packages = profile.get("packages", {})
+        print("\n[bold]Packages:[/bold]")
+        for package_name, package_data in packages.items():
+            ideal = package_data.get("ideal")
+            minimum = package_data.get("min")
+            print(f"- {package_name}: min {minimum}, ideal {ideal}")
 
 
 if __name__ == "__main__":

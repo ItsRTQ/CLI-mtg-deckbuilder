@@ -4,6 +4,35 @@ This project is a local MTG Commander deckbuilding tool.
 
 The agent should use the markdown files in `agents/` as behavior instructions and use the Python CLI commands as the source of truth.
 
+## Deck identity model
+
+When the user asks for a deck, separate the request into:
+
+```text
+Commander + Archetype + Detail + Constraints
+```
+
+Examples:
+
+```text
+Commander: Krenko, Mob Boss
+Archetype: Tribal
+Detail: Goblins
+Constraints: 33 lands
+```
+
+```text
+Commander: Chishiro, the Shattered Blade
+Archetype: Voltron
+Detail: Modified creatures, Equipment, Auras, +1/+1 counters
+```
+
+```text
+Commander: Wilhelt, the Rotcleaver
+Archetype: Reanimator or Tribal
+Detail: Zombies, sacrifice, graveyard value
+```
+
 ## Main workflow
 
 When the user asks:
@@ -19,56 +48,114 @@ Do this:
 3. Look up the commander:
 
 ```bash
-python -m src.mtgcli.cli card "<commander>" --json-output
+mtg card "<commander>" --json-output
 ```
 
 4. Analyze the commander using the returned JSON.
-
 5. Read `agents/theme_detector.md`.
-
-6. Determine the deck theme and identify any user-provided constraints (e.g., land count, role priorities).
-
-7. Adjust the deck skeleton based on constraints before searching for cards.
-
-8. Search/suggest cards by role:
+6. Determine commander, archetype, detail, and constraints.
+7. Search/suggest candidate cards by role:
 
 ```bash
-python -m src.mtgcli.cli suggest --commander "<commander>" --role ramp --json-output
-python -m src.mtgcli.cli suggest --commander "<commander>" --role card_draw --json-output
-python -m src.mtgcli.cli suggest --commander "<commander>" --role removal --json-output
-python -m src.mtgcli.cli suggest --commander "<commander>" --role board_wipe --json-output
-python -m src.mtgcli.cli suggest --commander "<commander>" --role protection --json-output
-python -m src.mtgcli.cli suggest --commander "<commander>" --role synergy --json-output
+mtg suggest --commander "<commander>" --role ramp --json-output
+mtg suggest --commander "<commander>" --role card_draw --json-output
+mtg suggest --commander "<commander>" --role removal --json-output
+mtg suggest --commander "<commander>" --role board_wipe --json-output
+mtg suggest --commander "<commander>" --role protection --json-output
 ```
 
-8. Read `agents/card_ranker.md`.
-
-9. Rank candidate cards.
-
-10. Read `agents/deck_builder.md`.
-
-11. Create `output/deck.json`.
-
-12. Validate:
+8. For strategy cards, prefer package-based suggestions if the CLI supports them:
 
 ```bash
-python -m src.mtgcli.cli validate --commander "<commander>" --deck output/deck.json --json-output
+mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package enablers --detail "<detail>" --json-output
+mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package payoffs --detail "<detail>" --json-output
+mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package engines --detail "<detail>" --json-output
+mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package finishers --detail "<detail>" --json-output
 ```
 
-13. If validation fails:
+If the CLI uses `--theme` instead of `--archetype`, use the supported option.
+
+9. Read `agents/card_ranker.md`.
+10. Rank candidate cards by function:
+
+```text
+enabler
+payoff
+engine
+finisher
+support
+ramp
+draw
+removal
+protection
+```
+
+11. Read `agents/deck_builder.md`.
+12. Create `output/deck.json`.
+13. Validate:
+
+```bash
+mtg validate --commander "<commander>" --deck output/deck.json --json-output
+```
+
+14. If validation fails:
     - read `agents/deck_fixer.md`
     - fix `output/deck.json`
     - validate again
 
-14. Export:
+15. Run deck-check if available:
 
 ```bash
-python -m src.mtgcli.cli export output/deck.json --output output/deck.moxfield.txt
+mtg deck-check --commander "<commander>" --deck output/deck.json --archetype "<archetype>" --json-output
 ```
 
-15. Read `agents/deck_explainer.md`.
+If the CLI uses `--theme`, use the supported option.
 
-16. Create a final explanation.
+16. If deck-check reports major issues:
+    - fix package balance
+    - validate again
+
+17. Export:
+
+```bash
+mtg export output/deck.json --output output/deck.moxfield.txt
+```
+
+18. Read `agents/deck_explainer.md`.
+19. Create final explanation:
+
+```text
+output/deck_explanation.md
+```
+
+## User constraints
+
+If the user gives specific constraints, apply them before using the default deck skeleton.
+
+Examples:
+
+- "33 lands" means use exactly 33 lands.
+- "12 ramp cards" means use exactly 12 ramp cards.
+- "more ramp" means increase ramp count above the default.
+- "less removal" means reduce removal count below the default.
+- "more creatures" means prioritize creature cards.
+- "more Goblins" means prioritize Goblin cards.
+- "more equipment" means increase Equipment cards.
+- "fewer board wipes" means reduce board wipe count.
+- "avoid infinite combos" means avoid combo-focused win conditions.
+- "budget $100" means prefer cheaper cards if price data exists.
+- "casual" means avoid overly optimized fast mana/tutor-heavy choices.
+- "high power" means allow stronger staples and more efficient cards.
+
+User constraints override the default skeleton unless they would make the deck invalid.
+
+Always preserve:
+
+- exactly 100 cards total
+- commander legality
+- color identity legality
+- singleton rule
+- no banned cards
 
 ## Required rule
 

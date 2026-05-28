@@ -1,11 +1,57 @@
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.cards.repository import CardRepository
+from mtgcli.deckbuilder.theme_profiles import get_theme_packages
 
-def check_deck_quality(deck_cards: List[Dict[str, Any]]) -> Dict[str, Any]:
+def check_theme_packages(deck_cards: List[Dict[str, Any]], theme: str) -> Dict[str, Any]:
     """
-    Analyzes deck composition based on functional tags.
+    Checks if the deck matches specific theme package requirements.
+    """
+    packages = get_theme_packages(theme)
+
+    result = {
+        "theme": theme,
+        "package_counts": {},
+        "warnings": []
+    }
+
+    for package_name, package_def in packages.items():
+        search_phrases = package_def.get("search_phrases", [])
+        minimum = package_def.get("min", 0)
+        ideal = package_def.get("ideal", minimum)
+
+        count = 0
+
+        for card in deck_cards:
+            quantity = card.get("quantity", 1)
+            text = f"{card.get('name', '')} {card.get('type_line', '')} {card.get('oracle_text', '')}".lower()
+
+            matched = False
+            for phrase in search_phrases:
+                if phrase.lower() in text:
+                    matched = True
+                    break
+
+            if matched:
+                count += quantity
+
+        result["package_counts"][package_name] = {
+            "count": count,
+            "min": minimum,
+            "ideal": ideal
+        }
+
+        if count < minimum:
+            result["warnings"].append(
+                f"Package '{package_name}' has {count} cards; recommended minimum is {minimum}."
+            )
+
+    return result
+
+def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Analyzes deck composition based on functional tags and optional thematic packages.
     """
     tag_file = SEED_DATA_DIR / "card_tags.json"
     tag_definitions = {}
@@ -20,7 +66,7 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]]) -> Dict[str, Any]:
         "removal": 0,
         "board_wipe": 0,
         "protection": 0,
-        "synergy": 0 # This one is harder, maybe anything with a tag not in the core categories?
+        "synergy": 0
     }
     
     core_categories = ["ramp", "card_draw", "removal", "board_wipe", "protection"]
@@ -65,7 +111,15 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]]) -> Dict[str, Any]:
     if stats["removal"] < 5:
         warnings.append("Low removal count (less than 5)")
 
-    return {
+    report = {
         "stats": stats,
         "warnings": warnings
     }
+
+    if theme:
+        theme_check = check_theme_packages(deck_cards, theme)
+        report["theme_check"] = theme_check
+        # Merge theme warnings
+        report["warnings"].extend(theme_check["warnings"])
+
+    return report

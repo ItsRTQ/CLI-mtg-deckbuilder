@@ -1,6 +1,6 @@
 # Deck Builder
 
-Your job is to create a 100-card Commander deck from commander data, theme data, and card candidates.
+Your job is to create a 100-card Commander deck from commander data, archetype/detail data, user constraints, and card candidates.
 
 You must only use cards provided by the CLI or already present in the user's request.
 
@@ -11,6 +11,22 @@ The final deck must contain exactly 100 cards total:
 ```text
 1 commander
 99 main deck cards
+```
+
+## Deck identity
+
+Build using:
+
+```text
+Commander + Archetype + Detail + Constraints
+```
+
+Examples:
+
+```text
+Krenko, Mob Boss + Tribal + Goblins
+Chishiro, the Shattered Blade + Voltron + Modified creatures / Equipment / Auras
+Wilhelt, the Rotcleaver + Tribal/Reanimator + Zombies / sacrifice / graveyard
 ```
 
 ## Default deck structure
@@ -25,7 +41,7 @@ Unless given a different skeleton, use:
 9 Removal
 2 Board Wipes
 5 Protection / Utility
-28 Theme / Synergy Cards
+28 Archetype / Detail / Package Cards
 4 Win Conditions
 ```
 
@@ -39,18 +55,123 @@ Adjust slightly if needed, but never create an obviously unbalanced deck.
 - Do not include cards outside commander color identity.
 - Do not include cards marked not Commander legal.
 - Avoid duplicate non-basic cards.
-- Avoid random goodstuff if it does not support the theme.
+- Avoid random goodstuff if it does not support the archetype/detail.
 - Include enough lands.
 - Include enough ramp.
 - Include enough draw.
 - Include enough removal.
 - Include at least a few realistic win conditions.
+- Build around the commander’s broad archetype and specific detail.
+- Do not fill the deck with generic “synergy” cards.
+
+## Package-based strategy construction
+
+Do not fill 28 generic “synergy” slots.
+
+Break strategy cards into:
+
+```text
+enablers
+payoffs
+engines
+finishers
+support
+```
+
+### Enablers
+
+Cards that make the strategy work.
+
+Examples:
+
+- Voltron: Equipment, Auras, counters, evasion
+- Tribal: enough creatures of the chosen type
+- Reanimator: self-mill, discard outlets
+- Spellslinger: cheap instants/sorceries
+- Tokens: token makers
+- Battlecruiser: ramp and cheat effects
+
+### Payoffs
+
+Cards that reward the strategy.
+
+Examples:
+
+- Voltron: equipped/enchanted creature payoffs
+- Tribal: lords and tribal payoff cards
+- Tokens: anthem effects and token payoffs
+- Reanimator: graveyard/death payoffs
+- Spellslinger: magecraft/storm/copy payoffs
+
+### Engines
+
+Repeatable value cards.
+
+### Finishers
+
+Cards that close the game.
+
+### Support
+
+Protection, recursion, utility, and backup plan cards.
+
+## Archetype examples
+
+### Tribal
+
+For tribal decks:
+
+- Include a high count of the chosen creature type.
+- Include lords.
+- Include tribal payoffs.
+- Include card draw/removal that still supports the tribe where possible.
+
+### Voltron
+
+For Voltron decks:
+
+- Include Equipment/Auras/counters.
+- Include protection.
+- Include evasion.
+- Include combat finishers.
+- Avoid too many unrelated creatures.
+
+### Tokens
+
+For token decks:
+
+- Include token makers.
+- Include token payoffs.
+- Include anthem effects.
+- Include board protection.
+- Include finishers.
+
+### Reanimator
+
+For reanimator decks:
+
+- Include graveyard fill.
+- Include discard/self-mill.
+- Include reanimation.
+- Include large targets.
+- Include protection against graveyard hate when possible.
+
+### Spellslinger
+
+For spellslinger decks:
+
+- Include instants/sorceries.
+- Include spell payoffs.
+- Include card draw/cantrips.
+- Include interaction.
+- Keep creature count lower unless creatures are spell payoffs.
 
 ## User constraints
 
 User constraints override the default deck skeleton unless they make the deck invalid.
 
 Examples:
+
 - "33 lands" means exactly 33 lands.
 - "12 ramp cards" means exactly 12 ramp cards.
 - "more ramp" means increase ramp count above default.
@@ -58,8 +179,10 @@ Examples:
 - "more equipment" means prioritize equipment cards.
 - "fewer board wipes" means reduce board wipe count.
 - "no infinite combos" means avoid combo-focused win conditions.
+- "budget $100" means prefer cheaper cards if price data exists.
 
 Always preserve:
+
 - exactly 100 cards total
 - commander legality
 - color identity legality
@@ -100,7 +223,11 @@ Use categories internally while building:
   "removal": [],
   "board_wipes": [],
   "protection": [],
-  "synergy": [],
+  "enablers": [],
+  "payoffs": [],
+  "engines": [],
+  "finishers": [],
+  "support": [],
   "win_conditions": []
 }
 ```
@@ -135,12 +262,17 @@ For two-color decks, split basics close to evenly unless one color is clearly do
 5. Add removal.
 6. Add board wipes.
 7. Add protection.
-8. Add theme/synergy cards.
-9. Add win conditions.
-10. Count total cards.
-11. Adjust until exactly 100.
-12. Save to `output/deck.json`.
-13. Validate with the CLI.
+8. Add archetype/detail enablers.
+9. Add archetype/detail payoffs.
+10. Add engines.
+11. Add finishers/win conditions.
+12. Add support cards.
+13. Count total cards.
+14. Adjust until exactly 100.
+15. Save to `output/deck.json`.
+16. Validate with the CLI.
+17. Run deck-check if available.
+18. Fix issues before export when possible.
 
 ## Output format
 
@@ -149,7 +281,8 @@ When asked to produce the deck plan, return JSON:
 ```json
 {
   "commander": "Commander Name",
-  "theme": "theme_name",
+  "archetype": "tribal",
+  "detail": "goblins",
   "deck_size": 100,
   "categories": {
     "commander": [],
@@ -159,7 +292,11 @@ When asked to produce the deck plan, return JSON:
     "removal": [],
     "board_wipes": [],
     "protection": [],
-    "synergy": [],
+    "enablers": [],
+    "payoffs": [],
+    "engines": [],
+    "finishers": [],
+    "support": [],
     "win_conditions": []
   },
   "notes": "Short explanation of the build direction."
@@ -171,4 +308,5 @@ When asked to produce the deck plan, return JSON:
 - Do not claim success until validation passes.
 - Do not export before validation passes.
 - If the deck is invalid, use `deck_fixer.md`.
-- If you cannot find enough theme cards, fill with role-support cards that still fit color identity.
+- If deck-check reports major package/coherence issues, fix them before export when possible.
+- If you cannot find enough archetype/detail cards, fill with role-support cards that still fit color identity.

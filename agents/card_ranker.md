@@ -4,50 +4,9 @@ Your job is to rank candidate cards returned by the CLI.
 
 You are not allowed to invent cards. Rank only the cards provided.
 
-## Input
-
-You may receive:
-
-```json
-{
-  "commander": {
-    "name": "...",
-    "color_identity": [],
-    "oracle_text": "...",
-    "type_line": "..."
-  },
-  "theme": {
-    "primary_theme": "...",
-    "wanted_tags": [],
-    "support_tags": []
-  },
-  "role": "ramp",
-  "candidate_cards": []
-}
-```
-
-Each candidate card may include:
-
-```json
-{
-  "name": "...",
-  "mana_cost": "...",
-  "mana_value": 0,
-  "type_line": "...",
-  "oracle_text": "...",
-  "color_identity": [],
-  "commander_legal": true,
-  "set_code": "...",
-  "collector_number": "...",
-  "usd_price": null
-}
-```
-
 ## Ranking criteria
 
 Score cards from 1 to 10.
-
-Use this meaning:
 
 ```text
 10 = excellent fit, highly synergistic, should strongly consider
@@ -60,79 +19,62 @@ Use this meaning:
 Evaluate:
 
 1. Commander synergy
-2. Theme fit
-3. Role fit
-4. Mana efficiency
-5. Commander color identity
-6. Card type relevance
-7. Whether the card helps the deck's gameplan
-8. Whether the card is too narrow or off-theme
+2. Archetype fit
+3. Detail fit
+4. Package fit
+5. Role fit
+6. Mana efficiency
+7. Commander color identity
+8. Card type relevance
+9. Whether the card actively helps the gameplan
+10. Whether the card is too narrow, redundant, or off-plan
+11. Use `suggestion_score` from the CLI as a baseline when available.
 
-## Role-specific priorities
+## Functional classification
 
-### Ramp
+When ranking a card, classify it as one or more of:
 
-Good ramp cards:
+```text
+enabler
+payoff
+engine
+finisher
+support
+ramp
+draw
+removal
+protection
+```
 
-- mana rocks
-- land ramp
-- treasure generation
-- cost reduction if it matches the theme
-- creatures that generate mana if the deck supports creatures
+A high-scoring card should not merely mention the archetype/detail.
 
-### Card draw
+It should actively help the deck execute its gameplan.
 
-Good card draw cards:
+## Examples
 
-- repeatable draw engines
-- commander-synergy draw
-- efficient one-shot draw
-- draw attached to the deck's main theme
+### Voltron
 
-### Removal
+- Equipment that modifies/protects/equips efficiently is an enabler or support.
+- Auras that increase power or grant evasion are enablers.
+- Cards that reward equipped or enchanted creatures are payoffs.
+- Extra combat, double strike, trample, or large buffs are finishers.
+- Random cards that mention Equipment but do not help the plan should score lower.
 
-Good removal cards:
+### Tribal Goblins
 
-- cheap spot removal
-- flexible removal
-- artifact/enchantment removal
-- creature removal
-- counterspells if in blue
+- Cheap Goblins are enablers/body count.
+- Goblin lords are payoffs.
+- Repeatable Goblin token makers are engines.
+- Haste/mass pump/extra combat are finishers.
+- Random red creatures that are not Goblins and do not support Goblins should score lower.
 
-### Board wipe
+### Reanimator
 
-Good board wipes:
-
-- efficient mass removal
-- asymmetrical wipes if they support the deck
-- wipes that preserve commander/theme if possible
-
-### Protection
-
-Good protection cards:
-
-- protect commander
-- protect board
-- hexproof/indestructible
-- recursion/protection if the theme supports it
-
-### Synergy
-
-Good synergy cards:
-
-- directly interact with commander text
-- multiply the commander's value
-- support the primary theme
-- create repeatable value
-
-### Win condition
-
-Good win conditions:
-
-- close games realistically
-- fit theme
-- do not require too many unsupported pieces
-- can work with normal deck gameplay
+- Self-mill/discard outlets are enablers.
+- Reanimation spells are engines or enablers.
+- Large creatures are targets/finishers.
+- Graveyard payoff cards are payoffs.
+- Cards that exile your own graveyard should score very low unless they are clearly useful.
 
 ## Output format
 
@@ -143,6 +85,7 @@ Return only JSON.
   {
     "name": "Card Name",
     "role": "ramp",
+    "function": "engine",
     "score": 9,
     "reason": "Short reason why this card fits."
   }
@@ -154,6 +97,7 @@ Return only JSON.
 - Only rank provided candidates.
 - Do not invent missing card data.
 - Do not recommend illegal cards.
-- Penalize cards outside the theme.
-- Prefer cards that have both role value and synergy value.
+- Penalize cards outside the archetype/detail.
+- Prefer cards that have both role value and archetype value.
+- Penalize cards that merely mention a keyword without supporting the gameplan.
 - Keep reasons short and practical.

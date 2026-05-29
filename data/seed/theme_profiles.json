@@ -1,194 +1,1054 @@
 {
-  "modified_creatures": {
-    "description": "Decks that want creatures to become modified through Equipment, Auras, or counters, then win through combat and value.",
+  "creature_type_tribal": {
+    "description": "Generic creature-type decks built around a user-selected tribe or commander-supported creature type.",
+    "requires_user_detail": "creature_type",
+    "engine_focus": [
+      "creature density",
+      "type-based payoffs",
+      "go-wide pressure",
+      "tribal scaling"
+    ],
     "packages": {
-      "modified_enablers": {
-        "description": "Cards that help creatures become modified.",
-        "min": 12,
-        "ideal": 16,
+      "tribal_creatures": {
+        "description": "Creatures that have the chosen type or count as all creature types.",
+        "min": 20,
+        "ideal": 28,
         "tags": [
-          "equipment",
-          "aura",
-          "counter_enabler",
-          "modified_enabler"
+          "tribal_creature",
+          "creature_type_match",
+          "changeling"
         ],
         "search_phrases": [
-          "Equipment",
-          "Aura",
-          "+1/+1 counter",
-          "modified"
+          "{creature_type}",
+          "changeling",
+          "choose a creature type"
         ]
       },
-      "modified_payoffs": {
-        "description": "Cards that reward modified creatures, counters, combat, or equipped/enchanted creatures.",
-        "min": 6,
-        "ideal": 10,
+      "tribal_payoffs": {
+        "description": "Cards that reward or scale with the chosen creature type.",
+        "min": 5,
+        "ideal": 9,
         "tags": [
-          "modified_payoff",
-          "counter_payoff",
-          "combat_damage",
-          "equipment_payoff",
-          "aura_payoff"
+          "tribal_payoff",
+          "tribal_lord",
+          "type_matters"
         ],
         "search_phrases": [
-          "modified",
-          "equipped creature",
-          "enchanted creature",
-          "+1/+1 counter",
-          "combat damage"
+          "{creature_type} you control",
+          "creatures of the chosen type",
+          "choose a creature type",
+          "other creatures you control get"
         ]
       },
-      "token_support": {
-        "description": "Cards that create creature tokens or benefit from tokens.",
+      "tribal_engines": {
+        "description": "Repeatable card advantage, token generation, mana, recursion, or damage tied to the chosen creature type.",
         "min": 3,
-        "ideal": 6,
+        "ideal": 7,
         "tags": [
-          "token_maker",
-          "token_payoff"
+          "engine",
+          "repeatable_value",
+          "type_matters"
         ],
         "search_phrases": [
+          "whenever a {creature_type}",
+          "whenever you cast a {creature_type}",
           "create",
-          "token"
+          "{creature_type} token",
+          "draw a card"
         ]
       },
-      "combat_finishers": {
-        "description": "Cards that help close the game through combat.",
+      "tribal_finishers": {
+        "description": "Cards that convert a board of the chosen creature type into a win.",
         "min": 2,
         "ideal": 4,
         "tags": [
           "finisher",
-          "trample",
-          "extra_combat",
-          "overrun"
+          "anthem",
+          "haste",
+          "evasion",
+          "extra_combat"
         ],
         "search_phrases": [
+          "creatures you control get",
+          "haste",
           "trample",
           "additional combat",
-          "double strike",
-          "creatures you control get"
+          "double strike"
         ]
       }
     }
   },
-
-  "goblins": {
-    "description": "Goblin tribal decks focused on low-cost Goblins, token creation, lords, sacrifice value, and combat pressure.",
+  "token_engine": {
+    "description": "Decks that create many creature tokens and convert them into combat pressure, sacrifice value, or scaling payoffs.",
+    "engine_focus": [
+      "token production",
+      "go-wide scaling",
+      "token payoffs",
+      "board protection"
+    ],
     "packages": {
-      "goblin_creatures": {
-        "description": "Goblin creature cards that form the main tribal body of the deck.",
-        "min": 24,
-        "ideal": 30,
+      "token_makers": {
+        "description": "Cards that create creature tokens, preferably repeatedly or efficiently.",
+        "min": 10,
+        "ideal": 16,
         "tags": [
-          "goblin",
-          "tribal_creature"
+          "token_maker",
+          "repeatable_token_maker"
         ],
         "search_phrases": [
-          "Goblin"
+          "create",
+          "creature token",
+          "tokens"
         ]
       },
-      "goblin_token_makers": {
-        "description": "Cards that create Goblin tokens or multiple creature bodies.",
-        "min": 6,
-        "ideal": 10,
+      "token_multipliers": {
+        "description": "Cards that increase the number of tokens created.",
+        "min": 1,
+        "ideal": 4,
         "tags": [
-          "goblin",
+          "token_doubler",
+          "replacement_multiplier"
+        ],
+        "search_phrases": [
+          "twice that many",
+          "create one or more tokens",
+          "that many of those tokens plus"
+        ]
+      },
+      "token_payoffs": {
+        "description": "Cards that reward having tokens or many creatures.",
+        "min": 5,
+        "ideal": 9,
+        "tags": [
+          "token_payoff",
+          "go_wide_payoff",
+          "anthem"
+        ],
+        "search_phrases": [
+          "creatures you control get",
+          "whenever a token",
+          "whenever one or more tokens",
+          "for each creature you control"
+        ]
+      },
+      "token_finishers": {
+        "description": "Cards that turn a token board into lethal pressure or drain.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "overrun",
+          "mass_pump",
+          "aristocrats"
+        ],
+        "search_phrases": [
+          "creatures you control get",
+          "trample",
+          "each opponent loses",
+          "sacrifice a creature"
+        ]
+      }
+    }
+  },
+  "sacrifice_value": {
+    "description": "Decks that sacrifice their own permanents, usually creatures or tokens, for value and payoffs.",
+    "engine_focus": [
+      "sacrifice outlets",
+      "fodder",
+      "death triggers",
+      "resource conversion"
+    ],
+    "packages": {
+      "sacrifice_outlets": {
+        "description": "Cards that let you sacrifice permanents repeatedly or efficiently.",
+        "min": 5,
+        "ideal": 9,
+        "tags": [
+          "sacrifice_outlet",
+          "free_sacrifice_outlet",
+          "mana_sacrifice_outlet"
+        ],
+        "search_phrases": [
+          "sacrifice a creature",
+          "sacrifice another creature",
+          "sacrifice a permanent"
+        ]
+      },
+      "sacrifice_fodder": {
+        "description": "Cards that create disposable bodies or recur themselves for repeated sacrifice.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "fodder",
+          "recursive_creature",
           "token_maker"
         ],
         "search_phrases": [
           "create",
-          "Goblin token"
-        ]
-      },
-      "goblin_payoffs": {
-        "description": "Cards that reward having many Goblins or attacking with Goblins.",
-        "min": 5,
-        "ideal": 8,
-        "tags": [
-          "goblin_payoff",
-          "tribal_lord",
-          "combat_damage"
-        ],
-        "search_phrases": [
-          "Goblins you control",
-          "Goblin creatures you control",
-          "whenever a Goblin"
-        ]
-      },
-      "combat_finishers": {
-        "description": "Cards that close the game by making a Goblin army lethal.",
-        "min": 2,
-        "ideal": 4,
-        "tags": [
-          "finisher",
-          "haste",
-          "extra_combat",
-          "damage_multiplier"
-        ],
-        "search_phrases": [
-          "haste",
-          "additional combat",
-          "double damage",
-          "creatures you control get"
-        ]
-      }
-    }
-  },
-
-  "zombie_sacrifice": {
-    "description": "Zombie decks focused on tribal value, sacrifice outlets, death triggers, graveyard recursion, and drain effects.",
-    "packages": {
-      "zombie_creatures": {
-        "description": "Zombie creature cards that support the tribal plan.",
-        "min": 20,
-        "ideal": 28,
-        "tags": [
-          "zombie",
-          "tribal_creature"
-        ],
-        "search_phrases": [
-          "Zombie"
-        ]
-      },
-      "sacrifice_outlets": {
-        "description": "Cards that let you sacrifice creatures for value.",
-        "min": 5,
-        "ideal": 8,
-        "tags": [
-          "sacrifice_outlet"
-        ],
-        "search_phrases": [
-          "sacrifice a creature",
-          "sacrifice another creature"
+          "creature token",
+          "return this card from your graveyard",
+          "when this creature dies"
         ]
       },
       "death_payoffs": {
-        "description": "Cards that reward creatures dying.",
-        "min": 6,
+        "description": "Cards that reward creatures or permanents dying.",
+        "min": 5,
         "ideal": 10,
         "tags": [
           "death_trigger",
+          "aristocrats",
           "lifedrain",
-          "aristocrats"
+          "card_draw"
         ],
         "search_phrases": [
           "whenever a creature dies",
           "whenever another creature dies",
-          "loses 1 life",
-          "you gain 1 life"
+          "each opponent loses",
+          "you gain",
+          "draw a card"
+        ]
+      },
+      "sacrifice_finishers": {
+        "description": "Cards that close the game through drain, damage, combo, or overwhelming value.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "aristocrats",
+          "combo_piece",
+          "damage_payoff"
+        ],
+        "search_phrases": [
+          "each opponent loses",
+          "deals damage to each opponent",
+          "whenever you sacrifice"
+        ]
+      }
+    }
+  },
+  "graveyard_permanent_recursion": {
+    "description": "Decks that use the graveyard as a resource, especially by replaying or recurring permanents.",
+    "engine_focus": [
+      "self-mill",
+      "permanent diversity",
+      "recursion",
+      "self-sacrificing permanents"
+    ],
+    "packages": {
+      "graveyard_fill": {
+        "description": "Cards that put cards into your graveyard without sacrificing too much tempo.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "self_mill",
+          "discard_outlet",
+          "graveyard_fill"
+        ],
+        "search_phrases": [
+          "mill",
+          "put the top",
+          "discard a card",
+          "surveil"
+        ]
+      },
+      "recurrable_permanents": {
+        "description": "Permanents that sacrifice themselves, generate ETB/death value, or can be replayed profitably.",
+        "min": 10,
+        "ideal": 18,
+        "tags": [
+          "recurrable_permanent",
+          "self_sacrifice",
+          "etb_value",
+          "death_trigger"
+        ],
+        "search_phrases": [
+          "sacrifice",
+          "enters the battlefield",
+          "when this dies",
+          "from your graveyard"
         ]
       },
       "graveyard_recursion": {
-        "description": "Cards that return creatures from graveyard or let you use the graveyard.",
-        "min": 4,
-        "ideal": 7,
+        "description": "Cards that return, cast, play, or otherwise use cards from the graveyard.",
+        "min": 5,
+        "ideal": 9,
         "tags": [
           "graveyard_recursion",
-          "reanimation"
+          "reanimation",
+          "regrowth"
         ],
         "search_phrases": [
-          "return target creature card",
           "from your graveyard",
-          "from a graveyard"
+          "return target",
+          "cast",
+          "play lands from your graveyard"
+        ]
+      },
+      "graveyard_protection": {
+        "description": "Cards that protect the graveyard plan or recover after graveyard hate.",
+        "min": 0,
+        "ideal": 3,
+        "tags": [
+          "protection",
+          "graveyard_protection",
+          "recursion"
+        ],
+        "search_phrases": [
+          "shuffle your graveyard",
+          "return cards from your graveyard",
+          "hexproof"
+        ]
+      }
+    }
+  },
+  "spell_cast_engine": {
+    "description": "Decks that trigger value from casting instants, sorceries, or noncreature spells.",
+    "engine_focus": [
+      "spell density",
+      "cheap spells",
+      "copy effects",
+      "cast triggers",
+      "card velocity"
+    ],
+    "packages": {
+      "cheap_spells": {
+        "description": "Low mana value spells that keep the engine moving.",
+        "min": 12,
+        "ideal": 22,
+        "tags": [
+          "cheap_spell",
+          "cantrip",
+          "interaction",
+          "spell_enabler"
+        ],
+        "search_phrases": [
+          "draw a card",
+          "instant",
+          "sorcery",
+          "counter target",
+          "target creature"
+        ]
+      },
+      "spell_payoffs": {
+        "description": "Cards that reward casting or copying spells.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "spell_payoff",
+          "magecraft",
+          "prowess",
+          "storm_payoff"
+        ],
+        "search_phrases": [
+          "whenever you cast",
+          "magecraft",
+          "prowess",
+          "copy"
+        ]
+      },
+      "spell_engines": {
+        "description": "Repeatable draw, cost reduction, copying, recursion, or spell access.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "engine",
+          "cost_reducer",
+          "spell_copy",
+          "spell_recursion"
+        ],
+        "search_phrases": [
+          "costs less",
+          "copy target instant or sorcery",
+          "from your graveyard",
+          "draw"
+        ]
+      },
+      "spell_finishers": {
+        "description": "Cards that convert spell volume into lethal damage, tokens, combat, or storm-like turns.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "storm",
+          "damage_payoff",
+          "token_maker"
+        ],
+        "search_phrases": [
+          "storm",
+          "deals damage",
+          "create",
+          "whenever you cast an instant or sorcery"
+        ]
+      }
+    }
+  },
+  "attack_trigger_engine": {
+    "description": "Decks that generate value when creatures attack, before combat damage is dealt.",
+    "engine_focus": [
+      "attack triggers",
+      "combat resource generation",
+      "extra combats",
+      "combat pressure"
+    ],
+    "packages": {
+      "attack_triggers": {
+        "description": "Permanents with abilities that trigger when a creature attacks, when you attack, or when they attack.",
+        "min": 8,
+        "ideal": 15,
+        "tags": [
+          "attack_trigger",
+          "combat_value",
+          "resource_on_attack"
+        ],
+        "search_phrases": [
+          "whenever this creature attacks",
+          "whenever a creature attacks",
+          "whenever you attack"
+        ]
+      },
+      "attack_enablers": {
+        "description": "Cards that help attackers connect, survive, or attack immediately.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "haste",
+          "evasion",
+          "protection",
+          "combat_enabler"
+        ],
+        "search_phrases": [
+          "haste",
+          "can't be blocked",
+          "flying",
+          "indestructible",
+          "vigilance"
+        ]
+      },
+      "extra_combat": {
+        "description": "Cards that create additional combat phases and multiply attack triggers.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "extra_combat",
+          "combat_multiplier",
+          "finisher"
+        ],
+        "search_phrases": [
+          "additional combat",
+          "untap all creatures",
+          "after this phase"
+        ]
+      },
+      "attack_finishers": {
+        "description": "Cards that make attack steps lethal through damage, pump, tokens, or resource advantage.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "mass_pump",
+          "damage_multiplier",
+          "go_wide_payoff"
+        ],
+        "search_phrases": [
+          "creatures you control get",
+          "double damage",
+          "each opponent",
+          "trample"
+        ]
+      }
+    }
+  },
+  "combat_damage_engine": {
+    "description": "Decks that care about dealing combat damage to players or opponents.",
+    "engine_focus": [
+      "evasion",
+      "combat damage triggers",
+      "commander damage",
+      "on-hit value"
+    ],
+    "packages": {
+      "damage_triggers": {
+        "description": "Cards that trigger when combat damage is dealt to a player.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "combat_damage_trigger",
+          "on_hit_value"
+        ],
+        "search_phrases": [
+          "deals combat damage to a player",
+          "deals combat damage to one or more players"
+        ]
+      },
+      "evasion": {
+        "description": "Cards that make attackers difficult to block.",
+        "min": 5,
+        "ideal": 9,
+        "tags": [
+          "evasion",
+          "flying",
+          "trample",
+          "unblockable"
+        ],
+        "search_phrases": [
+          "can't be blocked",
+          "flying",
+          "trample",
+          "menace"
+        ]
+      },
+      "combat_protection": {
+        "description": "Cards that protect attackers and keep the combat plan online.",
+        "min": 3,
+        "ideal": 7,
+        "tags": [
+          "protection",
+          "indestructible",
+          "hexproof",
+          "blink"
+        ],
+        "search_phrases": [
+          "indestructible",
+          "hexproof",
+          "protection from",
+          "exile target creature you control"
+        ]
+      },
+      "combat_finishers": {
+        "description": "Cards that convert combat damage into a lethal close.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "double_strike",
+          "extra_combat",
+          "damage_multiplier"
+        ],
+        "search_phrases": [
+          "double strike",
+          "additional combat",
+          "double damage",
+          "commander damage"
+        ]
+      }
+    }
+  },
+  "etb_blink_engine": {
+    "description": "Decks that repeatedly exile and return nonland permanents to reuse ETB effects, reset permanents, or create loops.",
+    "engine_focus": [
+      "ETB value",
+      "blink",
+      "reset tapped permanents",
+      "combat connection if commander-gated"
+    ],
+    "packages": {
+      "etb_value": {
+        "description": "Permanents with strong enters-the-battlefield effects.",
+        "min": 10,
+        "ideal": 18,
+        "tags": [
+          "etb_value",
+          "creature_etb",
+          "artifact_etb",
+          "enchantment_etb"
+        ],
+        "search_phrases": [
+          "enters the battlefield",
+          "when this enters"
+        ]
+      },
+      "blink_enablers": {
+        "description": "Cards that exile and return your permanents.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "blink",
+          "flicker",
+          "reset"
+        ],
+        "search_phrases": [
+          "exile target",
+          "return it to the battlefield",
+          "blink",
+          "flicker"
+        ]
+      },
+      "etb_multipliers": {
+        "description": "Cards that double or increase triggered abilities from entering the battlefield.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "trigger_doubler",
+          "etb_doubler"
+        ],
+        "search_phrases": [
+          "triggered ability",
+          "triggers an additional time",
+          "permanent entering"
+        ]
+      },
+      "blink_finishers": {
+        "description": "Cards that win from repeated ETBs, loops, mill, drain, burn, or overwhelming value.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "combo_piece",
+          "mill",
+          "lifedrain",
+          "damage_payoff"
+        ],
+        "search_phrases": [
+          "whenever a permanent enters",
+          "each opponent loses",
+          "mills",
+          "deals damage"
+        ]
+      }
+    }
+  },
+  "equipment_aura_voltron": {
+    "description": "Decks that build one or a few major threats with Equipment, Auras, counters, buffs, evasion, and protection.",
+    "engine_focus": [
+      "single-threat scaling",
+      "commander damage",
+      "power boosts",
+      "protection"
+    ],
+    "packages": {
+      "threat_enhancers": {
+        "description": "Equipment, Auras, counters, and buffs that make the main threat bigger or more dangerous.",
+        "min": 10,
+        "ideal": 18,
+        "tags": [
+          "equipment",
+          "aura",
+          "counter_enabler",
+          "power_boost"
+        ],
+        "search_phrases": [
+          "Equipment",
+          "Aura",
+          "equipped creature",
+          "enchanted creature",
+          "gets +"
+        ]
+      },
+      "evasion": {
+        "description": "Cards that help the main threat connect.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "evasion",
+          "flying",
+          "trample",
+          "unblockable"
+        ],
+        "search_phrases": [
+          "can't be blocked",
+          "flying",
+          "trample",
+          "menace"
+        ]
+      },
+      "protection": {
+        "description": "Cards that protect the threat from removal or combat.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "protection",
+          "hexproof",
+          "indestructible",
+          "recursion"
+        ],
+        "search_phrases": [
+          "hexproof",
+          "indestructible",
+          "protection from",
+          "return target creature"
+        ]
+      },
+      "voltron_finishers": {
+        "description": "Cards that enable lethal commander damage, surprise kills, or repeated combat.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "double_strike",
+          "extra_combat",
+          "damage_multiplier"
+        ],
+        "search_phrases": [
+          "double strike",
+          "additional combat",
+          "double damage",
+          "trample"
+        ]
+      }
+    }
+  },
+  "plus_one_counter_engine": {
+    "description": "Decks that place, multiply, move, or reward +1/+1 counters.",
+    "engine_focus": [
+      "counter placement",
+      "counter payoffs",
+      "proliferate",
+      "scaling creatures"
+    ],
+    "packages": {
+      "counter_enablers": {
+        "description": "Cards that place +1/+1 counters repeatedly or efficiently.",
+        "min": 8,
+        "ideal": 14,
+        "tags": [
+          "counter_enabler",
+          "plus_one_counter"
+        ],
+        "search_phrases": [
+          "+1/+1 counter",
+          "put a counter"
+        ]
+      },
+      "counter_payoffs": {
+        "description": "Cards that reward counters or modified/scaled creatures.",
+        "min": 5,
+        "ideal": 9,
+        "tags": [
+          "counter_payoff",
+          "modified_payoff",
+          "scaling_payoff"
+        ],
+        "search_phrases": [
+          "counters on",
+          "modified",
+          "whenever one or more counters"
+        ]
+      },
+      "counter_multipliers": {
+        "description": "Cards that add extra counters, double counters, or proliferate.",
+        "min": 2,
+        "ideal": 6,
+        "tags": [
+          "counter_doubler",
+          "proliferate"
+        ],
+        "search_phrases": [
+          "twice that many counters",
+          "proliferate",
+          "one or more counters would be put"
+        ]
+      },
+      "counter_finishers": {
+        "description": "Cards that turn large counter boards into lethal combat or alternate wins.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "trample",
+          "evasion",
+          "mass_pump"
+        ],
+        "search_phrases": [
+          "trample",
+          "can't be blocked",
+          "creatures you control get",
+          "power among creatures"
+        ]
+      }
+    }
+  },
+  "artifact_engine": {
+    "description": "Decks that use artifacts as the main resource for ramp, sacrifice, recursion, tokens, or combo.",
+    "engine_focus": [
+      "artifact density",
+      "artifact payoffs",
+      "artifact recursion",
+      "mana/resource conversion"
+    ],
+    "packages": {
+      "artifact_enablers": {
+        "description": "Artifacts that ramp, sacrifice themselves, create artifact tokens, or enable the artifact count.",
+        "min": 10,
+        "ideal": 18,
+        "tags": [
+          "artifact",
+          "mana_rock",
+          "treasure",
+          "self_sacrifice"
+        ],
+        "search_phrases": [
+          "Artifact",
+          "Treasure token",
+          "sacrifice this artifact",
+          "add mana"
+        ]
+      },
+      "artifact_payoffs": {
+        "description": "Cards that reward artifacts entering, leaving, being sacrificed, or being controlled.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "artifact_payoff",
+          "artifact_etb",
+          "artifact_sacrifice"
+        ],
+        "search_phrases": [
+          "whenever an artifact",
+          "artifacts you control",
+          "sacrifice an artifact"
+        ]
+      },
+      "artifact_recursion": {
+        "description": "Cards that return artifacts or cast artifacts from the graveyard.",
+        "min": 2,
+        "ideal": 6,
+        "tags": [
+          "artifact_recursion",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "return target artifact",
+          "artifact card from your graveyard",
+          "cast artifact"
+        ]
+      },
+      "artifact_finishers": {
+        "description": "Cards that win through artifact count, artifact tokens, drain, damage, or combo.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "combo_piece",
+          "lifedrain",
+          "damage_payoff"
+        ],
+        "search_phrases": [
+          "for each artifact",
+          "each opponent loses",
+          "deals damage",
+          "create a token copy"
+        ]
+      }
+    }
+  },
+  "enchantment_engine": {
+    "description": "Decks that use enchantments, Auras, constellation-style triggers, or enchantress draw engines.",
+    "engine_focus": [
+      "enchantment density",
+      "cast/ETB triggers",
+      "Auras",
+      "protected value engines"
+    ],
+    "packages": {
+      "enchantment_enablers": {
+        "description": "Enchantments and Auras that enable the deck's board or commander plan.",
+        "min": 10,
+        "ideal": 18,
+        "tags": [
+          "enchantment",
+          "aura",
+          "enchantment_enabler"
+        ],
+        "search_phrases": [
+          "Enchantment",
+          "Aura",
+          "enchanted creature"
+        ]
+      },
+      "enchantress_draw": {
+        "description": "Cards that draw or generate value when enchantments are cast or enter.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "enchantress",
+          "card_draw",
+          "enchantment_payoff"
+        ],
+        "search_phrases": [
+          "whenever you cast an enchantment",
+          "whenever an enchantment enters",
+          "draw a card"
+        ]
+      },
+      "enchantment_payoffs": {
+        "description": "Cards that reward enchantment count, Auras, or enchantments entering.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "enchantment_payoff",
+          "constellation",
+          "aura_payoff"
+        ],
+        "search_phrases": [
+          "constellation",
+          "enchantments you control",
+          "enchanted creature"
+        ]
+      },
+      "enchantment_finishers": {
+        "description": "Cards that win through enchantment count, huge enchanted threats, tokens, or drain.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "aura_finisher",
+          "token_maker",
+          "lifedrain"
+        ],
+        "search_phrases": [
+          "for each enchantment",
+          "enchanted creature gets",
+          "create",
+          "each opponent loses"
+        ]
+      }
+    }
+  },
+  "lifegain_engine": {
+    "description": "Decks that gain life repeatedly and convert life gain into cards, counters, tokens, drain, or alternate wins.",
+    "engine_focus": [
+      "repeatable lifegain",
+      "lifegain payoffs",
+      "life total as resource",
+      "drain finishers"
+    ],
+    "packages": {
+      "lifegain_sources": {
+        "description": "Repeatable sources of life gain.",
+        "min": 8,
+        "ideal": 14,
+        "tags": [
+          "lifegain",
+          "repeatable_lifegain",
+          "lifelink"
+        ],
+        "search_phrases": [
+          "you gain",
+          "lifelink",
+          "whenever you gain life"
+        ]
+      },
+      "lifegain_payoffs": {
+        "description": "Cards that reward gaining life.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "lifegain_payoff",
+          "counter_enabler",
+          "token_maker",
+          "card_draw"
+        ],
+        "search_phrases": [
+          "whenever you gain life",
+          "if you gained life",
+          "+1/+1 counter",
+          "draw a card"
+        ]
+      },
+      "life_resource": {
+        "description": "Cards that spend life for cards, mana, or other advantage.",
+        "min": 2,
+        "ideal": 6,
+        "tags": [
+          "life_payment",
+          "card_draw",
+          "resource_conversion"
+        ],
+        "search_phrases": [
+          "pay life",
+          "lose life",
+          "draw"
+        ]
+      },
+      "lifegain_finishers": {
+        "description": "Cards that convert high life or repeated gain into a win.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "alternate_wincon",
+          "lifedrain"
+        ],
+        "search_phrases": [
+          "you win the game",
+          "each opponent loses",
+          "life total"
+        ]
+      }
+    }
+  },
+  "landfall_landsmatter": {
+    "description": "Decks that use land drops, lands entering, graveyard lands, or land count as the primary engine.",
+    "engine_focus": [
+      "extra land drops",
+      "landfall triggers",
+      "ramp",
+      "land recursion"
+    ],
+    "land_range": {
+      "min": 38,
+      "ideal": 40,
+      "max": 42
+    },
+    "packages": {
+      "land_ramp": {
+        "description": "Cards that search, play, or put extra lands onto the battlefield.",
+        "min": 10,
+        "ideal": 16,
+        "tags": [
+          "land_ramp",
+          "extra_land_drop",
+          "ramp"
+        ],
+        "search_phrases": [
+          "search your library for a land",
+          "you may play an additional land",
+          "put a land card"
+        ]
+      },
+      "landfall_payoffs": {
+        "description": "Cards that trigger or scale when lands enter or based on lands controlled.",
+        "min": 7,
+        "ideal": 12,
+        "tags": [
+          "landfall",
+          "land_payoff"
+        ],
+        "search_phrases": [
+          "landfall",
+          "whenever a land enters",
+          "for each land you control"
+        ]
+      },
+      "land_recursion": {
+        "description": "Cards that replay or return lands from the graveyard.",
+        "min": 2,
+        "ideal": 6,
+        "tags": [
+          "land_recursion",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "lands from your graveyard",
+          "return target land",
+          "play lands from your graveyard"
+        ]
+      },
+      "land_finishers": {
+        "description": "Cards that win through land count, land creatures, tokens, or huge mana.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "overrun",
+          "big_mana",
+          "token_maker"
+        ],
+        "search_phrases": [
+          "for each land",
+          "creatures you control get",
+          "create",
+          "X"
         ]
       }
     }

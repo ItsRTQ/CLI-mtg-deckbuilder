@@ -1,43 +1,171 @@
 {
+  "land_count_formula": {
+    "description": "Build nonlands first, then calculate final land count and cut/fill nonlands to reach 99 main deck cards.",
+    "base_lands": 32,
+    "color_adjustment": {
+      "per_commander_color": 1,
+      "max_color_bonus": 3
+    },
+    "curve_adjustment": {
+      "average_mana_value_0_to_2_6": 0,
+      "average_mana_value_2_7_to_3_3": 1,
+      "average_mana_value_3_4_plus": 2
+    },
+    "landfall_landsmatter": {
+      "min": 38,
+      "ideal": 40,
+      "max": 42
+    },
+    "absolute_safety": {
+      "min": 30,
+      "max": 42
+    }
+  },
+  "power_levels": {
+    "casual": {
+      "description": "Precon/precon-level. No infinite combos. No tutors by default. Tapped lands are acceptable if budget or mana fixing needs them.",
+      "infinite_combos": "none",
+      "tutors": {
+        "min": 0,
+        "ideal": 0,
+        "max": 0
+      },
+      "synergy_expectation": "basic_to_medium",
+      "fast_mana": "avoid_except_sol_ring_if_allowed",
+      "tapped_lands": "allowed_if_needed"
+    },
+    "optimized_casual": {
+      "description": "Optimized precon/focused casual. 1-2 tutors if they make sense. No infinite combos. Avoid tapped lands unless theme, commander, or budget makes them reasonable.",
+      "infinite_combos": "none",
+      "tutors": {
+        "min": 0,
+        "ideal": 1,
+        "max": 2
+      },
+      "synergy_expectation": "medium_to_high",
+      "fast_mana": "limited",
+      "tapped_lands": "avoid_unless_justified"
+    },
+    "high_power": {
+      "description": "High synergy. 1-2 incidental infinite combos allowed, but the deck should not be built entirely around forcing them unless requested.",
+      "infinite_combos": "incidental_allowed_1_to_2",
+      "tutors": {
+        "min": 1,
+        "ideal": 3,
+        "max": 6
+      },
+      "synergy_expectation": "high",
+      "fast_mana": "allowed_if_budget_allows",
+      "tapped_lands": "avoid_unless_justified"
+    },
+    "cedh": {
+      "description": "No budget by default. Perfect synergy, tutors, compact combos, optimized interaction, and fast mana are expected.",
+      "infinite_combos": "unlimited",
+      "tutors": {
+        "min": 4,
+        "ideal": 8,
+        "max": 14
+      },
+      "synergy_expectation": "highest",
+      "fast_mana": "expected",
+      "tapped_lands": "avoid_except_powerful_utility"
+    }
+  },
+  "budget_rules": {
+    "ask_if_missing": true,
+    "default_if_unanswered": "no_budget",
+    "preset_options": [
+      100,
+      150,
+      200,
+      "no_budget",
+      "custom"
+    ],
+    "custom_budget_too_low": {
+      "behavior": "continue_deckbuilding",
+      "fallback_range": [
+        50,
+        100
+      ],
+      "basic_lands_count_as": 0,
+      "note": "Deck build is more important than perfectly meeting a very low budget. Get as close as possible and explain budget pressure."
+    },
+    "upgrades": {
+      "offer_after_deck": true,
+      "rank_by": [
+        "importance",
+        "power_increase",
+        "price_impact"
+      ]
+    }
+  },
   "preference_adjustments": {
     "more_ramp": {
       "ramp": 2,
-      "synergy": -2
+      "strategy_cards": -2
     },
     "less_ramp": {
       "ramp": -2,
-      "synergy": 2
+      "strategy_cards": 2
     },
     "more_card_draw": {
       "card_draw": 2,
-      "synergy": -2
+      "strategy_cards": -2
     },
     "less_card_draw": {
       "card_draw": -2,
-      "synergy": 2
+      "strategy_cards": 2
     },
     "more_removal": {
       "removal": 2,
-      "synergy": -2
+      "strategy_cards": -2
     },
     "less_removal": {
       "removal": -2,
-      "synergy": 2
+      "strategy_cards": 2
     },
-    "more_creatures": {
-      "synergy": 3,
-      "board_wipes": -1,
+    "more_protection": {
+      "protection": 2,
+      "strategy_cards": -2
+    },
+    "less_protection": {
       "protection": -1,
-      "win_conditions": -1
+      "strategy_cards": 1
     },
     "fewer_board_wipes": {
       "board_wipes": -1,
-      "synergy": 1
+      "strategy_cards": 1
+    },
+    "more_board_wipes": {
+      "board_wipes": 1,
+      "strategy_cards": -1
+    },
+    "more_creatures": {
+      "creatures": 3,
+      "board_wipes": -1,
+      "strategy_cards": 1
+    },
+    "fewer_creatures": {
+      "creatures": -3,
+      "interaction": 1,
+      "strategy_cards": 2
     },
     "more_equipment": {
-      "synergy": 2,
-      "protection": -1,
-      "win_conditions": -1
+      "threat_enhancers": 2,
+      "strategy_cards": -2
+    },
+    "more_tokens": {
+      "token_makers": 3,
+      "single_target_buffs": -2
+    },
+    "more_combo": {
+      "combo_pieces": 2,
+      "tutors": 1,
+      "generic_finishers": -2
+    },
+    "no_infinite_combos": {
+      "combo_pieces": -3,
+      "fair_finishers": 2
     }
   },
   "minimum_safety_counts": {
@@ -45,13 +173,108 @@
     "ramp": 6,
     "card_draw": 6,
     "removal": 5,
-    "board_wipes": 0
+    "board_wipes": 0,
+    "win_conditions": 1
+  },
+  "recommended_default_counts": {
+    "ramp": {
+      "min": 9,
+      "ideal": 10
+    },
+    "card_draw": {
+      "min": 8,
+      "ideal": 10
+    },
+    "removal_total": {
+      "min": 5,
+      "ideal": 9,
+      "max": 15
+    },
+    "spot_removal": {
+      "min": 2,
+      "ideal": 4
+    },
+    "board_wipes": {
+      "min": 1,
+      "ideal": 2,
+      "max": 3
+    },
+    "artifact_enchantment_removal": {
+      "min": 0,
+      "ideal": 2
+    },
+    "graveyard_hate": {
+      "min": 0,
+      "ideal": 1
+    },
+    "protection": {
+      "min": 0,
+      "ideal": 3,
+      "max": 5
+    },
+    "win_conditions": {
+      "min": 1,
+      "ideal": 3,
+      "max": 5
+    }
   },
   "maximum_safety_counts": {
     "lands": 42,
     "ramp": 18,
     "card_draw": 18,
     "removal": 16,
-    "board_wipes": 5
+    "board_wipes": 5,
+    "protection": 10,
+    "win_conditions": 6
+  },
+  "combo_policy": {
+    "default": "power_level_based",
+    "casual": "no_infinite_combos",
+    "optimized_casual": "no_infinite_combos",
+    "high_power": "incidental_1_to_2_allowed",
+    "cedh": "unlimited",
+    "incidental_combo_rule": "Combo pieces may be included when the individual cards are already good for the deck's main engine. Do not build the entire deck around tutoring one combo unless user requests it."
+  },
+  "tutor_policy": {
+    "tutors_are_search_not_draw": true,
+    "casual": {
+      "min": 0,
+      "ideal": 0,
+      "max": 0
+    },
+    "optimized_casual": {
+      "min": 0,
+      "ideal": 1,
+      "max": 2
+    },
+    "high_power": {
+      "min": 1,
+      "ideal": 3,
+      "max": 6
+    },
+    "cedh": {
+      "min": 4,
+      "ideal": 8,
+      "max": 14
+    }
+  },
+  "meta_answers": {
+    "ask_user_when_relevant": true,
+    "graveyard_hate": {
+      "default": 0,
+      "ask_if_meta_unknown": true
+    },
+    "artifact_enchantment_removal": {
+      "default": 1,
+      "ask_if_meta_unknown": true
+    },
+    "indestructible_answers": {
+      "default": 0,
+      "ask_if_meta_unknown": true
+    },
+    "flyer_answers": {
+      "default": 0,
+      "ask_if_meta_unknown": true
+    }
   }
 }

@@ -1,20 +1,257 @@
 {
   "ramp": {
-    "tags": ["ramp"]
+    "tags": [
+      "ramp",
+      "mana_rock",
+      "land_ramp",
+      "mana_dork",
+      "treasure",
+      "ritual"
+    ]
   },
   "card_draw": {
-    "tags": ["card_draw"]
+    "tags": [
+      "card_draw",
+      "card_advantage",
+      "cantrip",
+      "loot"
+    ]
+  },
+  "search": {
+    "tags": [
+      "tutor"
+    ]
   },
   "removal": {
-    "tags": ["removal"]
+    "tags": [
+      "spot_removal",
+      "creature_removal",
+      "artifact_enchantment_removal"
+    ]
   },
   "board_wipe": {
-    "tags": ["board_wipe"]
+    "tags": [
+      "board_wipe"
+    ]
   },
   "protection": {
-    "tags": ["protection"]
+    "tags": [
+      "protection",
+      "board_protection",
+      "recursion"
+    ]
   },
-  "synergy": {
-    "tags": ["equipment", "aura", "counter_synergy", "token_maker"]
+  "graveyard_hate": {
+    "tags": [
+      "graveyard_hate"
+    ]
+  },
+  "countermagic": {
+    "tags": [
+      "counterspell"
+    ]
+  },
+  "enabler": {
+    "tags": [
+      "token_maker",
+      "self_mill",
+      "discard_outlet",
+      "sacrifice_outlet",
+      "equipment",
+      "aura",
+      "counter_enabler",
+      "cheap_spell",
+      "attack_trigger",
+      "etb_value",
+      "blink",
+      "artifact",
+      "enchantment",
+      "land_ramp"
+    ]
+  },
+  "payoff": {
+    "tags": [
+      "token_payoff",
+      "death_trigger",
+      "aristocrats",
+      "spell_payoff",
+      "counter_payoff",
+      "artifact_payoff",
+      "enchantment_payoff",
+      "lifegain_payoff",
+      "tribal_payoff",
+      "landfall",
+      "combat_damage_trigger"
+    ]
+  },
+  "engine": {
+    "tags": [
+      "engine",
+      "repeatable_token_maker",
+      "graveyard_recursion",
+      "spell_copy",
+      "etb_value",
+      "blink",
+      "sacrifice_outlet",
+      "artifact_payoff",
+      "enchantress",
+      "lifegain_payoff",
+      "land_recursion"
+    ]
+  },
+  "finisher": {
+    "tags": [
+      "finisher",
+      "extra_combat",
+      "overrun",
+      "mass_pump",
+      "damage_payoff",
+      "lifedrain",
+      "combo_piece",
+      "alternate_wincon",
+      "double_strike"
+    ]
+  },
+  "support": {
+    "tags": [
+      "support",
+      "protection",
+      "recursion",
+      "evasion",
+      "haste",
+      "artifact_enchantment_removal",
+      "graveyard_hate"
+    ]
+  },
+  "strategy": {
+    "tags": [
+      "enabler",
+      "payoff",
+      "engine",
+      "finisher",
+      "support"
+    ]
+  },
+  "token_package": {
+    "tags": [
+      "token_maker",
+      "repeatable_token_maker",
+      "token_payoff",
+      "token_doubler",
+      "anthem"
+    ]
+  },
+  "sacrifice_package": {
+    "tags": [
+      "sacrifice_outlet",
+      "self_sacrifice",
+      "death_trigger",
+      "aristocrats",
+      "recursive_creature"
+    ]
+  },
+  "graveyard_package": {
+    "tags": [
+      "self_mill",
+      "discard_outlet",
+      "graveyard_recursion",
+      "reanimation",
+      "recurrable_permanent"
+    ]
+  },
+  "spellslinger_package": {
+    "tags": [
+      "cheap_spell",
+      "cantrip",
+      "spell_payoff",
+      "spell_copy",
+      "storm"
+    ]
+  },
+  "combat_package": {
+    "tags": [
+      "attack_trigger",
+      "combat_damage_trigger",
+      "extra_combat",
+      "evasion",
+      "haste",
+      "double_strike"
+    ]
+  },
+  "blink_package": {
+    "tags": [
+      "etb_value",
+      "blink",
+      "trigger_doubler"
+    ]
+  },
+  "voltron_package": {
+    "tags": [
+      "equipment",
+      "aura",
+      "counter_enabler",
+      "evasion",
+      "protection",
+      "double_strike"
+    ]
+  },
+  "artifact_package": {
+    "tags": [
+      "artifact",
+      "mana_rock",
+      "treasure",
+      "artifact_payoff",
+      "artifact_recursion"
+    ]
+  },
+  "enchantment_package": {
+    "tags": [
+      "enchantment",
+      "aura",
+      "enchantress",
+      "enchantment_payoff"
+    ]
+  },
+  "land_package": {
+    "tags": [
+      "land_ramp",
+      "extra_land_drop",
+      "landfall",
+      "land_recursion"
+    ]
+  },
+  "tribal_package": {
+    "tags": [
+      "tribal_creature",
+      "tribal_payoff",
+      "changeling"
+    ]
+  },
+  "lifegain_package": {
+    "tags": [
+      "lifegain",
+      "lifegain_payoff",
+      "lifedrain"
+    ]
+  },
+  "stax_package": {
+    "tags": [
+      "stax",
+      "pillowfort"
+    ]
+  },
+  "theft_package": {
+    "tags": [
+      "theft",
+      "copy_effect"
+    ]
+  },
+  "poison_package": {
+    "tags": [
+      "poison",
+      "proliferate",
+      "evasion",
+      "pump_spells"
+    ]
   }
 }

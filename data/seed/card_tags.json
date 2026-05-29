@@ -2,44 +2,389 @@
   "ramp": [
     "add one mana",
     "add two mana",
+    "add mana",
     "search your library for a basic land",
     "search your library for a land",
-    "treasure token"
+    "Treasure token",
+    "mana of any color"
+  ],
+  "mana_rock": [
+    "Artifact",
+    "add one mana",
+    "add mana",
+    "mana of any color"
+  ],
+  "land_ramp": [
+    "search your library for a basic land",
+    "search your library for a land",
+    "put a land card onto the battlefield"
+  ],
+  "extra_land_drop": [
+    "play an additional land"
+  ],
+  "mana_dork": [
+    "add one mana",
+    "add mana",
+    "Creature"
+  ],
+  "ritual": [
+    "add",
+    "until end of turn"
+  ],
+  "treasure": [
+    "Treasure token"
   ],
   "card_draw": [
     "draw a card",
     "draw two cards",
     "draw cards"
   ],
-  "removal": [
+  "card_advantage": [
+    "draw",
+    "look at the top",
+    "you may cast",
+    "you may play",
+    "impulse draw"
+  ],
+  "cantrip": [
+    "draw a card"
+  ],
+  "loot": [
+    "draw a card",
+    "discard a card"
+  ],
+  "tutor": [
+    "search your library",
+    "put that card into your hand",
+    "reveal it"
+  ],
+  "spot_removal": [
+    "destroy target",
+    "exile target",
+    "return target",
+    "deals damage to target"
+  ],
+  "creature_removal": [
     "destroy target creature",
     "exile target creature",
-    "destroy target artifact",
-    "destroy target enchantment",
     "deals damage to target creature"
   ],
+  "artifact_enchantment_removal": [
+    "destroy target artifact",
+    "destroy target enchantment",
+    "exile target artifact",
+    "exile target enchantment"
+  ],
   "board_wipe": [
-    "destroy all creatures",
-    "exile all creatures",
-    "deals damage to each creature"
+    "destroy all",
+    "exile all",
+    "each creature",
+    "all creatures",
+    "all nonland permanents"
   ],
-  "equipment": [
-    "Equipment"
+  "graveyard_hate": [
+    "exile target card from a graveyard",
+    "exile all graveyards",
+    "graveyards"
   ],
-  "aura": [
-    "Aura"
+  "counterspell": [
+    "counter target spell",
+    "counter target"
   ],
-  "counter_synergy": [
-    "+1/+1 counter",
-    "modified"
+  "protection": [
+    "hexproof",
+    "indestructible",
+    "protection from",
+    "ward",
+    "phase out"
+  ],
+  "board_protection": [
+    "creatures you control gain indestructible",
+    "permanents you control gain",
+    "phase out"
+  ],
+  "recursion": [
+    "return target",
+    "from your graveyard",
+    "from a graveyard"
+  ],
+  "graveyard_recursion": [
+    "from your graveyard",
+    "return target creature card",
+    "return target permanent card",
+    "cast from your graveyard"
+  ],
+  "self_mill": [
+    "mill",
+    "put the top",
+    "surveil"
+  ],
+  "discard_outlet": [
+    "discard a card",
+    "discard"
+  ],
+  "reanimation": [
+    "return target creature card from your graveyard to the battlefield",
+    "return target creature card"
+  ],
+  "sacrifice_outlet": [
+    "sacrifice a creature",
+    "sacrifice another creature",
+    "sacrifice a permanent"
+  ],
+  "free_sacrifice_outlet": [
+    "Sacrifice a creature:",
+    "Sacrifice another creature:"
+  ],
+  "self_sacrifice": [
+    "sacrifice this",
+    "sacrifice it"
+  ],
+  "death_trigger": [
+    "whenever a creature dies",
+    "whenever another creature dies",
+    "when this creature dies",
+    "dies"
+  ],
+  "aristocrats": [
+    "each opponent loses",
+    "you gain",
+    "whenever a creature dies",
+    "whenever you sacrifice"
   ],
   "token_maker": [
     "create",
     "token"
   ],
-  "protection": [
-    "hexproof",
-    "indestructible",
-    "protection from"
+  "repeatable_token_maker": [
+    "whenever",
+    "create",
+    "token"
+  ],
+  "token_payoff": [
+    "whenever a token",
+    "tokens you control",
+    "for each token",
+    "creatures you control get"
+  ],
+  "token_doubler": [
+    "twice that many",
+    "create one or more tokens"
+  ],
+  "anthem": [
+    "creatures you control get",
+    "creatures of the chosen type get"
+  ],
+  "equipment": [
+    "Equipment"
+  ],
+  "aura": [
+    "Aura",
+    "enchant creature"
+  ],
+  "counter_enabler": [
+    "+1/+1 counter",
+    "put a counter"
+  ],
+  "counter_payoff": [
+    "counters on",
+    "modified",
+    "whenever one or more counters"
+  ],
+  "proliferate": [
+    "proliferate"
+  ],
+  "spell_payoff": [
+    "whenever you cast",
+    "magecraft",
+    "prowess",
+    "copy target instant or sorcery"
+  ],
+  "cheap_spell": [
+    "instant",
+    "sorcery",
+    "draw a card",
+    "target"
+  ],
+  "spell_copy": [
+    "copy target instant or sorcery",
+    "copy that spell"
+  ],
+  "attack_trigger": [
+    "whenever this creature attacks",
+    "whenever a creature attacks",
+    "whenever you attack"
+  ],
+  "combat_damage_trigger": [
+    "deals combat damage to a player",
+    "deals combat damage to one or more players"
+  ],
+  "extra_combat": [
+    "additional combat",
+    "untap all creatures that attacked"
+  ],
+  "evasion": [
+    "can't be blocked",
+    "flying",
+    "trample",
+    "menace",
+    "skulk",
+    "shadow"
+  ],
+  "haste": [
+    "haste"
+  ],
+  "double_strike": [
+    "double strike"
+  ],
+  "etb_value": [
+    "enters the battlefield",
+    "when this enters"
+  ],
+  "blink": [
+    "exile",
+    "return it to the battlefield",
+    "flicker"
+  ],
+  "trigger_doubler": [
+    "triggers an additional time",
+    "triggered ability"
+  ],
+  "artifact": [
+    "Artifact"
+  ],
+  "artifact_payoff": [
+    "whenever an artifact",
+    "artifacts you control",
+    "sacrifice an artifact"
+  ],
+  "enchantment": [
+    "Enchantment"
+  ],
+  "enchantress": [
+    "whenever you cast an enchantment",
+    "whenever an enchantment enters",
+    "draw a card"
+  ],
+  "lifegain": [
+    "you gain",
+    "lifelink"
+  ],
+  "lifegain_payoff": [
+    "whenever you gain life",
+    "if you gained life"
+  ],
+  "damage_payoff": [
+    "deals damage to each opponent",
+    "deals damage",
+    "whenever"
+  ],
+  "lifedrain": [
+    "each opponent loses",
+    "you gain"
+  ],
+  "landfall": [
+    "landfall",
+    "whenever a land enters"
+  ],
+  "land_recursion": [
+    "play lands from your graveyard",
+    "return target land"
+  ],
+  "tribal_creature": [
+    "{creature_type}"
+  ],
+  "tribal_payoff": [
+    "{creature_type} you control",
+    "choose a creature type",
+    "creatures of the chosen type"
+  ],
+  "changeling": [
+    "changeling"
+  ],
+  "theft": [
+    "gain control",
+    "target opponent controls",
+    "you may cast",
+    "from exile"
+  ],
+  "copy_effect": [
+    "copy target",
+    "token that's a copy"
+  ],
+  "stax": [
+    "players can't",
+    "opponents can't",
+    "costs more",
+    "doesn't untap",
+    "skip",
+    "only one"
+  ],
+  "pillowfort": [
+    "can't attack you",
+    "attacks you",
+    "unless their controller pays",
+    "prevent all damage"
+  ],
+  "group_hug": [
+    "each player draws",
+    "each player may",
+    "any player may"
+  ],
+  "group_slug": [
+    "each opponent loses",
+    "each player loses",
+    "whenever an opponent"
+  ],
+  "poison": [
+    "infect",
+    "toxic",
+    "poison counter"
+  ],
+  "finisher": [
+    "you win the game",
+    "each opponent loses",
+    "additional combat",
+    "creatures you control get",
+    "double damage",
+    "storm"
+  ],
+  "combo_piece": [
+    "untap",
+    "return",
+    "copy",
+    "sacrifice",
+    "add mana",
+    "triggered ability"
+  ],
+  "engine": [
+    "whenever",
+    "at the beginning",
+    "you may",
+    "draw",
+    "create",
+    "return"
+  ],
+  "support": [
+    "protect",
+    "return",
+    "search",
+    "draw",
+    "remove",
+    "destroy",
+    "exile"
+  ],
+  "removal": [
+    "destroy target",
+    "exile target",
+    "return target",
+    "deals damage to target",
+    "destroy target creature",
+    "exile target creature",
+    "deals damage to target creature",
+    "destroy target artifact",
+    "destroy target enchantment",
+    "exile target artifact",
+    "exile target enchantment"
   ]
 }

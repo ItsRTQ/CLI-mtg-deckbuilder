@@ -1,38 +1,76 @@
 {
   "battlecruiser": {
-    "description": "Big creatures, big mana, low interaction, wins through large threats.",
-    "primary_goal": "Ramp into expensive threats and win through combat.",
+    "description": "Big mana and large threats. Lower interaction, higher impact plays.",
+    "primary_goal": "Ramp into expensive threats and win through overwhelming board presence or combat.",
     "packages": {
-      "ramp": { "min": 12, "ideal": 16 },
-      "big_threats": { "min": 10, "ideal": 16 },
-      "card_draw": { "min": 8, "ideal": 10 },
-      "protection": { "min": 3, "ideal": 5 },
-      "removal": { "min": 5, "ideal": 7 }
+      "ramp": {
+        "min": 12,
+        "ideal": 16
+      },
+      "big_threats": {
+        "min": 8,
+        "ideal": 14
+      },
+      "card_advantage": {
+        "min": 8,
+        "ideal": 12
+      },
+      "protection_resilience": {
+        "min": 3,
+        "ideal": 6
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
       "mana value 6 or greater",
+      "add mana",
+      "search your library for a land",
       "trample",
       "power",
-      "creatures you control get",
-      "add mana",
-      "search your library for a land"
+      "enters the battlefield"
     ],
     "avoid_patterns": [
-      "heavy control",
-      "stax",
-      "low creature count"
-    ]
+      "too many low-impact cheap cards",
+      "all-in control package",
+      "low threat count"
+    ],
+    "engine_notes": "Prioritize ramp that reaches the deck's most important high-cost plays."
   },
-
   "stax": {
-    "description": "Slows or prevents opponents from playing normally.",
-    "primary_goal": "Restrict resources, limit actions, then win while opponents are locked down.",
+    "description": "Restricts opponents' actions, resources, untaps, casting, or combat.",
+    "primary_goal": "Break parity on restrictive effects and win while opponents are slowed down.",
     "packages": {
-      "tax_effects": { "min": 8, "ideal": 12 },
-      "resource_denial": { "min": 6, "ideal": 10 },
-      "protection": { "min": 5, "ideal": 8 },
-      "win_conditions": { "min": 2, "ideal": 4 },
-      "removal": { "min": 8, "ideal": 10 }
+      "tax_effects": {
+        "min": 6,
+        "ideal": 10
+      },
+      "resource_denial": {
+        "min": 4,
+        "ideal": 8
+      },
+      "parity_breakers": {
+        "min": 4,
+        "ideal": 8
+      },
+      "protection_resilience": {
+        "min": 5,
+        "ideal": 8
+      },
+      "interaction": {
+        "min": 8,
+        "ideal": 12
+      },
+      "win_conditions": {
+        "min": 1,
+        "ideal": 3
+      }
     },
     "preferred_card_patterns": [
       "players can't",
@@ -40,48 +78,90 @@
       "costs more",
       "doesn't untap",
       "skip",
-      "only one"
+      "only one",
+      "unless its controller pays"
     ],
     "avoid_patterns": [
+      "symmetrical effects the deck cannot break",
       "group hug",
       "low interaction battlecruiser"
-    ]
+    ],
+    "engine_notes": "Score stax cards higher only when the deck can function under its own restriction."
   },
-
   "spellslinger": {
-    "description": "Built around casting instants and sorceries.",
-    "primary_goal": "Cast many spells, generate value, copy spells, or storm off.",
+    "description": "Built around casting instants, sorceries, and/or noncreature spells.",
+    "primary_goal": "Generate value from repeated spell casts, copying spells, storm-like turns, or spell-trigger payoffs.",
     "packages": {
-      "instants_sorceries": { "min": 22, "ideal": 30 },
-      "spell_payoffs": { "min": 8, "ideal": 12 },
-      "cantrips_draw": { "min": 10, "ideal": 14 },
-      "interaction": { "min": 8, "ideal": 12 },
-      "finishers": { "min": 2, "ideal": 4 }
+      "spell_density": {
+        "min": 20,
+        "ideal": 30
+      },
+      "cheap_spells": {
+        "min": 10,
+        "ideal": 18
+      },
+      "spell_payoffs": {
+        "min": 6,
+        "ideal": 12
+      },
+      "card_velocity": {
+        "min": 8,
+        "ideal": 14
+      },
+      "interaction": {
+        "min": 7,
+        "ideal": 12
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
       "instant",
       "sorcery",
       "whenever you cast",
-      "copy target instant or sorcery",
+      "copy target",
       "storm",
       "magecraft",
+      "prowess",
       "draw a card"
     ],
     "avoid_patterns": [
-      "high creature count",
-      "equipment focused"
-    ]
+      "high creature count with no spell payoff",
+      "expensive spells with no payoff",
+      "equipment focus unless commander supports it"
+    ],
+    "engine_notes": "Cheap spells that replace themselves score higher than expensive one-shot effects unless the deck has a cost reduction or free-cast engine."
   },
-
   "control": {
-    "description": "Controls the board and stack until it can safely win.",
-    "primary_goal": "Answer threats, maintain card advantage, and win late.",
+    "description": "Answers threats, manages the board or stack, and wins once stable.",
+    "primary_goal": "Survive, trade efficiently, generate card advantage, and close with resilient win conditions.",
     "packages": {
-      "removal": { "min": 10, "ideal": 14 },
-      "countermagic": { "min": 5, "ideal": 10 },
-      "board_wipes": { "min": 3, "ideal": 5 },
-      "card_draw": { "min": 10, "ideal": 14 },
-      "win_conditions": { "min": 2, "ideal": 4 }
+      "spot_removal": {
+        "min": 4,
+        "ideal": 8
+      },
+      "countermagic_or_stack_interaction": {
+        "min": 0,
+        "ideal": 8
+      },
+      "board_wipes": {
+        "min": 2,
+        "ideal": 4
+      },
+      "card_advantage": {
+        "min": 10,
+        "ideal": 14
+      },
+      "resilient_win_conditions": {
+        "min": 2,
+        "ideal": 4
+      },
+      "utility": {
+        "min": 4,
+        "ideal": 8
+      }
     },
     "preferred_card_patterns": [
       "counter target",
@@ -93,20 +173,40 @@
       "exile all"
     ],
     "avoid_patterns": [
+      "all-in combat with no protection",
       "low interaction",
-      "all-in combat"
-    ]
+      "win conditions that require overcommitting"
+    ],
+    "engine_notes": "Interaction should match color identity and expected threats; permanent-based interaction scores higher in permanent-recursion decks."
   },
-
   "pillowfort": {
-    "description": "Makes attacking you difficult while setting up alternate win conditions.",
-    "primary_goal": "Discourage attacks and win through protected engines or alternate conditions.",
+    "description": "Discourages or prevents attacks while building a protected engine or alternate win condition.",
+    "primary_goal": "Make attacking you inefficient, buy time, and win through protected engines.",
     "packages": {
-      "attack_tax": { "min": 6, "ideal": 10 },
-      "defensive_enchantments": { "min": 6, "ideal": 10 },
-      "alternate_wincons": { "min": 2, "ideal": 4 },
-      "card_draw": { "min": 8, "ideal": 12 },
-      "removal": { "min": 6, "ideal": 8 }
+      "attack_tax": {
+        "min": 5,
+        "ideal": 9
+      },
+      "damage_prevention": {
+        "min": 2,
+        "ideal": 6
+      },
+      "defensive_engines": {
+        "min": 4,
+        "ideal": 8
+      },
+      "card_advantage": {
+        "min": 8,
+        "ideal": 12
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "win_conditions": {
+        "min": 1,
+        "ideal": 4
+      }
     },
     "preferred_card_patterns": [
       "can't attack you",
@@ -118,19 +218,39 @@
     ],
     "avoid_patterns": [
       "all-in aggro",
-      "low defense"
-    ]
+      "low defense",
+      "group hug with no win plan"
+    ],
+    "engine_notes": "Defensive pieces need a clear win path; do not fill the deck with delay effects only."
   },
-
   "voltron": {
-    "description": "Stacks Equipment, Auras, counters, or buffs onto one main creature.",
-    "primary_goal": "Protect one threat and win through commander/combat damage.",
+    "description": "Builds one primary threat with Equipment, Auras, counters, buffs, evasion, and protection.",
+    "primary_goal": "Protect and scale one major threat, often the commander, to win through combat or commander damage.",
     "packages": {
-      "equipment_auras": { "min": 12, "ideal": 18 },
-      "protection": { "min": 7, "ideal": 10 },
-      "evasion": { "min": 5, "ideal": 8 },
-      "combat_buffs": { "min": 6, "ideal": 10 },
-      "removal": { "min": 5, "ideal": 8 }
+      "threat_enhancers": {
+        "min": 10,
+        "ideal": 16
+      },
+      "protection": {
+        "min": 6,
+        "ideal": 10
+      },
+      "evasion": {
+        "min": 4,
+        "ideal": 8
+      },
+      "card_advantage": {
+        "min": 6,
+        "ideal": 10
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
       "Equipment",
@@ -139,117 +259,218 @@
       "enchanted creature",
       "hexproof",
       "indestructible",
-      "trample",
+      "can't be blocked",
       "double strike"
     ],
     "avoid_patterns": [
-      "go-wide only",
-      "low protection"
-    ]
+      "too many unrelated creatures",
+      "low protection",
+      "go-wide only"
+    ],
+    "engine_notes": "Single-target buffs score high only when the commander or deck cares about individual power, damage, or safe attacks."
   },
-
   "group_hug": {
-    "description": "Gives all players resources while preparing a hidden win condition.",
-    "primary_goal": "Accelerate the table while setting up a political or alternate win.",
+    "description": "Gives resources to the table while aiming for politics, protected engines, or hidden wins.",
+    "primary_goal": "Shape table behavior and prepare a win condition while giving shared resources.",
     "packages": {
-      "shared_draw": { "min": 5, "ideal": 8 },
-      "shared_mana": { "min": 4, "ideal": 7 },
-      "political_tools": { "min": 5, "ideal": 8 },
-      "protection": { "min": 5, "ideal": 8 },
-      "win_conditions": { "min": 2, "ideal": 4 }
+      "shared_resources": {
+        "min": 5,
+        "ideal": 10
+      },
+      "political_tools": {
+        "min": 4,
+        "ideal": 8
+      },
+      "defense": {
+        "min": 5,
+        "ideal": 9
+      },
+      "card_advantage": {
+        "min": 6,
+        "ideal": 10
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 8
+      },
+      "win_conditions": {
+        "min": 1,
+        "ideal": 4
+      }
     },
     "preferred_card_patterns": [
       "each player draws",
       "each player may",
-      "at the beginning of each player's",
       "any player may",
-      "everyone"
+      "at the beginning of each player's",
+      "vote",
+      "council's dilemma"
     ],
     "avoid_patterns": [
-      "hard stax",
-      "early aggression"
-    ]
+      "giving resources without a win plan",
+      "hard stax unless user requests it"
+    ],
+    "engine_notes": "The deck must have a clear way to profit more than opponents from shared resources."
   },
-
   "group_slug": {
-    "description": "Punishes everyone equally through life loss, damage, discard, or resource pressure.",
-    "primary_goal": "Drain the whole table with symmetrical punishment effects.",
+    "description": "Punishes the table with symmetrical or opponent-focused damage, drain, discard, taxes, or resource pressure.",
+    "primary_goal": "Apply repeated pressure to all opponents and survive the backlash.",
     "packages": {
-      "life_loss_engines": { "min": 8, "ideal": 12 },
-      "punisher_effects": { "min": 8, "ideal": 12 },
-      "damage_multipliers": { "min": 3, "ideal": 5 },
-      "protection": { "min": 4, "ideal": 7 },
-      "removal": { "min": 6, "ideal": 8 }
+      "punisher_effects": {
+        "min": 8,
+        "ideal": 14
+      },
+      "life_loss_or_damage": {
+        "min": 6,
+        "ideal": 12
+      },
+      "damage_multipliers": {
+        "min": 1,
+        "ideal": 4
+      },
+      "protection_lifegain": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
       "each opponent loses",
       "each player loses",
       "whenever an opponent",
       "deals damage to each",
-      "discard a card"
+      "discard a card",
+      "whenever a player"
     ],
     "avoid_patterns": [
       "group hug",
-      "lifegain-only plan"
-    ]
+      "lifegain-only plan",
+      "effects that hurt you more than opponents"
+    ],
+    "engine_notes": "Score symmetrical effects based on whether the deck is built to survive or break parity."
   },
-
   "reanimator": {
-    "description": "Uses the graveyard to cheat expensive creatures into play.",
-    "primary_goal": "Fill the graveyard and return powerful cards to the battlefield.",
+    "description": "Uses graveyard setup and recursion to return important threats or value permanents.",
+    "primary_goal": "Put the right cards into the graveyard, then bring them back ahead of rate.",
     "packages": {
-      "graveyard_fill": { "min": 8, "ideal": 12 },
-      "reanimation": { "min": 8, "ideal": 12 },
-      "big_targets": { "min": 8, "ideal": 12 },
-      "sacrifice_discard_outlets": { "min": 4, "ideal": 7 },
-      "protection": { "min": 3, "ideal": 5 }
+      "graveyard_fill": {
+        "min": 7,
+        "ideal": 12
+      },
+      "discard_or_sacrifice_outlets": {
+        "min": 3,
+        "ideal": 7
+      },
+      "recursion_reanimation": {
+        "min": 6,
+        "ideal": 11
+      },
+      "targets_or_value_pieces": {
+        "min": 7,
+        "ideal": 12
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "graveyard_resilience": {
+        "min": 0,
+        "ideal": 3
+      }
     },
     "preferred_card_patterns": [
       "from your graveyard",
-      "return target creature card",
+      "return target",
       "put into your graveyard",
       "mill",
       "discard",
       "reanimate"
     ],
     "avoid_patterns": [
-      "graveyard hate",
-      "low target count"
-    ]
+      "exile your own graveyard",
+      "low target count",
+      "graveyard hate unless asymmetrical"
+    ],
+    "engine_notes": "Avoid graveyard exile unless it is a deliberate finisher or emergency meta answer."
   },
-
   "mill": {
-    "description": "Attempts to empty opponents' libraries.",
-    "primary_goal": "Mill opponents until they lose from drawing from an empty library.",
+    "description": "Wins by emptying opponents' libraries or using milled cards as a resource.",
+    "primary_goal": "Mill opponents consistently while surviving long enough to finish.",
     "packages": {
-      "mill_engines": { "min": 10, "ideal": 16 },
-      "graveyard_payoffs": { "min": 5, "ideal": 8 },
-      "control": { "min": 6, "ideal": 10 },
-      "protection": { "min": 3, "ideal": 5 },
-      "alternate_finishers": { "min": 2, "ideal": 4 }
+      "mill_engines": {
+        "min": 8,
+        "ideal": 14
+      },
+      "burst_mill": {
+        "min": 2,
+        "ideal": 6
+      },
+      "graveyard_payoffs": {
+        "min": 3,
+        "ideal": 8
+      },
+      "interaction": {
+        "min": 6,
+        "ideal": 10
+      },
+      "protection": {
+        "min": 2,
+        "ideal": 5
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 4
+      }
     },
     "preferred_card_patterns": [
-      "mills",
       "mill",
+      "mills",
       "puts the top",
-      "graveyard",
       "library",
-      "exile cards from graveyards"
+      "graveyard",
+      "for each card type"
     ],
     "avoid_patterns": [
-      "combat-only wincon"
-    ]
+      "combat-only wincon",
+      "graveyard hate that shuts off your own payoffs"
+    ],
+    "engine_notes": "If the deck uses opponents' graveyards as resources, avoid broad graveyard exile."
   },
-
   "theft": {
-    "description": "Steals or copies opponents' cards and uses their power against them.",
-    "primary_goal": "Scale with the table by taking opponents' best resources.",
+    "description": "Steals, copies, casts, or uses opponents' cards and resources.",
+    "primary_goal": "Scale with the strongest cards at the table by borrowing or copying them.",
     "packages": {
-      "steal_effects": { "min": 8, "ideal": 14 },
-      "copy_effects": { "min": 4, "ideal": 8 },
-      "control_magic": { "min": 4, "ideal": 8 },
-      "protection": { "min": 4, "ideal": 6 },
-      "removal": { "min": 6, "ideal": 8 }
+      "steal_effects": {
+        "min": 6,
+        "ideal": 12
+      },
+      "copy_effects": {
+        "min": 3,
+        "ideal": 8
+      },
+      "cast_opponents_cards": {
+        "min": 4,
+        "ideal": 9
+      },
+      "interaction": {
+        "min": 6,
+        "ideal": 10
+      },
+      "protection": {
+        "min": 3,
+        "ideal": 6
+      },
+      "finishers": {
+        "min": 1,
+        "ideal": 4
+      }
     },
     "preferred_card_patterns": [
       "gain control",
@@ -257,43 +478,85 @@
       "you may cast",
       "from exile",
       "copy target",
-      "create a token that's a copy"
+      "token that's a copy"
     ],
     "avoid_patterns": [
-      "self-contained tribal only"
-    ]
+      "self-contained tribal only",
+      "cards that depend on your own narrow tribe unless detail supports it"
+    ],
+    "engine_notes": "Theft decks need flexible answers because the win condition depends on board state and opponents."
   },
-
   "tribal": {
-    "description": "Built around one creature type and its internal synergies.",
-    "primary_goal": "Use creature type synergies, lords, and tribal payoffs to overwhelm opponents.",
+    "description": "Built around a user-selected creature type and its internal synergies.",
+    "requires_user_detail": "creature_type",
+    "primary_goal": "Use creature density, lords, type payoffs, and go-wide scaling to win.",
     "packages": {
-      "tribal_creatures": { "min": 24, "ideal": 30 },
-      "tribal_lords": { "min": 4, "ideal": 8 },
-      "tribal_payoffs": { "min": 6, "ideal": 10 },
-      "card_draw": { "min": 8, "ideal": 10 },
-      "removal": { "min": 6, "ideal": 8 }
+      "tribal_creatures": {
+        "min": 20,
+        "ideal": 28
+      },
+      "tribal_payoffs": {
+        "min": 5,
+        "ideal": 9
+      },
+      "tribal_engines": {
+        "min": 3,
+        "ideal": 7
+      },
+      "card_advantage": {
+        "min": 7,
+        "ideal": 11
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
-      "creatures you control",
+      "{creature_type}",
       "choose a creature type",
-      "other",
-      "you control get",
-      "whenever a",
-      "tribal"
+      "creatures of the chosen type",
+      "creatures you control get",
+      "whenever a {creature_type}"
     ],
-    "requires_user_detail": "creature type, e.g. Goblins, Zombies, Elves, Dragons"
+    "avoid_patterns": [
+      "too many off-tribe creatures",
+      "tribal payoffs without enough tribe density"
+    ],
+    "engine_notes": "User detail must define the creature type. Do not hardcode specific tribes."
   },
-
   "tokens": {
-    "description": "Creates many creature tokens and wins through mass buffs, sacrifice, or combat.",
-    "primary_goal": "Go wide with tokens and turn them into lethal pressure or value.",
+    "description": "Creates many creature tokens and wins through mass buffs, sacrifice value, or combat.",
+    "primary_goal": "Go wide and convert token volume into pressure, value, drain, or lethal swings.",
     "packages": {
-      "token_makers": { "min": 12, "ideal": 18 },
-      "token_payoffs": { "min": 6, "ideal": 10 },
-      "anthem_effects": { "min": 4, "ideal": 8 },
-      "board_protection": { "min": 3, "ideal": 5 },
-      "finishers": { "min": 3, "ideal": 5 }
+      "token_makers": {
+        "min": 10,
+        "ideal": 16
+      },
+      "token_payoffs": {
+        "min": 5,
+        "ideal": 10
+      },
+      "token_multipliers": {
+        "min": 1,
+        "ideal": 4
+      },
+      "board_protection": {
+        "min": 2,
+        "ideal": 5
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
     },
     "preferred_card_patterns": [
       "create",
@@ -301,22 +564,42 @@
       "creatures you control get",
       "populate",
       "whenever one or more tokens",
-      "double"
+      "twice that many"
     ],
     "avoid_patterns": [
-      "single-creature voltron only"
-    ]
+      "single-creature-only plan",
+      "single buffs unless commander wants individual power"
+    ],
+    "engine_notes": "Token makers score higher when the tokens are converted into damage, mana, cards, sacrifice value, or board pressure."
   },
-
   "infect": {
-    "description": "Wins by giving opponents poison counters instead of dealing normal combat damage.",
-    "primary_goal": "Apply poison counters quickly and finish players through infect or proliferate.",
+    "description": "Wins by applying poison counters through infect, toxic, combat, or proliferate.",
+    "primary_goal": "Apply poison counters early and finish through pump, evasion, proliferate, or repeated pressure.",
     "packages": {
-      "infect_creatures": { "min": 8, "ideal": 12 },
-      "pump_spells": { "min": 6, "ideal": 10 },
-      "proliferate": { "min": 4, "ideal": 8 },
-      "protection": { "min": 5, "ideal": 8 },
-      "evasion": { "min": 4, "ideal": 7 }
+      "poison_sources": {
+        "min": 7,
+        "ideal": 12
+      },
+      "pump_or_scaling": {
+        "min": 5,
+        "ideal": 9
+      },
+      "proliferate": {
+        "min": 3,
+        "ideal": 7
+      },
+      "evasion": {
+        "min": 3,
+        "ideal": 7
+      },
+      "protection": {
+        "min": 4,
+        "ideal": 8
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 7
+      }
     },
     "preferred_card_patterns": [
       "infect",
@@ -327,7 +610,9 @@
       "gets +"
     ],
     "avoid_patterns": [
-      "slow battlecruiser"
-    ]
+      "slow battlecruiser with no poison support",
+      "too few poison sources"
+    ],
+    "engine_notes": "The first poison counter matters; proliferate is weak if the deck cannot reliably apply poison."
   }
 }

@@ -43,12 +43,11 @@ def can_be_commander(card: Dict[str, Any]) -> bool:
 
 def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """Transforms a raw Scryfall card dict into our internal format."""
+    raw_oracle_id = card.get("oracle_id")
+    name = card.get("name", "")
     return {
-        "scryfall_id": card.get("id"),
-        "oracle_id": card.get("oracle_id"),
-        "name": card.get("name"),
-        "set_code": card.get("set"),
-        "collector_number": card.get("collector_number"),
+        "oracle_id": raw_oracle_id if raw_oracle_id else f"name:{name.lower()}",
+        "name": name,
         "mana_cost": card.get("mana_cost", ""),
         "mana_value": card.get("cmc", 0),
         "type_line": get_type_line(card),
@@ -57,7 +56,6 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         "color_identity": card.get("color_identity", []),
         "commander_legal": card.get("legalities", {}).get("commander") == "legal",
         "can_be_commander": can_be_commander(card),
-        "rarity": card.get("rarity"),
         "usd_price": card.get("prices", {}).get("usd"),
         "layout": card.get("layout"),
         "games": card.get("games", []),

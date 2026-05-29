@@ -4,6 +4,14 @@ from rich import print
 from typing import Optional, List
 from pathlib import Path
 from mtgcli.config import PROJECT_ROOT, RAW_CARDS_PATH, SQLITE_PATH, SEED_DATA_DIR
+from mtgcli.explore.client import build_explore_url, fetch_commander_page
+from mtgcli.explore.cleaner import extract_target_cards_from_html
+from mtgcli.utils.temp_cleaner import clean_output_files
+from mtgcli.export.final_builds import (
+    normalize_bracket, next_final_build_path, save_final_build,
+    deck_entries_to_moxfield_text, sanitize_filename_part
+)
+from mtgcli.config import FINAL_BUILDS_DIR
 from mtgcli.data.download_cards import download_default_cards
 from mtgcli.data.build_sqlite import build_sqlite_database
 from mtgcli.cards.repository import CardRepository
@@ -63,7 +71,7 @@ def card(
             print(json.dumps(card_data, indent=2))
         else:
             print(f"[bold blue]{card_data['name']}[/bold blue] {card_data['mana_cost']}")
-            print(f"[italic]{card_data['type_line']}[/italic] ({card_data['rarity']})")
+            print(f"[italic]{card_data['type_line']}[/italic]")
             print("-" * 20)
             print(card_data["oracle_text"])
             if card_data["usd_price"]:
@@ -100,7 +108,7 @@ def search(
     else:
         print(f"[bold blue]Found {len(results)} cards:[/bold blue]")
         for card in results:
-            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']} | {card['set_code']} #{card['collector_number']}")
+            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}")
 
 
 @app.command()
@@ -126,7 +134,7 @@ def search_tags(
     else:
         print(f"[bold blue]Found {len(results)} cards for tags {', '.join(tags)}:[/bold blue]")
         for card in results:
-            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']} | {card['set_code']} #{card['collector_number']}")
+            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}")
 
 
 @app.command()
@@ -253,8 +261,8 @@ def suggest(
         # Define output fields for clean JSON
         output_fields = [
             "name", "mana_cost", "mana_value", "type_line", "oracle_text",
-            "color_identity", "set_code", "collector_number", "usd_price",
-            "suggestion_score", "matched_tags", "reason_hint"
+            "colors", "color_identity", "commander_legal", "can_be_commander",
+            "usd_price", "suggestion_score", "matched_tags", "reason_hint"
         ]
         json_results = []
         for card in final_results:
@@ -411,7 +419,7 @@ def deck_check(
         for entry in deck_entries:
             name = entry.get("name")
             if not name: continue
-            card = repo.get_card_by_exact_match(name, entry.get("set_code"), entry.get("collector_number"))
+            card = repo.get_card_by_exact_name(name)
             if card:
                 card["quantity"] = entry.get("quantity", 1)
                 deck_cards.append(card)
@@ -486,6 +494,206 @@ def theme_info(
             ideal = package_data.get("ideal")
             minimum = package_data.get("min")
             print(f"- {package_name}: min {minimum}, ideal {ideal}")
+
+
+@app.command()
+def explore(
+    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    save_raw: Optional[Path] = typer.Option(None, "--save-raw", help="Save raw HTML to this path for debugging"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
+):
+    """Fetch community card recommendations for a commander from EDHREC."""
+    if not commander.strip():
+        print("[red]Commander name cannot be empty.[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        url = build_explore_url(commander)
+    except ValueError as e:
+        print(f"[red]Configuration error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        html = fetch_commander_page(url)
+    except Exception as e:
+        print(f"[red]Failed to fetch page: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    if save_raw:
+        save_raw.parent.mkdir(parents=True, exist_ok=True)
+        save_raw.write_text(html, encoding="utf-8")
+
+    cards = extract_target_cards_from_html(html)
+
+    # Optional: hydrate card names against local DB
+    repo = CardRepository(str(SQLITE_PATH)) if SQLITE_PATH.exists() else None
+
+    def hydrate(names: List[str]) -> List[dict]:
+        result = []
+        for name in names:
+            entry: dict = {"name": name}
+            if repo:
+                card_data = repo.get_card_by_exact_name(name)
+                if card_data:
+                    entry["found_in_database"] = True
+                    entry["commander_legal"] = card_data.get("commander_legal", False)
+                    entry["color_identity"] = card_data.get("color_identity", [])
+                else:
+                    entry["found_in_database"] = False
+            result.append(entry)
+        return result
+
+    NOTE = "Community recommendations only. These are candidates, not mandatory includes."
+
+    if json_output:
+        output = {
+            "commander": commander,
+            "source_url": url,
+            "high_synergy": hydrate(cards["high_synergy"]),
+            "top_cards": hydrate(cards["top_cards"]),
+            "note": NOTE,
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        print(f"[bold blue]Commander:[/bold blue] {commander}")
+        print(f"[bold blue]Source:[/bold blue] {url}")
+        print()
+        print("[bold]High Synergy:[/bold]")
+        for name in cards["high_synergy"]:
+            print(f"- {name}")
+        print()
+        print("[bold]Top Cards:[/bold]")
+        for name in cards["top_cards"]:
+            print(f"- {name}")
+        print()
+        print(f"[italic yellow]Note: {NOTE}[/italic yellow]")
+
+
+@app.command()
+def temp_clean(
+    output_dir: Path = typer.Option(Path("output"), "--output-dir", help="Output directory to clean"),
+    full: bool = typer.Option(False, "--full", help="Delete all files, including final deck artifacts"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation for --full"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="List what would be deleted without deleting"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON"),
+):
+    """Clean temporary and/or generated files from the output directory."""
+    if not output_dir.exists():
+        msg = f"Output directory '{output_dir}' does not exist."
+        if json_output:
+            print(json.dumps({"error": msg, "mode": "full" if full else "normal", "dry_run": dry_run,
+                              "deleted_count": 0, "matched_count": 0, "preserved_files": [], "files": []}))
+        else:
+            print(f"[yellow]{msg}[/yellow]")
+        return
+
+    if full and not dry_run and not yes:
+        import sys
+        print(f"[bold yellow]WARNING:[/bold yellow] Full clean will delete all files inside {output_dir}/ except .gitkeep.")
+        print("This includes final deck artifacts like deck.json and deck.moxfield.txt.")
+        if not sys.stdin.isatty():
+            print("[red]Non-interactive environment. Rerun with --yes to confirm.[/red]")
+            raise typer.Exit(code=1)
+        confirm = typer.prompt("Continue? [y/N]", default="N")
+        if confirm.strip().lower() != "y":
+            print("[yellow]Cancelled.[/yellow]")
+            return
+
+    report = clean_output_files(output_dir=output_dir, full=full, dry_run=dry_run)
+
+    if json_output:
+        print(json.dumps(report, indent=2))
+        return
+
+    mode_label = "full clean" if full else "temp files"
+    action = "Dry run:" if dry_run else ""
+    count = report["matched_count"] if dry_run else report["deleted_count"]
+    verb = "would be deleted" if dry_run else "deleted"
+
+    if count == 0:
+        print(f"[green]No files to clean in {output_dir}/[/green]")
+        return
+
+    if full:
+        if dry_run:
+            print(f"[yellow]Dry run: full clean would delete {count} files from {output_dir}/[/yellow]")
+        else:
+            print(f"[green]Full clean {verb} {count} files from {output_dir}/[/green]")
+        if report["preserved_files"]:
+            print("[bold]Preserved:[/bold]")
+            for f in report["preserved_files"]:
+                print(f"  - {f}")
+        if dry_run:
+            print("[bold]Would delete:[/bold]")
+            for f in report["files"]:
+                print(f"  - {f}")
+    else:
+        if dry_run:
+            print(f"[yellow]Dry run: {count} temp files would be deleted from {output_dir}/[/yellow]")
+        else:
+            print(f"[green]{count} temp files deleted from {output_dir}/[/green]")
+        for f in report["files"]:
+            print(f"  - {f}")
+
+
+@app.command()
+def final_build(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to deck JSON file"),
+    commander: str = typer.Option(..., "--commander", help="Commander name"),
+    theme: str = typer.Option(..., "--theme", help="Deck theme or archetype"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Power bracket: T1, T2, T3, or T4"),
+    power_level: Optional[str] = typer.Option(None, "--power-level", help="Power level label (e.g. casual, competitive)"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON"),
+):
+    """Validate a deck and save as a final versioned Moxfield decklist in final-builds/."""
+    if not deck_path.exists():
+        msg = f"Deck file not found: {deck_path}"
+        if json_output:
+            print(json.dumps({"validated": False, "saved": False, "path": None, "errors": [{"message": msg}]}))
+        else:
+            print(f"[red]{msg}[/red]")
+        raise typer.Exit(code=1)
+
+    deck_entries = read_json(deck_path)
+    repo = CardRepository(str(SQLITE_PATH))
+    report = validate_commander_deck(commander, deck_entries, repo)
+
+    if not report["valid"]:
+        if json_output:
+            print(json.dumps({"validated": False, "saved": False, "path": None,
+                              "errors": report.get("errors", [])}))
+        else:
+            print("[bold red]Validation failed. Final build was not saved.[/bold red]")
+            print("See validation report for details.")
+            for err in report.get("errors", [])[:5]:
+                print(f"  - [red]{err['type']}[/red]: {err.get('message', '')}")
+        raise typer.Exit(code=1)
+
+    resolved_bracket = normalize_bracket(power_level=power_level, bracket=bracket)
+    decklist_text = deck_entries_to_moxfield_text(deck_entries)
+    saved_path = save_final_build(
+        decklist_text=decklist_text,
+        commander=commander,
+        theme=theme,
+        bracket=resolved_bracket,
+        final_builds_dir=FINAL_BUILDS_DIR,
+    )
+
+    version = saved_path.stem.rsplit("-", 1)[-1]
+
+    if json_output:
+        print(json.dumps({
+            "validated": True,
+            "saved": True,
+            "path": str(saved_path),
+            "commander": commander,
+            "theme": theme,
+            "bracket": resolved_bracket,
+            "version": version,
+        }))
+    else:
+        print("[bold green]Deck validated successfully.[/bold green]")
+        print(f"Final build saved to: [bold]{saved_path}[/bold]")
 
 
 if __name__ == "__main__":

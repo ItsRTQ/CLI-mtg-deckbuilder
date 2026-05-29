@@ -91,9 +91,103 @@ mtg validate --commander "<commander>" --deck output/deck.json --json-output
 mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
 mtg enrich output/deck.json --output output/deck.enriched.json
 mtg export output/deck.json --output output/deck.moxfield.txt
+mtg explore --commander "<commander>" --json-output
+mtg final-build --deck output/deck.json --commander "<commander>" --theme "<theme>" --bracket T4
 ```
 
 If package-aware commands exist, prefer them. If not, use `search` and normal `suggest` to approximate package searches.
+
+---
+
+## Output Directories
+
+| Directory | Purpose |
+|---|---|
+| `output/` | Working files: deck.json, deck.enriched.json, validation_report.json, etc. |
+| `final-builds/` | Finalized, validated Moxfield decklists only. Never overwritten. |
+
+**Never save to `final-builds/` unless validation passes.**
+
+---
+
+## Final Build Command
+
+After a deck is complete and passes validation, save it as a final versioned decklist:
+
+```bash
+mtg final-build \
+  --deck output/deck.json \
+  --commander "Edgar Markov" \
+  --theme "Tribal" \
+  --bracket T4
+```
+
+Or using a power level label instead of bracket:
+
+```bash
+mtg final-build \
+  --deck output/deck.json \
+  --commander "Edgar Markov" \
+  --theme "Tribal" \
+  --power-level casual
+```
+
+Bracket mapping:
+
+| Power Label | Bracket |
+|---|---|
+| competitive, cedh | T1 |
+| highly_optimized, high_power | T2 |
+| optimized_casual, precon_optimized | T3 |
+| casual, precon, precon_level | T4 |
+
+Filenames are versioned automatically:
+
+```text
+Edgar-Markov-Tribal-T4-v1.txt
+Edgar-Markov-Tribal-T4-v2.txt
+```
+
+Old builds are never overwritten. Final builds use simple Moxfield format (`1 Card Name`) with no set codes or collector numbers.
+
+---
+
+## Community Recommendations: explore command
+
+The `explore` command fetches community card data for a commander from EDHREC.
+
+```bash
+mtg explore --commander "Omnath, Locus of Rage" --json-output
+```
+
+Output shape:
+
+```json
+{
+  "commander": "Omnath, Locus of Rage",
+  "source_url": "...",
+  "high_synergy": [{"name": "...", "found_in_database": true, "commander_legal": true, "color_identity": []}],
+  "top_cards": [...],
+  "note": "Community recommendations only. These are candidates, not mandatory includes."
+}
+```
+
+### How to use explore output
+
+- Use `high_synergy` and `top_cards` as **additional candidates** during card ranking.
+- Treat them as **community signal** — popular choices that often work well.
+- Cross-reference against your package plan and role analysis.
+- Run each candidate through `mtg card "<name>" --json-output` if you need full gameplay data.
+
+### What explore output is NOT
+
+- Not an auto-include list.
+- Not a replacement for role balance (ramp, draw, removal, protection).
+- Not a replacement for color identity or legality checks.
+- Not a replacement for commander engine analysis.
+- Not authoritative — community data can include suboptimal, budget-unfriendly, or meta-specific choices.
+
+If a community recommendation conflicts with user constraints (budget, power level, theme), ignore it.
 
 ---
 

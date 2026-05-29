@@ -42,11 +42,7 @@ def validate_commander_deck(
         if not name:
             continue
             
-        card_data = repo.get_card_by_exact_match(
-            name, 
-            entry.get("set_code"), 
-            entry.get("collector_number")
-        )
+        card_data = repo.get_card_by_exact_name(name)
         
         if not card_data:
             errors.append({

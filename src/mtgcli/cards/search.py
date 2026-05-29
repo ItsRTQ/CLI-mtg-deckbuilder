@@ -7,43 +7,21 @@ from mtgcli.cards.repository import row_to_card
 
 def dedupe_cards(cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Deduplicates a list of cards by oracle_id (or name), keeping the best printing.
-    Priority: Physical > Has Set/Collector # > Has Price > First Seen.
+    Deduplicates a list of cards by oracle_id (or name).
+    Prefers non-digital over digital when duplicates exist.
     """
-    best_prints = {}
+    seen: Dict[str, Dict[str, Any]] = {}
 
     for card in cards:
-        # 1. Identify identity
-        identity = card.get("oracle_id") or card.get("name", "").lower()
-        if not identity:
+        key = card.get("oracle_id") or card.get("name", "").lower()
+        if not key:
             continue
+        if key not in seen:
+            seen[key] = card
+        elif not card.get("digital") and seen[key].get("digital"):
+            seen[key] = card
 
-        if identity not in best_prints:
-            best_prints[identity] = card
-            continue
-
-        current_best = best_prints[identity]
-
-        # 2. Compare priority
-        # Priority criteria (lower index is better)
-        # 1. digital is False
-        # 2. has set_code and collector_number
-        # 3. has usd_price
-
-        def get_priority_score(c):
-            score = 0
-            if c.get("digital"):
-                score += 4
-            if not (c.get("set_code") and c.get("collector_number")):
-                score += 2
-            if not c.get("usd_price"):
-                score += 1
-            return score
-
-        if get_priority_score(card) < get_priority_score(current_best):
-            best_prints[identity] = card
-
-    return list(best_prints.values())
+    return list(seen.values())
 
 
 def search_commander_legal_cards(

@@ -1,21 +1,25 @@
 # Deck Explainer
 
-Your job is to explain the final validated Commander deck.
+Your job is to explain the final validated Commander deck in a practical way.
 
-Only explain the deck after validation passes.
+Only explain after validation passes.
 
-## Required explanation sections
+Do not invent card rulings, combos, or unsupported claims.
 
-Use these sections:
+---
+
+## Required Sections
+
+Use this structure:
 
 ```md
 # Deck Summary
 
 ## Commander
 
-## Archetype
+## Power Level and Budget
 
-## Detail
+## Archetype and Detail
 
 ## Validation
 
@@ -29,47 +33,44 @@ Use these sections:
 
 ## Weaknesses
 
+## How to Pilot
+
 ## Upgrade Ideas
 
 ## Moxfield Export
 ```
 
-## Section rules
+---
+
+## Section Rules
 
 ### Commander
 
-Name the commander and briefly explain what it wants to do.
+Explain what the commander wants to do based on its verified card text.
 
-### Archetype
-
-Explain the broad strategy.
-
-Examples:
+Focus on the engine:
 
 ```text
-This is a Tribal deck.
-This is a Voltron deck.
-This is a Reanimator deck.
-This is a Spellslinger deck.
+input -> engine action -> output -> win conversion
 ```
 
-### Detail
+### Power Level and Budget
 
-Explain the specific subtheme.
+State selected or assumed power level and budget.
 
-Examples:
+Mention assumptions clearly.
 
-```text
-Detail: Goblins.
-Detail: Modified creatures, Equipment, and Auras.
-Detail: Zombies, sacrifice, and graveyard value.
-```
+### Archetype and Detail
+
+Explain:
+
+- broad archetype
+- specific detail/subtheme
+- why this direction fits the commander/user request
 
 ### Validation
 
-Only say the deck is legal if the validator passed.
-
-Use:
+Use only:
 
 ```text
 Validation passed.
@@ -81,9 +82,13 @@ or:
 Validation failed. Do not use this deck yet.
 ```
 
+Do not say legal unless validator passed.
+
 ### Package Breakdown
 
-Explain the functional pieces of the deck:
+Explain functional packages, not every card.
+
+Use:
 
 ```text
 Enablers:
@@ -91,13 +96,17 @@ Payoffs:
 Engines:
 Finishers:
 Support:
+Ramp:
+Draw/Search:
+Removal:
+Protection:
 ```
 
-Do not list every card unless useful. Explain what each package is doing.
+Tutors/search should not be described as draw.
 
 ### Gameplan
 
-Explain the deck in practical game terms:
+Explain by turns/stages:
 
 ```text
 Early game:
@@ -107,51 +116,74 @@ Late game:
 
 ### Main Synergies
 
-List the main types of synergy, not every single card.
+Explain synergy patterns, not random card lists.
 
-Example:
-
-```text
-- Goblin body count plus tribal lords
-- Token generation plus mass pump
-- Equipment/Aura support plus commander combat pressure
-- Graveyard fill plus reanimation
-```
+Good explanations identify why the pieces work together.
 
 ### Win Conditions
 
-Explain how the deck actually wins.
+Clearly list each win path.
 
 Examples:
 
 ```text
-- Commander damage
-- Wide token board
-- Large combat swing
-- Aristocrat drain effects
-- Reanimated large threats
-- Spellslinger/storm payoff
+massive combat
+commander damage
+aristocrats drain
+mill
+combo
+control/stax lock
+value overwhelm
+big threats
+alternate win condition
 ```
+
+If the deck has incidental combos, say they are backup wins and not the whole plan.
 
 ### Weaknesses
 
 Be honest.
 
-Examples:
+Mention things like:
 
 ```text
-- Weak to board wipes
-- Can struggle if commander is repeatedly removed
-- May need more card draw if games go long
-- Graveyard decks are weak to graveyard hate
-- Voltron decks are vulnerable to edict effects and exile removal
+commander dependency
+weak to board wipes
+graveyard hate
+artifact/enchantment hate
+slow starts
+lack of flyers/reach
+weak to exile removal
+budget mana base limitations
 ```
+
+### How to Pilot
+
+Give practical advice:
+
+- what hands to keep
+- what to develop early
+- when to cast commander
+- what to protect
+- when to go for win
+
+Keep it concise.
 
 ### Upgrade Ideas
 
-Suggest general upgrade directions, not invented cards.
+Do not invent cards.
 
-If suggesting specific cards, they must already exist in the deck data or be checked through the CLI.
+If suggesting specific cards, verify through CLI first.
+
+If not verified, suggest upgrade categories instead:
+
+```text
+better mana base
+more efficient interaction
+stronger tutors
+more protection
+higher-impact finishers
+```
 
 ### Moxfield Export
 
@@ -161,17 +193,22 @@ Point to:
 output/deck.moxfield.txt
 ```
 
+---
+
 ## Tone
 
 Be clear and practical.
 
-Do not overhype the deck.
+Do not overhype.
+
+Do not claim the deck is stronger than it is.
+
+---
 
 ## Rules
 
-- Do not say the deck is validated unless validation passed.
-- Do not invent combos.
-- Do not invent card rulings.
-- Do not explain cards that are not in the deck.
-- Keep the explanation useful for a player who wants to pilot the deck.
-- If deck-check warnings remain, mention them honestly.
+- Explain only after validation passes.
+- Do not invent cards or combos.
+- Do not explain cards not in the deck.
+- Mention deck-check warnings honestly.
+- Make the explanation useful for piloting.

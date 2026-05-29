@@ -1,162 +1,209 @@
-# Agent Usage Guide
+# AGENT_USAGE
 
-This project is a local MTG Commander deckbuilding tool.
+This project uses a local `mtg` CLI tool plus agent instruction files to build Magic: The Gathering Commander decks.
 
-The agent should use the markdown files in `agents/` as behavior instructions and use the Python CLI commands as the source of truth.
+The `mtg` CLI is the source of truth for card data, legality, candidate search, validation, deck-check, enrichment, and export.
 
-## Deck identity model
+The agent is responsible for deckbuilding judgment.
 
-When the user asks for a deck, separate the request into:
+---
 
-```text
-Commander + Archetype + Detail + Constraints
-```
+## Recommended Agent File Reading Order
 
-Examples:
+Read these files in order:
 
 ```text
-Commander: Krenko, Mob Boss
-Archetype: Tribal
-Detail: Goblins
-Constraints: 33 lands
+agents/system.md
+agents/user-feedback.md
+agents/commander_analyzer.md
+agents/theme_detector.md
+agents/card_ranker.md
+agents/deck_builder.md
+agents/deck_fixer.md
+agents/deck_explainer.md
 ```
+
+---
+
+## Core Build Model
+
+Use:
 
 ```text
-Commander: Chishiro, the Shattered Blade
-Archetype: Voltron
-Detail: Modified creatures, Equipment, Auras, +1/+1 counters
+Commander + Archetype + Detail + Constraints + User Feedback
 ```
+
+Do not use commander-specific templates.
+
+Build from the commander's actual engine:
 
 ```text
-Commander: Wilhelt, the Rotcleaver
-Archetype: Reanimator or Tribal
-Detail: Zombies, sacrifice, graveyard value
+What does the commander ask for?
+What resources does it use?
+What events trigger it?
+What card types does it prefer?
+What protects the engine?
+What wins the game?
 ```
 
-## Main workflow
+---
 
-When the user asks:
+## User Feedback First
+
+If the user request is missing important preferences, use `agents/user-feedback.md`.
+
+Ask only useful multiple-choice questions.
+
+Always include `Agent choice`.
+
+Default maximum: 3 questions before deckbuilding.
+
+Important questions:
 
 ```text
-Build a deck with <commander> as commander.
+power level
+budget
+build direction if commander has multiple paths
+specific include/exclude cards or effects
+combo policy
+tutor policy
+mana base quality
 ```
 
-Do this:
+If the user does not answer, choose a reasonable option and continue.
 
-1. Read `agents/system.md`.
-2. Read `agents/commander_analyzer.md`.
-3. Look up the commander:
+---
+
+## CLI Workflow
+
+Typical commands:
 
 ```bash
 mtg card "<commander>" --json-output
-```
-
-4. Analyze the commander using the returned JSON.
-5. Read `agents/theme_detector.md`.
-6. Determine commander, archetype, detail, and constraints.
-7. Search/suggest candidate cards by role:
-
-```bash
-mtg suggest --commander "<commander>" --role ramp --json-output
-mtg suggest --commander "<commander>" --role card_draw --json-output
-mtg suggest --commander "<commander>" --role removal --json-output
-mtg suggest --commander "<commander>" --role board_wipe --json-output
-mtg suggest --commander "<commander>" --role protection --json-output
-```
-
-8. For strategy cards, prefer package-based suggestions if the CLI supports them:
-
-```bash
-mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package enablers --detail "<detail>" --json-output
-mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package payoffs --detail "<detail>" --json-output
-mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package engines --detail "<detail>" --json-output
-mtg suggest --commander "<commander>" --role synergy --archetype "<archetype>" --package finishers --detail "<detail>" --json-output
-```
-
-If the CLI uses `--theme` instead of `--archetype`, use the supported option.
-
-9. Read `agents/card_ranker.md`.
-10. Rank candidate cards by function:
-
-```text
-enabler
-payoff
-engine
-finisher
-support
-ramp
-draw
-removal
-protection
-```
-
-11. Read `agents/deck_builder.md`.
-12. Create `output/deck.json`.
-13. Validate:
-
-```bash
+mtg search "<query>" --colors "<colors>" --limit 30 --json-output
+mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
+mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
+mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
+mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
+mtg suggest --commander "<commander>" --role synergy --limit 60 --json-output
+mtg suggest-lands --commander "<commander>" --count <count> --json-output
 mtg validate --commander "<commander>" --deck output/deck.json --json-output
-```
-
-14. If validation fails:
-    - read `agents/deck_fixer.md`
-    - fix `output/deck.json`
-    - validate again
-
-15. Run deck-check if available:
-
-```bash
-mtg deck-check --commander "<commander>" --deck output/deck.json --archetype "<archetype>" --json-output
-```
-
-If the CLI uses `--theme`, use the supported option.
-
-16. If deck-check reports major issues:
-    - fix package balance
-    - validate again
-
-17. Export:
-
-```bash
+mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
+mtg enrich output/deck.json --output output/deck.enriched.json
 mtg export output/deck.json --output output/deck.moxfield.txt
 ```
 
-18. Read `agents/deck_explainer.md`.
-19. Create final explanation:
+If package-aware commands exist, prefer them. If not, use `search` and normal `suggest` to approximate package searches.
+
+---
+
+## Required Build Steps
+
+1. Parse user request.
+2. Ask user-feedback questions if useful.
+3. Look up commander with CLI.
+4. Confirm legality and commander eligibility.
+5. Analyze commander engine.
+6. Detect archetype/detail/constraints.
+7. Build package plan.
+8. Search candidates by role and package.
+9. Rank candidates.
+10. Build 100-card deck.
+11. Save `output/deck.json`.
+12. Validate.
+13. Fix errors.
+14. Run deck-check.
+15. Fix major coherence issues.
+16. Export only after validation passes.
+17. Explain deck.
+
+---
+
+## Generic Deckbuilding Defaults
+
+### Lands
+
+Calculate after nonlands:
 
 ```text
-output/deck_explanation.md
+base 32
++1 per commander color, max +3
++0 if avg MV 0.0–2.6
++1 if avg MV 2.7–3.3
++2 if avg MV 3.4+
 ```
 
-## User constraints
+Landfall/landsmatter:
 
-If the user gives specific constraints, apply them before using the default deck skeleton.
+```text
+38–42 lands
+```
 
-Examples:
+### Ramp
 
-- "33 lands" means use exactly 33 lands.
-- "12 ramp cards" means use exactly 12 ramp cards.
-- "more ramp" means increase ramp count above the default.
-- "less removal" means reduce removal count below the default.
-- "more creatures" means prioritize creature cards.
-- "more Goblins" means prioritize Goblin cards.
-- "more equipment" means increase Equipment cards.
-- "fewer board wipes" means reduce board wipe count.
-- "avoid infinite combos" means avoid combo-focused win conditions.
-- "budget $100" means prefer cheaper cards if price data exists.
-- "casual" means avoid overly optimized fast mana/tutor-heavy choices.
-- "high power" means allow stronger staples and more efficient cards.
+```text
+9 minimum
+```
 
-User constraints override the default skeleton unless they would make the deck invalid.
+Prefer at least 5 rocks when appropriate, including Sol Ring and Arcane Signet unless user/theme/budget says otherwise.
 
-Always preserve:
+### Draw
 
-- exactly 100 cards total
-- commander legality
-- color identity legality
-- singleton rule
-- no banned cards
+Tutors are search, not draw.
 
-## Required rule
+Increase draw for low-curve, spell-heavy, or hand-emptying decks.
 
-Never give the user a final deck until validation passes.
+### Removal
+
+```text
+5–15 total interaction/removal
+spot removal: 2–4
+board wipes: 1 default, 3 max
+artifact/enchantment removal: 0–2
+graveyard hate: 0–1 unless meta requires more
+```
+
+### Protection
+
+```text
+0–5 default
+```
+
+Increase when commander is central, must attack/connect, or deck fails without it.
+
+### Win Conditions
+
+```text
+1–5 win paths
+```
+
+Explain each win path clearly.
+
+---
+
+## Power Brackets
+
+```text
+Casual = precon/precon-level, no infinite combos, no tutors by default
+Optimized Casual = upgraded precon, 1–2 tutors if useful, no infinite combos, medium+ synergy
+High Power = high synergy, tutors allowed, 1–2 incidental combos allowed
+cEDH = no budget by default, best legal options, unrestricted combos/tutors
+```
+
+---
+
+## Final Output
+
+Only final after validation passes.
+
+Include:
+
+- deck export path
+- commander
+- archetype/detail
+- power/budget assumptions
+- validation status
+- gameplan
+- package breakdown
+- win conditions
+- weaknesses/warnings

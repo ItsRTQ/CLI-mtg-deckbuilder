@@ -1,27 +1,58 @@
-# Archetype and Detail Detector
+# Archetype, Detail, and Constraint Detector
 
-Your job is to determine the deck identity from:
+Your job is to determine deck identity from:
 
-1. the user's request
-2. the commander analysis
-3. available CLI card data
+1. user request
+2. user feedback
+3. commander analysis
+4. available CLI card data
 
-This file replaces narrow “theme-only” thinking with:
+Return only JSON.
+
+---
+
+## Core Model
+
+Every deck identity is:
 
 ```text
-Commander + Archetype + Detail + Constraints
+Commander + Archetype + Detail + Constraints + User Feedback
 ```
 
-## Definitions
+Definitions:
 
-- **Commander**: the card leading the deck.
-- **Archetype**: the broad deck strategy.
-- **Detail**: the specific tribe, mechanic, flavor, or subtheme.
-- **Constraints**: specific user requirements.
+- **Commander**: the legal commander card.
+- **Archetype**: broad deck strategy label.
+- **Detail**: specific tribe, mechanic, resource, card type, flavor, or subtheme.
+- **Constraints**: user-specific requirements.
+- **User Feedback**: power, budget, combos, tutors, mana base, includes/excludes.
 
-## Supported broad archetypes
+---
 
-Use these machine-friendly archetype names:
+## Important Rule
+
+Do not use commander-specific templates.
+
+Do not output narrow hardcoded theme names as the main archetype.
+
+Use broad archetypes as labels and details/packages for specificity.
+
+Bad:
+
+```text
+muldrotha_lotus_petal_fetchlands_combo
+```
+
+Good:
+
+```text
+Archetype: reanimator/control
+Detail: graveyard permanent recursion, self-mill, permanent type diversity
+```
+
+---
+
+## Supported Broad Archetypes
 
 ```text
 battlecruiser
@@ -40,95 +71,70 @@ tokens
 infect
 ```
 
-## Input examples
+If none fits perfectly, choose the closest broad archetype and describe the actual engine in details/packages.
 
-User request:
+---
 
-```text
-Create a Krenko, Mob Boss deck theme Goblins.
-```
+## Constraint Detection
 
-Identify:
-
-```text
-Commander: Krenko, Mob Boss
-Archetype: tribal
-Detail: goblins
-Secondary archetype: tokens
-```
-
-User request:
-
-```text
-Create a Chishiro deck with 33 lands and more Equipment.
-```
-
-Identify:
-
-```text
-Commander: Chishiro, the Shattered Blade
-Archetype: voltron or tokens
-Detail: modified creatures, equipment, auras, +1/+1 counters
-Constraint: exactly 33 lands
-Preference: more equipment
-```
-
-## Tasks
-
-Determine:
-
-1. Commander name.
-2. Primary broad archetype.
-3. Secondary archetypes, if any.
-4. Detail/subtheme.
-5. Package plan.
-6. Roles the deck needs.
-7. User constraints.
-8. Power direction.
-9. What to avoid.
-
-## Default assumptions
-
-If the user does not specify a power level, build a focused casual deck.
-
-Focused casual means:
-
-- no need to optimize for cEDH
-- avoid excessive infinite-combo focus unless the user asks for it
-- include interaction
-- keep the deck coherent
-- prefer commander synergy over random staples
-
-If the user does not specify budget, assume no strict budget, but avoid building only with expensive staples unless they strongly fit.
-
-## User constraints
-
-User constraints override the default deck skeleton unless they make the deck invalid.
+Extract exact constraints from user request and user feedback.
 
 Examples:
 
-- "33 lands" means exactly 33 lands.
-- "12 ramp cards" means exactly 12 ramp cards.
-- "more ramp" means increase ramp count above default.
-- "less removal" means reduce removal count below default.
-- "more equipment" means prioritize equipment cards.
-- "fewer board wipes" means reduce board wipe count.
-- "no infinite combos" means avoid combo-focused win conditions.
-- "budget $100" means prefer cheaper cards if price data exists.
+```text
+33 lands -> exact_counts.lands = 33
+12 ramp -> exact_counts.ramp = 12
+more ramp -> preferences += more_ramp
+less removal -> preferences += less_removal
+no infinite combos -> avoid += infinite_combos
+budget $100 -> budget = 100
+include Sol Ring -> required_cards += Sol Ring
+avoid Cyclonic Rift -> banned_by_user += Cyclonic Rift
+```
 
-Always preserve:
+User constraints override defaults unless they make the deck illegal or impossible.
 
-- exactly 100 cards total
-- commander legality
-- color identity legality
-- singleton rule
-- no banned cards
+---
 
-## Package model
+## Power Level Interpretation
 
-Do not output only a generic “synergy” bucket.
+Use user feedback if available.
 
-Break strategy cards into packages:
+If missing and you must proceed, use:
+
+```text
+optimized_casual
+```
+
+Power affects:
+
+- tutor density
+- combo policy
+- mana base quality
+- staple density
+- speed/efficiency
+- tapped land tolerance
+- budget pressure
+
+---
+
+## Package Plan Rules
+
+Do not output a single generic `synergy` bucket.
+
+Create package plans based on the commander's engine.
+
+Every package should answer one of these:
+
+```text
+How do we feed the engine?
+How do we multiply the engine?
+How do we protect the engine?
+How do we convert the engine into a win?
+How do we cover normal deck needs while staying on-plan?
+```
+
+Required package groups:
 
 ```text
 enablers
@@ -138,80 +144,99 @@ finishers
 support
 ```
 
-### Enablers
+Support can include ramp, draw, removal, protection, tutors/search, recursion, and utility if those cards also support the plan.
 
-Cards that make the strategy work.
+---
 
-### Payoffs
+## Search Keyword Rules
 
-Cards that reward the strategy.
+Generate search terms from effects, not just archetype labels.
 
-### Engines
+Prefer patterns like:
 
-Repeatable value cards.
+```text
+whenever attacks
+whenever you cast
+enters the battlefield
+when dies
+sacrifice
+create token
+draw a card
+return from graveyard
+copy target spell
+additional combat
+```
 
-### Finishers
+Include negative/avoid patterns when useful.
 
-Cards that help close the game.
+---
 
-### Support
+## Output Format
 
-Protection, recursion, utility, and backup plan cards.
-
-## Output format
-
-Return only JSON.
+Return only JSON:
 
 ```json
 {
-  "commander": "Krenko, Mob Boss",
-  "archetype": "tribal",
-  "detail": "goblins",
-  "secondary_archetypes": ["tokens"],
-  "power_level": "focused_casual",
+  "commander": "Commander Name",
+  "archetype": "primary_archetype",
+  "secondary_archetypes": [],
+  "detail": "specific detail/subtheme",
+  "power_level": "optimized_casual",
   "budget": null,
+  "budget_policy": "no_strict_budget",
+  "combo_policy": "no_infinite_combos",
+  "tutor_policy": "1_to_2_if_make_sense",
+  "mana_base_policy": "avoid_bad_tapped_lands_when_possible",
+  "engine_summary": "Short explanation of what the deck is trying to do.",
   "package_plan": {
-    "enablers": ["goblin creatures", "goblin token makers"],
-    "payoffs": ["goblin lords", "goblin attack payoffs"],
-    "engines": ["repeatable token makers", "sacrifice/value engines"],
-    "finishers": ["haste enablers", "mass pump", "extra combat"],
-    "support": ["protection", "removal", "card draw"]
+    "enablers": [],
+    "payoffs": [],
+    "engines": [],
+    "finishers": [],
+    "support": []
   },
   "role_priorities": {
     "lands": "required",
-    "ramp": "high",
-    "card_draw": "high",
-    "removal": "medium",
-    "board_wipe": "low",
-    "protection": "medium",
-    "strategy_cards": "very_high",
-    "win_conditions": "medium"
+    "ramp": "normal",
+    "card_draw": "normal",
+    "removal": "normal",
+    "board_wipes": "normal",
+    "protection": "normal",
+    "strategy_cards": "high",
+    "win_conditions": "normal"
   },
   "constraints": {
     "exact_counts": {},
     "minimum_counts": {},
     "maximum_counts": {},
     "preferences": [],
-    "avoid": []
+    "avoid": [],
+    "required_cards": [],
+    "banned_by_user": []
   },
   "search_keywords": {
-    "enablers": ["Goblin", "create Goblin token"],
-    "payoffs": ["Goblins you control", "Goblin creatures you control", "whenever a Goblin"],
-    "engines": ["create", "token", "sacrifice"],
-    "finishers": ["haste", "additional combat", "creatures you control get"],
-    "support": ["protect", "draw a card", "destroy target"]
+    "enablers": [],
+    "payoffs": [],
+    "engines": [],
+    "finishers": [],
+    "support": [],
+    "ramp": [],
+    "draw": [],
+    "removal": [],
+    "protection": []
   },
-  "avoid_tags": ["off_color", "off_archetype", "unsupported_combo"],
-  "notes": "Short explanation of why this archetype and detail fit."
+  "avoid_patterns": [],
+  "notes": "Short practical explanation."
 }
 ```
 
+---
+
 ## Rules
 
-- If the user gives an archetype, respect it unless it conflicts with the commander.
-- If the user gives a detail, preserve it.
-- If the user gives no archetype, infer the archetype from the commander.
-- If the user gives no detail, infer the detail from the commander text and type line.
-- Do not choose an archetype only because it is popular.
-- Choose the archetype because the commander supports it.
-- Do not use cards outside commander color identity.
+- Respect user-given archetype unless it clearly conflicts with commander/color identity.
+- Preserve user-given detail.
+- Ask through `user-feedback.md` if multiple build directions are meaningfully different.
+- Do not choose cards here. Only define identity and search strategy.
+- Do not use cards outside color identity.
+- Return JSON only.

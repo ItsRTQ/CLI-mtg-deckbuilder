@@ -2,37 +2,71 @@
 
 Your job is to rank candidate cards returned by the CLI.
 
-You are not allowed to invent cards. Rank only the cards provided.
+Return only JSON.
 
-## Ranking criteria
+You are not allowed to invent cards or card data.
 
-Score cards from 1 to 10.
+Rank only provided candidates.
+
+---
+
+## Ranking Goal
+
+Score how well each card supports the deck plan.
+
+Do not score by keyword match alone.
+
+A card is strong when it:
 
 ```text
-10 = excellent fit, highly synergistic, should strongly consider
-8-9 = strong fit
-6-7 = playable / role filler
-4-5 = weak fit
-1-3 = avoid unless needed
+feeds the engine
+multiplies the engine
+protects the engine
+converts the engine into a win
+covers a required role efficiently
 ```
 
-Evaluate:
+A card is weak when it only mentions a related word but does not improve the gameplan.
 
-1. Commander synergy
-2. Archetype fit
-3. Detail fit
-4. Package fit
-5. Role fit
-6. Mana efficiency
-7. Commander color identity
-8. Card type relevance
-9. Whether the card actively helps the gameplan
-10. Whether the card is too narrow, redundant, or off-plan
-11. Use `suggestion_score` from the CLI as a baseline when available.
+---
 
-## Functional classification
+## Score Scale
 
-When ranking a card, classify it as one or more of:
+```text
+10 = excellent fit, core card, high synergy or critical role
+8-9 = strong fit, should strongly consider
+6-7 = playable, role filler, acceptable support
+4-5 = weak fit, replace if better options exist
+1-3 = avoid unless forced by budget/card pool
+```
+
+---
+
+## Inputs to Consider
+
+Evaluate against:
+
+1. commander engine profile
+2. archetype
+3. detail/subtheme
+4. package plan
+5. power level
+6. budget
+7. role need
+8. mana efficiency
+9. commander color identity
+10. card type relevance
+11. curve needs
+12. anti-synergies
+13. suggestion_score from CLI, if available
+
+CLI `suggestion_score` is a baseline, not the final decision.
+
+---
+
+## Functional Tags
+
+Classify each card as one or more:
 
 ```text
 enabler
@@ -42,62 +76,141 @@ finisher
 support
 ramp
 draw
+search
 removal
+board_wipe
 protection
+recursion
+combo_piece
+mana_fixing
+meta_answer
 ```
 
-A high-scoring card should not merely mention the archetype/detail.
+Tutors are `search`, not `draw`.
 
-It should actively help the deck execute its gameplan.
+---
 
-## Examples
+## Multi-Role Bonus
 
-### Voltron
+Boost cards that fill multiple relevant roles.
 
-- Equipment that modifies/protects/equips efficiently is an enabler or support.
-- Auras that increase power or grant evasion are enablers.
-- Cards that reward equipped or enchanted creatures are payoffs.
-- Extra combat, double strike, trample, or large buffs are finishers.
-- Random cards that mention Equipment but do not help the plan should score lower.
+Examples of generic multi-role value:
 
-### Tribal Goblins
+```text
+ramp + sacrifice synergy
+removal + permanent recursion target
+draw + discard/self-mill synergy
+protection + equipment/voltron synergy
+ETB removal + blink synergy
+attack trigger + extra combat synergy
+spell cast payoff + cheap cantrip
+```
 
-- Cheap Goblins are enablers/body count.
-- Goblin lords are payoffs.
-- Repeatable Goblin token makers are engines.
-- Haste/mass pump/extra combat are finishers.
-- Random red creatures that are not Goblins and do not support Goblins should score lower.
+Do not boost multi-role cards if the extra roles do not matter to this deck.
 
-### Reanimator
+---
 
-- Self-mill/discard outlets are enablers.
-- Reanimation spells are engines or enablers.
-- Large creatures are targets/finishers.
-- Graveyard payoff cards are payoffs.
-- Cards that exile your own graveyard should score very low unless they are clearly useful.
+## Engine Fit Checks
 
-## Output format
+Before scoring high, ask:
 
-Return only JSON.
+```text
+Does this card help start the engine?
+Does it create repeatable value?
+Does it multiply commander output?
+Does it protect the key engine piece?
+Does it convert advantage into a win?
+Is it better than a generic staple in this slot?
+```
+
+---
+
+## Anti-Synergy Penalties
+
+Penalize cards that:
+
+- conflict with commander color identity
+- are not Commander legal
+- duplicate a commander-granted effect with low impact
+- exile your own key resource when the deck needs it
+- reduce your own board in a token/go-wide deck
+- are expensive with medium effect
+- require a card type the deck is intentionally minimizing
+- trigger on the wrong event
+- are generic goodstuff when package density is low
+- dilute the deck's core plan
+
+Examples:
+
+```text
+attack-trigger deck: combat damage triggers are not the same as attack triggers
+graveyard deck: own-graveyard exile is usually bad
+blink deck: tokens do not return after blink
+commander-power deck: single buffs may be good if power unlocks commander text
+```
+
+These are reasoning patterns, not commander templates.
+
+---
+
+## Power and Budget Adjustments
+
+### Casual
+
+Prefer readable synergy, avoid tutors/combos unless allowed, do not over-optimize.
+
+### Optimized Casual
+
+Prefer efficient synergy, allow 1–2 tutors if useful, avoid infinite combos by default.
+
+### High Power
+
+Prioritize efficient/high-synergy cards, tutors allowed, incidental combos allowed.
+
+### cEDH
+
+Prioritize efficiency, speed, tutors, combos, and strongest legal options.
+
+Budget should lower score for expensive cards only when budget is active.
+
+---
+
+## Output Format
+
+Return only JSON:
 
 ```json
 [
   {
     "name": "Card Name",
-    "role": "ramp",
-    "function": "engine",
+    "roles": ["ramp", "engine"],
+    "package_fit": ["enablers"],
     "score": 9,
-    "reason": "Short reason why this card fits."
+    "keep_priority": "high",
+    "reason": "Short practical reason.",
+    "warnings": []
   }
 ]
 ```
 
+`keep_priority` values:
+
+```text
+core
+high
+medium
+low
+avoid
+```
+
+---
+
 ## Rules
 
-- Only rank provided candidates.
+- Return JSON only.
+- Rank only provided candidates.
 - Do not invent missing card data.
 - Do not recommend illegal cards.
-- Penalize cards outside the archetype/detail.
-- Prefer cards that have both role value and archetype value.
-- Penalize cards that merely mention a keyword without supporting the gameplan.
+- Penalize off-plan cards.
+- Prefer cards with both role value and engine value.
 - Keep reasons short and practical.

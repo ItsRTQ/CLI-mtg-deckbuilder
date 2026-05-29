@@ -1,72 +1,220 @@
 # Deck Builder
 
-Your job is to create a 100-card Commander deck from commander data, archetype/detail data, user constraints, and card candidates.
+Your job is to create a legal 100-card Commander deck from:
 
-You must only use cards provided by the CLI or already present in the user's request.
+- commander data
+- user feedback
+- archetype/detail detection
+- constraints
+- ranked card candidates
+- CLI search results
 
-## Required deck size
+You must only use cards provided by the CLI or explicitly provided by the user and verified through the CLI.
 
-The final deck must contain exactly 100 cards total:
+Return JSON when building plans or deck category output.
+
+---
+
+## Required Deck Size
+
+Final deck:
 
 ```text
 1 commander
 99 main deck cards
+100 total cards
 ```
 
-## Deck identity
+Commander must appear exactly once.
 
-Build using:
+Non-basic cards must be singleton.
+
+Basic lands may have quantity greater than 1.
+
+---
+
+## Main Principle
+
+Build a deck around an engine, not a template.
+
+Do not fill with generic synergy.
+
+Every nonland card should have a reason:
 
 ```text
-Commander + Archetype + Detail + Constraints
+required role
+engine enabler
+engine payoff
+repeatable engine
+finisher/win condition
+protection/resilience
+user-requested card
+meta answer
 ```
 
-Examples:
+---
+
+## Build Inputs
+
+Use:
 
 ```text
-Krenko, Mob Boss + Tribal + Goblins
-Chishiro, the Shattered Blade + Voltron + Modified creatures / Equipment / Auras
-Wilhelt, the Rotcleaver + Tribal/Reanimator + Zombies / sacrifice / graveyard
+Commander + Archetype + Detail + Constraints + User Feedback + Ranked Candidates
 ```
 
-## Default deck structure
+User constraints override defaults unless they make the deck illegal or impossible.
 
-Unless given a different skeleton, use:
+---
+
+## Generic Deck Structure
+
+Do not use fixed counts blindly.
+
+Start with these flexible ranges:
 
 ```text
-1 Commander
-37 Lands
-10 Ramp
-10 Card Draw
-9 Removal
-2 Board Wipes
-5 Protection / Utility
-28 Archetype / Detail / Package Cards
-4 Win Conditions
+Commander: 1
+Lands: calculated after nonlands
+Ramp: 9 minimum
+Card draw/card advantage: 8–12 typical
+Removal/interaction: 5–15 total
+Board wipes: 1 default, 3 max unless deck wants them
+Protection/resilience: 0–5, higher if commander-dependent
+Win conditions: 1–5
+Strategy/package cards: remaining slots
 ```
 
-Adjust slightly if needed, but never create an obviously unbalanced deck.
+---
 
-## Deckbuilding rules
+## Land Calculation
 
-- Include the commander exactly once.
-- Non-basic cards should have quantity 1.
-- Basic lands may have quantity greater than 1.
-- Do not include cards outside commander color identity.
-- Do not include cards marked not Commander legal.
-- Avoid duplicate non-basic cards.
-- Avoid random goodstuff if it does not support the archetype/detail.
-- Include enough lands.
-- Include enough ramp.
-- Include enough draw.
-- Include enough removal.
-- Include at least a few realistic win conditions.
-- Build around the commander’s broad archetype and specific detail.
-- Do not fill the deck with generic “synergy” cards.
+Build nonlands first, then calculate lands.
 
-## Package-based strategy construction
+Default formula:
 
-Do not fill 28 generic “synergy” slots.
+```text
+base lands = 32
++1 per commander color, max +3
++ curve adjustment:
+  avg nonland mana value 0.0–2.6 = +0
+  avg nonland mana value 2.7–3.3 = +1
+  avg nonland mana value 3.4+ = +2
+```
+
+Landfall/landsmatter:
+
+```text
+38 minimum
+42 maximum
+```
+
+If user gives exact land count, obey it.
+
+If not enough nonbasic land candidates exist, fill with basics.
+
+Basic mapping:
+
+```text
+W = Plains
+U = Island
+B = Swamp
+R = Mountain
+G = Forest
+Colorless = Wastes
+```
+
+Distribute basics based on color identity and color intensity if available.
+
+---
+
+## Ramp Rules
+
+Minimum ramp is 9 unless user explicitly requests less.
+
+Prefer ramp that fits the deck:
+
+```text
+rocks = generally useful
+land ramp = green/landfall/landsmatter
+mana dorks = creature-friendly decks
+treasure = artifact/token/sacrifice decks
+rituals = explosive/combo/spell decks, especially when color supports them
+cost reduction = spell-heavy or expensive commander decks
+```
+
+Staples like Sol Ring and Arcane Signet are acceptable unless user/budget/theme says otherwise.
+
+---
+
+## Draw and Search Rules
+
+Tutors are search, not draw.
+
+Card advantage can include:
+
+```text
+repeatable draw
+burst draw
+impulse draw
+loot/rummage when graveyard/discard matters
+ETB draw when blink/recursion matters
+combat draw when attack/combat matters
+tutors/search as separate package
+```
+
+Low curve or spell-heavy decks need more draw/card flow.
+
+---
+
+## Removal Rules
+
+Total removal/interactions should usually be 5–15.
+
+Prefer removal that fits the engine when possible:
+
+```text
+permanent removal for recursion/blink decks
+instant removal for reactive/control decks
+sacrifice/removal overlap for aristocrats-style decks
+combat-based removal only if the deck can attack reliably
+counterspells mainly in blue/control/spellslinger/high power decks
+```
+
+Do not overload removal if it crowds out the deck's core engine.
+
+---
+
+## Protection Rules
+
+Increase protection when:
+
+```text
+commander is critical
+commander must attack/connect
+commander is a combo piece
+commander enables the entire engine
+board is vulnerable to wipes
+```
+
+Protection can be:
+
+```text
+hexproof
+indestructible
+blink
+counterspell
+equipment
+recursion
+phase out
+sacrifice protection
+board protection
+```
+
+Choose based on deck mechanics.
+
+---
+
+## Package-Based Strategy Construction
 
 Break strategy cards into:
 
@@ -80,215 +228,137 @@ support
 
 ### Enablers
 
-Cards that make the strategy work.
-
-Examples:
-
-- Voltron: Equipment, Auras, counters, evasion
-- Tribal: enough creatures of the chosen type
-- Reanimator: self-mill, discard outlets
-- Spellslinger: cheap instants/sorceries
-- Tokens: token makers
-- Battlecruiser: ramp and cheat effects
+Cards that make the plan work.
 
 ### Payoffs
 
-Cards that reward the strategy.
-
-Examples:
-
-- Voltron: equipped/enchanted creature payoffs
-- Tribal: lords and tribal payoff cards
-- Tokens: anthem effects and token payoffs
-- Reanimator: graveyard/death payoffs
-- Spellslinger: magecraft/storm/copy payoffs
+Cards that reward the plan.
 
 ### Engines
 
-Repeatable value cards.
+Repeatable value sources.
 
 ### Finishers
 
-Cards that close the game.
+Cards or combinations that close the game.
 
 ### Support
 
-Protection, recursion, utility, and backup plan cards.
+Cards that protect, smooth, search, recur, or stabilize the plan.
 
-## Archetype examples
+Every strategy package should connect to the commander's engine.
 
-### Tribal
+---
 
-For tribal decks:
+## Win Condition Rules
 
-- Include a high count of the chosen creature type.
-- Include lords.
-- Include tribal payoffs.
-- Include card draw/removal that still supports the tribe where possible.
+Include 1–5 win paths.
 
-### Voltron
-
-For Voltron decks:
-
-- Include Equipment/Auras/counters.
-- Include protection.
-- Include evasion.
-- Include combat finishers.
-- Avoid too many unrelated creatures.
-
-### Tokens
-
-For token decks:
-
-- Include token makers.
-- Include token payoffs.
-- Include anthem effects.
-- Include board protection.
-- Include finishers.
-
-### Reanimator
-
-For reanimator decks:
-
-- Include graveyard fill.
-- Include discard/self-mill.
-- Include reanimation.
-- Include large targets.
-- Include protection against graveyard hate when possible.
-
-### Spellslinger
-
-For spellslinger decks:
-
-- Include instants/sorceries.
-- Include spell payoffs.
-- Include card draw/cantrips.
-- Include interaction.
-- Keep creature count lower unless creatures are spell payoffs.
-
-## User constraints
-
-User constraints override the default deck skeleton unless they make the deck invalid.
-
-Examples:
-
-- "33 lands" means exactly 33 lands.
-- "12 ramp cards" means exactly 12 ramp cards.
-- "more ramp" means increase ramp count above default.
-- "less removal" means reduce removal count below default.
-- "more equipment" means prioritize equipment cards.
-- "fewer board wipes" means reduce board wipe count.
-- "no infinite combos" means avoid combo-focused win conditions.
-- "budget $100" means prefer cheaper cards if price data exists.
-
-Always preserve:
-
-- exactly 100 cards total
-- commander legality
-- color identity legality
-- singleton rule
-- no banned cards
-
-## Internal deck JSON format
-
-Create `output/deck.json` using this structure:
-
-```json
-[
-  {
-    "quantity": 1,
-    "name": "Chishiro, the Shattered Blade",
-    "set_code": "nec",
-    "collector_number": "77"
-  },
-  {
-    "quantity": 1,
-    "name": "Sol Ring",
-    "set_code": "lcc",
-    "collector_number": "299"
-  }
-]
-```
-
-## Category goals
-
-Use categories internally while building:
-
-```json
-{
-  "commander": [],
-  "lands": [],
-  "ramp": [],
-  "card_draw": [],
-  "removal": [],
-  "board_wipes": [],
-  "protection": [],
-  "enablers": [],
-  "payoffs": [],
-  "engines": [],
-  "finishers": [],
-  "support": [],
-  "win_conditions": []
-}
-```
-
-But the final `output/deck.json` should be a flat list of card objects.
-
-## Land rules
-
-If exact non-basic land candidates are not enough, use basic lands.
-
-Basic land mapping:
+Win paths can be:
 
 ```text
-W = Plains
-U = Island
-B = Swamp
-R = Mountain
-G = Forest
-Colorless = Wastes
+massive combat
+commander damage
+aristocrats drain
+mill
+combo
+control/stax lock
+value overwhelm
+big threats
+alternate win condition
 ```
 
-Distribute basics reasonably based on color identity.
+High Power may include 1–2 incidental infinite combos.
 
-For two-color decks, split basics close to evenly unless one color is clearly dominant.
+Do not make casual/optimized casual decks combo-focused unless user requests it.
 
-## Build process
+---
+
+## Staples vs Theme
+
+Staples are allowed when they:
+
+```text
+fill a required role
+increase deck function
+fit budget/power level
+are not forbidden by user
+```
+
+Prefer synergistic role-fillers over generic staples when power level and budget allow.
+
+Do not avoid auto-includes only because they are staples unless user requests a more thematic build.
+
+---
+
+## Build Process
 
 1. Add commander.
-2. Add lands.
-3. Add ramp.
-4. Add card draw.
-5. Add removal.
-6. Add board wipes.
-7. Add protection.
-8. Add archetype/detail enablers.
-9. Add archetype/detail payoffs.
-10. Add engines.
-11. Add finishers/win conditions.
-12. Add support cards.
-13. Count total cards.
-14. Adjust until exactly 100.
-15. Save to `output/deck.json`.
-16. Validate with the CLI.
+2. Apply user feedback and constraints.
+3. Build role targets from power level, commander dependency, curve, and engine.
+4. Select strategy packages first.
+5. Select ramp package.
+6. Select draw/card advantage/search.
+7. Select removal/interaction.
+8. Select protection/resilience.
+9. Select win conditions.
+10. Build preliminary 67-card nonland main deck.
+11. Calculate lands.
+12. Add lands and mana fixing.
+13. Cut or add nonlands to reach exactly 99 main deck cards.
+14. Save `output/deck.json`.
+15. Validate with CLI.
+16. Fix with `deck_fixer.md` if invalid.
 17. Run deck-check if available.
-18. Fix issues before export when possible.
+18. Fix major coherence issues.
+19. Export only after validation passes.
 
-## Output format
+---
 
-When asked to produce the deck plan, return JSON:
+## Cutting Rules
+
+When over 100 cards, cut in this order:
+
+1. illegal cards
+2. off-color cards
+3. duplicate non-basic cards
+4. cards violating user constraints
+5. lowest-ranked off-plan cards
+6. redundant expensive cards
+7. weak single-role filler
+8. excess cards in overfilled packages
+
+Avoid cutting below:
+
+```text
+user exact counts
+minimum ramp
+minimum lands
+minimum interaction
+critical enabler count
+```
+
+---
+
+## Output Format
+
+When producing a deck plan, return JSON:
 
 ```json
 {
   "commander": "Commander Name",
-  "archetype": "tribal",
-  "detail": "goblins",
+  "archetype": "primary_archetype",
+  "detail": "detail/subtheme",
+  "power_level": "optimized_casual",
+  "budget": null,
   "deck_size": 100,
+  "land_count_method": "calculated",
   "categories": {
     "commander": [],
     "lands": [],
     "ramp": [],
     "card_draw": [],
+    "search": [],
     "removal": [],
     "board_wipes": [],
     "protection": [],
@@ -299,14 +369,36 @@ When asked to produce the deck plan, return JSON:
     "support": [],
     "win_conditions": []
   },
-  "notes": "Short explanation of the build direction."
+  "counts": {
+    "commander": 1,
+    "main_deck": 99,
+    "total": 100
+  },
+  "assumptions": [],
+  "notes": "Short build direction."
 }
 ```
+
+Final `output/deck.json` should be a flat list:
+
+```json
+[
+  {
+    "quantity": 1,
+    "name": "Card Name",
+    "set_code": "abc",
+    "collector_number": "123"
+  }
+]
+```
+
+---
 
 ## Rules
 
 - Do not claim success until validation passes.
 - Do not export before validation passes.
-- If the deck is invalid, use `deck_fixer.md`.
-- If deck-check reports major package/coherence issues, fix them before export when possible.
-- If you cannot find enough archetype/detail cards, fill with role-support cards that still fit color identity.
+- Do not use unverified cards.
+- Do not create commander-specific templates.
+- Use the commander's engine and user preferences to decide package balance.
+- Preserve user constraints.

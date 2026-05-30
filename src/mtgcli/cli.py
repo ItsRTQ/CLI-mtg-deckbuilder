@@ -8,8 +8,9 @@ from mtgcli.explore.client import build_explore_url, fetch_commander_page
 from mtgcli.explore.cleaner import extract_target_cards_from_html
 from mtgcli.utils.temp_cleaner import clean_output_files
 from mtgcli.export.final_builds import (
-    normalize_bracket, next_final_build_path, save_final_build,
-    deck_entries_to_moxfield_text, sanitize_filename_part
+    normalize_bracket, next_final_build_name, create_final_build_directory,
+    save_final_build_decklist, save_final_build_explanation,
+    build_minimal_explanation, deck_entries_to_moxfield_text, sanitize_filename_part
 )
 from mtgcli.config import FINAL_BUILDS_DIR
 from mtgcli.data.download_cards import download_default_cards
@@ -27,6 +28,7 @@ from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_th
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
 from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
+from mtgcli.utils.deck_io import normalize_deck_input
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -312,7 +314,9 @@ def validate(
 
     try:
         repo = CardRepository(str(SQLITE_PATH))
-        deck_entries = read_json(deck_path)
+        raw = read_json(deck_path)
+        normalized = normalize_deck_input(raw)
+        deck_entries = normalized["main_deck"]
         report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
         
         # Save report
@@ -371,7 +375,8 @@ def export(
         raise typer.Exit(code=1)
 
     try:
-        deck_cards = read_json(input_path)
+        raw = read_json(input_path)
+        deck_cards = normalize_deck_input(raw)["main_deck"]
         export_deck_to_moxfield(deck_cards, output_path)
         print(f"[green]Exported deck to {output_path}[/green]")
     except Exception as e:
@@ -426,8 +431,10 @@ def deck_check(
 
     try:
         repo = CardRepository(str(SQLITE_PATH))
-        deck_entries = read_json(deck_path)
-        
+        raw = read_json(deck_path)
+        normalized = normalize_deck_input(raw)
+        deck_entries = normalized["main_deck"]
+
         # Hydrate deck cards for analysis
         deck_cards = []
         for entry in deck_entries:
@@ -658,49 +665,74 @@ def final_build(
     theme: str = typer.Option(..., "--theme", help="Deck theme or archetype"),
     bracket: Optional[str] = typer.Option(None, "--bracket", help="Power bracket: T1, T2, T3, or T4"),
     power_level: Optional[str] = typer.Option(None, "--power-level", help="Power level label (e.g. casual, competitive)"),
+    explanation: Optional[Path] = typer.Option(None, "--explanation", help="Path to explanation markdown file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON"),
 ):
-    """Validate a deck and save as a final versioned Moxfield decklist in final-builds/."""
+    """Validate a deck and save as a versioned final build folder in final-builds/."""
+    _fail_payload = {
+        "validated": False, "saved": False,
+        "build_name": None, "build_dir": None,
+        "decklist_path": None, "explanation_path": None,
+        "errors": [],
+    }
+
     if not deck_path.exists():
         msg = f"Deck file not found: {deck_path}"
         if json_output:
-            print(json.dumps({"validated": False, "saved": False, "path": None, "errors": [{"message": msg}]}))
+            _fail_payload["errors"] = [{"message": msg}]
+            print(json.dumps(_fail_payload))
         else:
             print(f"[red]{msg}[/red]")
         raise typer.Exit(code=1)
 
-    deck_entries = read_json(deck_path)
+    raw = read_json(deck_path)
+    deck_entries = normalize_deck_input(raw)["main_deck"]
     repo = CardRepository(str(SQLITE_PATH))
     report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
 
     if not report["valid"]:
         if json_output:
-            print(json.dumps({"validated": False, "saved": False, "path": None,
-                              "errors": report.get("errors", [])}))
+            _fail_payload["errors"] = report.get("errors", [])
+            print(json.dumps(_fail_payload))
         else:
             print("[bold red]Validation failed. Final build was not saved.[/bold red]")
-            print("See validation report for details.")
             for err in report.get("errors", [])[:5]:
                 print(f"  - [red]{err['type']}[/red]: {err.get('message', '')}")
         raise typer.Exit(code=1)
 
     resolved_bracket = normalize_bracket(power_level=power_level, bracket=bracket)
-    decklist_text = deck_entries_to_moxfield_text(deck_entries)
-    saved_path = save_final_build(
-        decklist_text=decklist_text,
-        commander=commander,
-        theme=theme,
-        bracket=resolved_bracket,
-        final_builds_dir=FINAL_BUILDS_DIR,
-    )
 
-    version = saved_path.stem.rsplit("-", 1)[-1]
+    # Determine explanation content
+    explanation_text: str
+    if explanation and explanation.exists():
+        explanation_text = explanation.read_text(encoding="utf-8")
+    elif explanation and not explanation.exists():
+        print(f"[yellow]Warning: explanation file not found at {explanation}, generating stub.[/yellow]")
+        explanation_text = build_minimal_explanation(commander, theme, resolved_bracket, partner)
+    else:
+        auto_path = Path("output/deck_explanation.md")
+        if auto_path.exists():
+            explanation_text = auto_path.read_text(encoding="utf-8")
+        else:
+            explanation_text = build_minimal_explanation(commander, theme, resolved_bracket, partner)
+
+    # Create versioned build folder and save files
+    build_name = next_final_build_name(commander, theme, resolved_bracket, FINAL_BUILDS_DIR)
+    build_dir = create_final_build_directory(build_name, FINAL_BUILDS_DIR)
+    decklist_text = deck_entries_to_moxfield_text(deck_entries)
+    decklist_path = save_final_build_decklist(decklist_text, build_dir, build_name)
+    explanation_path = save_final_build_explanation(explanation_text, build_dir, build_name)
+
+    version = build_name.rsplit("-", 1)[-1]
 
     if json_output:
         print(json.dumps({
             "validated": True,
             "saved": True,
-            "path": str(saved_path),
+            "build_name": build_name,
+            "build_dir": str(build_dir),
+            "decklist_path": str(decklist_path),
+            "explanation_path": str(explanation_path),
             "commander": commander,
             "theme": theme,
             "bracket": resolved_bracket,
@@ -708,7 +740,9 @@ def final_build(
         }))
     else:
         print("[bold green]Deck validated successfully.[/bold green]")
-        print(f"Final build saved to: [bold]{saved_path}[/bold]")
+        print(f"Final build folder created: [bold]{build_dir}[/bold]")
+        print(f"Decklist saved to: [bold]{decklist_path}[/bold]")
+        print(f"Explanation saved to: [bold]{explanation_path}[/bold]")
 
 
 @app.command()
@@ -755,8 +789,183 @@ def price(
 
 
 @app.command()
+def cards(
+    names: List[str] = typer.Argument(..., help="Card names to look up"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Batch card lookup by exact name."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    results = []
+    for name in names:
+        card_data = repo.get_card_by_exact_name(name)
+        if card_data:
+            card_data["found"] = True
+            results.append(card_data)
+        else:
+            results.append({"name": name, "found": False})
+
+    if json_output:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            if r.get("found"):
+                print(f"[bold blue]{r['name']}[/bold blue] {r.get('mana_cost', '')} | {r.get('type_line', '')}")
+            else:
+                print(f"[red]Not found: {r['name']}[/red]")
+
+
+@app.command()
+def cards_batch(
+    input_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Look up all cards in a deck JSON file."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not input_path.exists():
+        print(f"[red]File not found: {input_path}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        raw = read_json(input_path)
+        deck_entries = normalize_deck_input(raw)["main_deck"]
+    except Exception as e:
+        print(f"[red]Failed to read deck file: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    results = []
+    for entry in deck_entries:
+        name = entry.get("name") if isinstance(entry, dict) else str(entry)
+        if not name:
+            continue
+        card_data = repo.get_card_by_exact_name(name)
+        if card_data:
+            card_data["found"] = True
+            card_data["quantity"] = entry.get("quantity", 1) if isinstance(entry, dict) else 1
+            results.append(card_data)
+        else:
+            results.append({"name": name, "found": False, "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1})
+
+    if json_output:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            found_str = "" if r.get("found") else " [red](not found)[/red]"
+            print(f"- {r.get('quantity', 1)}x {r['name']}{found_str}")
+
+
+@app.command()
+def prices(
+    names: List[str] = typer.Argument(..., help="Card names to look up prices for"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Batch price lookup by card name."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    results = []
+    for name in names:
+        card_data = repo.get_card_by_exact_name(name)
+        if card_data:
+            results.append({
+                "name": card_data["name"],
+                "found": True,
+                "usd_price": card_data.get("usd_price"),
+                "usd_foil_price": card_data.get("usd_foil_price"),
+                "eur_price": card_data.get("eur_price"),
+                "tix_price": card_data.get("tix_price"),
+                "price_status": card_data.get("price_status", "unknown"),
+                "price_source": card_data.get("price_source", "scryfall"),
+            })
+        else:
+            results.append({"name": name, "found": False, "usd_price": None, "price_status": "not_found"})
+
+    if json_output:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            if not r.get("found"):
+                print(f"[red]{r['name']}: not found[/red]")
+            elif r["usd_price"] is not None:
+                print(f"{r['name']}: [green]${r['usd_price']}[/green] USD ({r['price_status']})")
+            else:
+                print(f"{r['name']}: [yellow]price unknown[/yellow]")
+
+
+@app.command()
+def prices_batch(
+    input_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Look up prices for all cards in a deck JSON file."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not input_path.exists():
+        print(f"[red]File not found: {input_path}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        raw = read_json(input_path)
+        deck_entries = normalize_deck_input(raw)["main_deck"]
+    except Exception as e:
+        print(f"[red]Failed to read deck file: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    results = []
+    for entry in deck_entries:
+        name = entry.get("name") if isinstance(entry, dict) else str(entry)
+        if not name:
+            continue
+        card_data = repo.get_card_by_exact_name(name)
+        if card_data:
+            results.append({
+                "name": card_data["name"],
+                "found": True,
+                "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1,
+                "usd_price": card_data.get("usd_price"),
+                "eur_price": card_data.get("eur_price"),
+                "price_status": card_data.get("price_status", "unknown"),
+                "price_source": card_data.get("price_source", "scryfall"),
+            })
+        else:
+            results.append({
+                "name": name,
+                "found": False,
+                "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1,
+                "usd_price": None,
+                "price_status": "not_found",
+            })
+
+    if json_output:
+        print(json.dumps(results, indent=2))
+    else:
+        for r in results:
+            qty = r.get("quantity", 1)
+            if not r.get("found"):
+                print(f"[red]{qty}x {r['name']}: not found[/red]")
+            elif r["usd_price"] is not None:
+                print(f"{qty}x {r['name']}: [green]${r['usd_price']}[/green]")
+            else:
+                print(f"{qty}x {r['name']}: [yellow]unknown price[/yellow]")
+
+
+@app.command()
 def budget(
     deck_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    budget_limit: Optional[float] = typer.Option(None, "--budget", help="Budget maximum in USD (e.g. 500)"),
+    overage: float = typer.Option(10.0, "--overage", help="Allowed overage percent above budget limit (default 10)"),
     json_output: bool = typer.Option(False, "--json-output", help="Output budget summary as JSON"),
     strict: bool = typer.Option(False, "--strict", help="Fail if any card has unknown price"),
 ):
@@ -770,7 +979,7 @@ def budget(
         raise typer.Exit(code=1)
 
     repo = CardRepository(str(SQLITE_PATH))
-    deck_entries = read_json(deck_path)
+    deck_entries = normalize_deck_input(read_json(deck_path))["main_deck"]
 
     hydrated = []
     for entry in deck_entries:
@@ -779,12 +988,13 @@ def budget(
             continue
         card_data = repo.get_card_by_exact_name(name)
         if card_data:
+            card_data = dict(card_data)
             card_data["quantity"] = entry.get("quantity", 1)
             hydrated.append(card_data)
         else:
             hydrated.append({"name": name, "quantity": entry.get("quantity", 1), "usd_price": None})
 
-    summary = build_budget_summary(hydrated)
+    summary = build_budget_summary(hydrated, budget_limit=budget_limit, overage_percent=overage)
 
     if strict and summary["unknown_price_cards_count"] > 0:
         summary["strict_mode_failed"] = True
@@ -798,6 +1008,11 @@ def budget(
         conf_color = "green" if summary["budget_confidence"] == "complete" else "yellow"
         print(f"[bold blue]Budget Summary[/bold blue]")
         print(f"  Total (known USD):  [green]${summary['known_price_total']}[/green]")
+        if budget_limit is not None:
+            status = summary.get("budget_status", "")
+            status_color = "green" if status == "under_budget" else ("yellow" if status == "within_overage" else "red")
+            print(f"  Budget limit:       ${summary['budget_limit']} (hard limit: ${summary['hard_budget_limit']})")
+            print(f"  Budget status:      [{status_color}]{status}[/{status_color}]")
         print(f"  Known price cards:  {summary['known_price_cards_count']}")
         print(f"  Unknown price cards: [{conf_color}]{summary['unknown_price_cards_count']}[/{conf_color}]")
         print(f"  Budget confidence:  [{conf_color}]{summary['budget_confidence']}[/{conf_color}]")
@@ -805,6 +1020,8 @@ def budget(
             print("[yellow]Unknown price cards:[/yellow]")
             for cname in summary["unknown_price_cards"]:
                 print(f"  - {cname}")
+        if budget_limit is not None and summary.get("note"):
+            print(f"[dim]{summary['note']}[/dim]")
         if strict and summary.get("strict_mode_failed"):
             print(f"[red]Strict mode: {summary['strict_mode_reason']}[/red]")
             raise typer.Exit(code=1)

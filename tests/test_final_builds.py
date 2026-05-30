@@ -4,7 +4,12 @@ from pathlib import Path
 from mtgcli.export.final_builds import (
     sanitize_filename_part,
     normalize_bracket,
+    next_final_build_name,
     next_final_build_path,
+    create_final_build_directory,
+    save_final_build_decklist,
+    save_final_build_explanation,
+    build_minimal_explanation,
     save_final_build,
     deck_entries_to_moxfield_text,
 )
@@ -71,22 +76,80 @@ def test_bracket_direct_takes_precedence():
     assert normalize_bracket(power_level="casual", bracket="T1") == "T1"
 
 
-# --- next_final_build_path ---
+# --- next_final_build_name / versioning ---
 
-def test_first_build_is_v1(tmp_path):
+def test_first_build_name_is_v1(tmp_path):
+    name = next_final_build_name("Edgar Markov", "Tribal", "T4", tmp_path)
+    assert name == "Edgar-Markov-Tribal-T4-v1"
+
+def test_existing_v1_dir_creates_v2(tmp_path):
+    (tmp_path / "Edgar-Markov-Tribal-T4-v1").mkdir()
+    name = next_final_build_name("Edgar Markov", "Tribal", "T4", tmp_path)
+    assert name == "Edgar-Markov-Tribal-T4-v2"
+
+def test_existing_v1_v2_v3_dirs_creates_v4(tmp_path):
+    for v in [1, 2, 3]:
+        (tmp_path / f"Edgar-Markov-Tribal-T4-v{v}").mkdir()
+    name = next_final_build_name("Edgar Markov", "Tribal", "T4", tmp_path)
+    assert name == "Edgar-Markov-Tribal-T4-v4"
+
+def test_next_final_build_path_points_inside_dir(tmp_path):
     path = next_final_build_path("Edgar Markov", "Tribal", "T4", tmp_path)
+    assert path.parent.name == "Edgar-Markov-Tribal-T4-v1"
     assert path.name == "Edgar-Markov-Tribal-T4-v1.txt"
 
-def test_existing_v1_creates_v2(tmp_path):
-    (tmp_path / "Edgar-Markov-Tribal-T4-v1.txt").write_text("deck")
-    path = next_final_build_path("Edgar Markov", "Tribal", "T4", tmp_path)
-    assert path.name == "Edgar-Markov-Tribal-T4-v2.txt"
 
-def test_existing_v1_v2_v3_creates_v4(tmp_path):
-    for v in [1, 2, 3]:
-        (tmp_path / f"Edgar-Markov-Tribal-T4-v{v}.txt").write_text("deck")
-    path = next_final_build_path("Edgar Markov", "Tribal", "T4", tmp_path)
-    assert path.name == "Edgar-Markov-Tribal-T4-v4.txt"
+# --- create_final_build_directory ---
+
+def test_create_build_directory(tmp_path):
+    build_dir = create_final_build_directory("Edgar-Markov-Tribal-T4-v1", tmp_path)
+    assert build_dir.exists()
+    assert build_dir.is_dir()
+    assert build_dir.name == "Edgar-Markov-Tribal-T4-v1"
+
+def test_create_build_directory_fails_if_exists(tmp_path):
+    create_final_build_directory("Edgar-Markov-Tribal-T4-v1", tmp_path)
+    with pytest.raises(FileExistsError):
+        create_final_build_directory("Edgar-Markov-Tribal-T4-v1", tmp_path)
+
+
+# --- save_final_build_decklist + save_final_build_explanation ---
+
+def test_save_decklist_inside_build_dir(tmp_path):
+    build_dir = tmp_path / "Test-Theme-T4-v1"
+    build_dir.mkdir()
+    path = save_final_build_decklist("1 Sol Ring\n", build_dir, "Test-Theme-T4-v1")
+    assert path.name == "Test-Theme-T4-v1.txt"
+    assert path.read_text() == "1 Sol Ring\n"
+
+def test_save_explanation_inside_build_dir(tmp_path):
+    build_dir = tmp_path / "Test-Theme-T4-v1"
+    build_dir.mkdir()
+    path = save_final_build_explanation("# Explanation\n", build_dir, "Test-Theme-T4-v1")
+    assert path.name == "Test-Theme-T4-v1.explanation.md"
+    assert path.read_text() == "# Explanation\n"
+
+def test_explanation_filename_matches_decklist_base(tmp_path):
+    build_name = "Edgar-Markov-Tribal-T4-v1"
+    build_dir = tmp_path / build_name
+    build_dir.mkdir()
+    decklist_path = save_final_build_decklist("decklist", build_dir, build_name)
+    explanation_path = save_final_build_explanation("explanation", build_dir, build_name)
+    assert decklist_path.stem == build_name
+    assert explanation_path.name == f"{build_name}.explanation.md"
+
+
+# --- save_final_build (integrated) ---
+
+def test_save_final_build_creates_subfolder(tmp_path):
+    path = save_final_build("1 Sol Ring\n", "Edgar Markov", "Tribal", "T4", tmp_path)
+    assert path.parent.is_dir()
+    assert path.parent.name == "Edgar-Markov-Tribal-T4-v1"
+
+def test_save_final_build_decklist_in_subfolder(tmp_path):
+    path = save_final_build("deck\n", "Edgar Markov", "Tribal", "T4", tmp_path)
+    assert path.exists()
+    assert path.read_text() == "deck\n"
 
 def test_does_not_overwrite(tmp_path):
     first = save_final_build("deck1\n", "Edgar Markov", "Tribal", "T4", tmp_path)
@@ -94,22 +157,37 @@ def test_does_not_overwrite(tmp_path):
     assert first != second
     assert first.read_text() == "deck1\n"
     assert second.read_text() == "deck2\n"
+    assert first.parent.name == "Edgar-Markov-Tribal-T4-v1"
+    assert second.parent.name == "Edgar-Markov-Tribal-T4-v2"
 
 
-# --- save_final_build ---
+# --- build_minimal_explanation ---
 
-def test_save_creates_file(tmp_path):
-    path = save_final_build("1 Sol Ring\n1 Command Tower\n", "Teysa Karlov", "Aristocrats", "T3", tmp_path)
-    assert path.exists()
-    assert path.read_text() == "1 Sol Ring\n1 Command Tower\n"
+def test_minimal_explanation_contains_commander():
+    text = build_minimal_explanation("Brago, King Eternal", "Blink", "T3")
+    assert "Brago" in text
 
-def test_save_simple_moxfield_format(tmp_path):
-    entries = [{"name": "Sol Ring", "quantity": 1}, {"name": "Command Tower", "quantity": 1}]
-    text = deck_entries_to_moxfield_text(entries)
-    assert "Sol Ring" in text
-    assert "Command Tower" in text
-    assert "set_code" not in text
-    assert text.startswith("1 Sol Ring")
+def test_minimal_explanation_contains_theme():
+    text = build_minimal_explanation("Brago, King Eternal", "Blink", "T3")
+    assert "Blink" in text
+
+def test_minimal_explanation_contains_bracket():
+    text = build_minimal_explanation("Brago, King Eternal", "Blink", "T3")
+    assert "T3" in text
+
+def test_minimal_explanation_with_partner():
+    text = build_minimal_explanation("Tymna the Weaver", "Goodstuff", "T2", partner="Thrasios, Triton Hero")
+    assert "Tymna" in text
+    assert "Thrasios" in text
+
+def test_minimal_explanation_is_markdown():
+    text = build_minimal_explanation("Brago, King Eternal", "Blink", "T3")
+    assert text.startswith("#")
+
+def test_minimal_explanation_has_sections():
+    text = build_minimal_explanation("Brago, King Eternal", "Blink", "T3")
+    assert "## Gameplan" in text
+    assert "## Win Conditions" in text
 
 
 # --- deck_entries_to_moxfield_text ---
@@ -127,3 +205,9 @@ def test_moxfield_text_skips_empty_names():
     lines = text.strip().splitlines()
     assert len(lines) == 1
     assert lines[0] == "1 Sol Ring"
+
+def test_moxfield_text_no_set_code():
+    entries = [{"name": "Sol Ring", "quantity": 1}]
+    text = deck_entries_to_moxfield_text(entries)
+    assert "set_code" not in text
+    assert text.startswith("1 Sol Ring")

@@ -85,6 +85,35 @@ def search_commander_legal_cards(
     return results
 
 
+def _load_role_definitions() -> Dict[str, Any]:
+    role_file = SEED_DATA_DIR / "role_definitions.json"
+    if not role_file.exists():
+        return {}
+    with open(role_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _expand_tag_to_phrases(
+    tag: str,
+    tag_definitions: Dict[str, List[str]],
+    role_definitions: Dict[str, Any],
+) -> List[str]:
+    """
+    Returns search phrases for a tag.
+    - Direct tag in card_tags.json → its phrase list
+    - Role name in role_definitions → expand via sub-tags
+    - Otherwise → use tag itself as a literal phrase (e.g. theme like 'goblins')
+    """
+    if tag in tag_definitions:
+        return tag_definitions[tag]
+    if tag in role_definitions:
+        phrases = []
+        for sub_tag in role_definitions[tag].get("tags", []):
+            phrases.extend(tag_definitions.get(sub_tag, []))
+        return phrases
+    return [tag]
+
+
 def search_by_tags(
     tags: List[str],
     colors: Optional[str] = None,
@@ -96,6 +125,7 @@ def search_by_tags(
 ) -> List[Dict[str, Any]]:
     """
     Searches for commander-legal cards matching specified tags.
+    Tags may be direct card_tags keys, role names, or literal phrases.
     """
     tag_file = SEED_DATA_DIR / "card_tags.json"
     if not tag_file.exists():
@@ -104,15 +134,12 @@ def search_by_tags(
     with open(tag_file, "r", encoding="utf-8") as f:
         tag_definitions = json.load(f)
 
+    role_definitions = _load_role_definitions()
+
     # Collect all phrases for the requested tags
     search_phrases = []
     for tag in tags:
-        # Check for direct tag match
-        if tag in tag_definitions:
-            search_phrases.extend(tag_definitions[tag])
-        else:
-            # If not in definitions, use the tag itself as a search phrase (e.g. for themes like 'goblins')
-            search_phrases.append(tag)
+        search_phrases.extend(_expand_tag_to_phrases(tag, tag_definitions, role_definitions))
 
     if not search_phrases:
         return []

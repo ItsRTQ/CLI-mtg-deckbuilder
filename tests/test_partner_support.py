@@ -76,7 +76,7 @@ def test_validator_single_commander_valid():
     ]
     result = validate_commander_deck(commander_name, deck_entries, repo)
     assert result["commander_slots"] == 1
-    assert any(e["type"] == "deck_size" for e in result["errors"])
+    assert any(e["type"] == "invalid_deck_size" for e in result["errors"])
 
 
 def test_validator_returns_commander_slots_field():
@@ -139,7 +139,7 @@ def test_validator_partner_deck_100_cards_valid_size():
     repo = _make_repo(all_cards)
     deck = [{"name": n, "quantity": 1} for n in all_cards]  # 100 total
     result = validate_commander_deck("Commander A", deck, repo, partner_name="Commander B")
-    assert not any(e["type"] == "deck_size" for e in result["errors"]), result["errors"]
+    assert not any(e["type"] == "invalid_deck_size" for e in result["errors"]), result["errors"]
 
 
 def test_validator_partner_deck_99_cards_fails_size():
@@ -154,7 +154,7 @@ def test_validator_partner_deck_99_cards_fails_size():
     repo = _make_repo(all_cards)
     deck = [{"name": n, "quantity": 1} for n in all_cards]  # 99 total
     result = validate_commander_deck("Commander A", deck, repo, partner_name="Commander B")
-    assert any(e["type"] == "deck_size" for e in result["errors"])
+    assert any(e["type"] == "invalid_deck_size" for e in result["errors"])
 
 
 def test_validator_partner_missing_second_commander():
@@ -183,4 +183,4 @@ def test_validator_partner_color_identity_enforcement():
         {"name": "Blue Card", "quantity": 1},
     ]
     result = validate_commander_deck("Commander A", deck, repo, partner_name="Commander B")
-    assert any(e["type"] == "color_identity" and e["card"] == "Blue Card" for e in result["errors"])
+    assert any(e["type"] == "color_identity_violation" and e["card"] == "Blue Card" for e in result["errors"])

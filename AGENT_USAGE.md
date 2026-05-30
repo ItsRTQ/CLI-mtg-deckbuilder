@@ -136,17 +136,128 @@ Supported on: `validate`, `final-build`
 
 ---
 
+## Validation Requirements
+
+A deck is not complete until `mtg validate` passes with **no errors**.
+
+Do not save to `final-builds/` if validation fails.
+
+If validation reports a missing card, treat it as a hallucination or misspelling and replace it with a real card from the local database.
+
+### What validation checks
+
+| Check | Error type | Action |
+|---|---|---|
+| Card exists in local DB | `card_not_found` | Replace with real card |
+| Card is Commander legal | `not_commander_legal` | Remove or swap card |
+| Commander exists in DB | `commander_not_found` | Fix commander name |
+| Commander is eligible | `invalid_commander` | Use a valid commander |
+| Commander in deck list | `commander_missing` | Add commander to deck |
+| Card fits color identity | `color_identity_violation` | Remove or swap card |
+| Deck has correct card count | `invalid_deck_size` | Add or remove cards |
+| No non-basic duplicates | `singleton_violation` | Remove extra copies |
+
+### Deck size rules
+
+| Format | Commander slots | Main deck | Total |
+|---|---|---|---|
+| Single commander | 1 | 99 | 100 |
+| Partner commanders | 2 | 98 | 100 |
+
+The validator counts **quantities**, not entries. `{ "name": "Forest", "quantity": 10 }` counts as 10 cards.
+
+### Validation output fields
+
+```json
+{
+  "valid": true,
+  "commander": "Brago, King Eternal",
+  "partner": null,
+  "commander_slots": 1,
+  "expected_main_deck_size": 99,
+  "actual_main_deck_size": 99,
+  "total_cards_including_commanders": 100,
+  "errors": [],
+  "warnings": []
+}
+```
+
+### final-build validation gate
+
+`mtg final-build` runs validation automatically before saving anything. If validation fails:
+
+- No directory is created in `final-builds/`
+- No `.txt` or `.explanation.md` is written
+- Error list is returned
+
+Only after `"validated": true` does the final build folder get created.
+
+---
+
+
+## File Editing Boundaries
+
+During normal deckbuilding, the agent should avoid creating, editing, or deleting project files that are not part of the deck being built.
+
+The agent may create or update deck-build artifacts only, such as:
+
+```text
+output/deck.json
+output/deck.enriched.json
+output/deck.moxfield.txt
+output/deck_explanation.md
+output/validation_report.json
+final-builds/<commander>-<theme>-<bracket>-<version>/
+final-builds/<commander>-<theme>-<bracket>-<version>/<name>.txt
+final-builds/<commander>-<theme>-<bracket>-<version>/<name>.explanation.md
+```
+
+The agent should not modify these project files during a normal deck build unless the user explicitly asks for implementation work:
+
+```text
+README.md
+AGENT_USAGE.md
+agents/*.md
+data/seed/*.json
+src/**/*.py
+tests/*
+requirements.txt
+pyproject.toml
+.env
+.gitignore
+```
+
+If the agent discovers that the CLI, tags, search, suggestions, validation, pricing, or seed files need improvement, it should not silently edit those files during deckbuilding. It should finish the deck as well as possible and report the issue in the optional build feedback section.
+
+Do not create random scratch files in the project root. If a temporary file is necessary, place it under `output/` and prefer CLI-supported cleanup commands such as:
+
+```bash
+mtg temp-clean
+mtg temp-clean --full --yes
+```
+
+Deckbuilding permission rule:
+
+```text
+Allowed: create/update files needed to build, validate, export, explain, or finalize the current deck.
+Not allowed by default: edit the project, source code, config, agent instructions, seed data, or dependency files.
+```
+
+---
 ## Final Build Command
 
-After a deck is complete and passes validation, save it as a final versioned decklist:
+After a deck is complete and passes validation, save it as a versioned final build folder:
 
 ```bash
 mtg final-build \
   --deck output/deck.json \
   --commander "Edgar Markov" \
   --theme "Tribal" \
-  --bracket T4
+  --bracket T4 \
+  --explanation output/deck_explanation.md
 ```
+
+If `--explanation` is omitted, the command automatically uses `output/deck_explanation.md` if it exists, otherwise generates a minimal stub.
 
 Or using a power level label instead of bracket:
 
@@ -155,7 +266,8 @@ mtg final-build \
   --deck output/deck.json \
   --commander "Edgar Markov" \
   --theme "Tribal" \
-  --power-level casual
+  --power-level casual \
+  --explanation output/deck_explanation.md
 ```
 
 Bracket mapping:
@@ -167,14 +279,27 @@ Bracket mapping:
 | optimized_casual, precon_optimized | T3 |
 | casual, precon, precon_level | T4 |
 
-Filenames are versioned automatically:
+Final builds are saved into versioned sub-directories:
 
 ```text
-Edgar-Markov-Tribal-T4-v1.txt
-Edgar-Markov-Tribal-T4-v2.txt
+final-builds/
+└── Edgar-Markov-Tribal-T4-v1/
+    ├── Edgar-Markov-Tribal-T4-v1.txt
+    └── Edgar-Markov-Tribal-T4-v1.explanation.md
 ```
 
-Old builds are never overwritten. Final builds use simple Moxfield format (`1 Card Name`) with no set codes or collector numbers.
+Versioning checks sub-directory names. Old builds are never overwritten. Final builds use simple Moxfield format (`1 Card Name`) with no set codes or collector numbers.
+
+Example for a commander with apostrophe:
+
+```text
+final-builds/
+└── Caesar-Legions-Emperor-Mardu-Tokens-Aristocrats-T3-v1/
+    ├── Caesar-Legions-Emperor-Mardu-Tokens-Aristocrats-T3-v1.txt
+    └── Caesar-Legions-Emperor-Mardu-Tokens-Aristocrats-T3-v1.explanation.md
+```
+
+Always pass `--explanation output/deck_explanation.md` after writing the explanation. If the file does not exist, a minimal stub is generated automatically.
 
 ---
 
@@ -221,6 +346,57 @@ mtg suggest --commander "Brago, King Eternal" --role cheap --limit 10 --json-out
 
 ---
 
+## Batch Card and Price Lookups
+
+Use batch commands to reduce tool calls when checking many cards:
+
+```bash
+# Look up multiple cards at once
+mtg cards "Sol Ring" "Arcane Signet" "Not A Real Card" --json-output
+
+# Look up prices for multiple cards
+mtg prices "Sol Ring" "Arcane Signet" "Not A Real Card" --json-output
+
+# Look up all cards in a deck file
+mtg cards-batch output/deck.json --json-output
+
+# Look up prices for all cards in a deck file
+mtg prices-batch output/deck.json --json-output
+```
+
+Not-found cards are included in results with `"found": false`. The commands never crash on a missing card.
+
+---
+
+## Validator: Flat and Structured Deck JSON
+
+The validator accepts both formats:
+
+**Flat list (original format):**
+```json
+[{ "quantity": 1, "name": "Sol Ring" }]
+```
+
+**Structured (new format):**
+```json
+{
+  "commander": "Brago, King Eternal",
+  "main_deck": [{ "quantity": 1, "name": "Sol Ring" }]
+}
+```
+
+**Partner commanders:**
+```json
+{
+  "commanders": ["Tymna the Weaver", "Thrasios, Triton Hero"],
+  "main_deck": [{ "quantity": 1, "name": "Sol Ring" }]
+}
+```
+
+CLI flags (`--commander`, `--partner`) always take precedence over file-embedded commander metadata.
+
+---
+
 ## Pricing and Budget
 
 Price data comes from the local Scryfall database. Do not search the web for card prices during deckbuilding.
@@ -228,26 +404,64 @@ Price data comes from the local Scryfall database. Do not search the web for car
 ```bash
 mtg price "Sol Ring" --json-output
 mtg budget output/deck.json --json-output
+mtg budget output/deck.json --budget 500 --json-output
+mtg budget output/deck.json --budget 500 --overage 10 --json-output
+mtg budget output/deck.json --budget 500 --overage 0 --json-output
 mtg budget output/deck.json --strict --json-output  # fail if any price is unknown
 ```
+
+### Budget is a maximum, not a target
+
+**Budget is a ceiling, not a goal. The deck does not need to spend the full budget.**
+
+Priority order for card selection:
+
+```text
+1. Card legality
+2. Color identity
+3. Commander/deck synergy
+4. Role/package need
+5. Power level fit
+6. Budget fit
+7. Price efficiency
+```
+
+Do not add expensive cards just to get closer to the user's budget. If the deck is legal, synergistic, coherent, and under budget, keep it under budget.
+
+A deck costing $280 on a $500 budget is **valid and often better** than spending $480 on staples that don't fit the commander engine.
+
+### Budget status categories
+
+| Status | Meaning |
+|---|---|
+| `under_budget` | Known total ≤ budget limit. Valid, no action needed. |
+| `within_overage` | Known total > limit but ≤ limit × (1 + overage%). Acceptable. |
+| `over_budget` | Known total > hard limit. Reduce cost by replacing expensive low-synergy cards. |
+
+Default overage is 10%. A $500 budget allows up to $550 by default.
+
+When a deck is over budget, replace expensive low-synergy cards first. Preserve key engine pieces, synergy cards, and role balance.
+
+When a deck is under budget, optional upgrades may be suggested separately but must not be automatically applied unless the user asks.
 
 ### Price rules
 
 - `usd_price` is the primary budget field.
 - `price_status = "unknown"` means price data is missing, not that the card is free.
-- Unknown-price cards are allowed by default (`allow_with_warning` policy).
+- Unknown-price cards are allowed by default.
 - Do not treat unknown price as $0 when estimating budget.
 - `budget_confidence = "complete"` only when all non-basic-land cards have known USD price.
 - `budget_confidence = "partial"` when any card has unknown price.
 
 ### Budget deckbuilding rules
 
-- For budget decks, use `mtg budget` for price totals. Do not estimate prices manually.
+- For budget decks, use `mtg budget --budget <amount>` for price totals. Do not estimate prices manually.
 - Cards with missing USD price may still be strong candidates — report them, do not exclude them.
-- Basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes) are treated as free unless price data exists.
+- Basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes) are treated as free.
 - Only exclude unknown-price cards if the user explicitly requests `--strict` budget mode.
-- When reporting budget: list unknown-price cards and set `budget_confidence = "partial"` in your summary.
+- When reporting budget: list unknown-price cards and note `budget_confidence = "partial"`.
 - Never claim exact budget compliance when unknown-price cards remain in the deck.
+- Do not add expensive cards to close the gap between actual cost and the budget limit.
 
 ---
 
@@ -309,6 +523,7 @@ If a community recommendation conflicts with user constraints (budget, power lev
 15. Fix major coherence issues.
 16. Export only after validation passes.
 17. Explain deck.
+18. If the build had meaningful friction, include optional build feedback.
 
 ---
 
@@ -385,6 +600,45 @@ cEDH = no budget by default, best legal options, unrestricted combos/tutors
 
 ---
 
+
+## Optional Build Feedback
+
+At the end of a deck build, include a short feedback section only if the build had meaningful friction, uncertainty, or tool limitations.
+
+This feedback is not mandatory. If the build went smoothly, skip it.
+
+Use this section to help improve future builds. Be specific and actionable.
+
+Good feedback examples:
+
+```text
+Build Feedback:
+- Search friction: `suggest --role ramp` returned cards with empty matched_tags, so ramp candidates needed extra manual filtering.
+- Tag gap: Brago blink support would improve if `etb`, `blink`, and `mana_rock` tags were stronger.
+- Pricing issue: Several cards had unknown prices, so budget confidence is partial.
+- Validation friction: Partner commander support required manual size checking for 98 main deck cards.
+```
+
+Avoid vague feedback:
+
+```text
+The tool could be better.
+The deck was hard.
+Search was bad.
+```
+
+Feedback should answer:
+
+```text
+What was hard to set up?
+What tool behavior slowed down the build?
+What data was missing or unreliable?
+What specific future improvement would help? Examples: better search, better suggestions, better tags, better role definitions, better price coverage, better validation messages.
+```
+
+Do not use build feedback as an excuse to skip the deck. Finish the deck first, then report improvement points if needed.
+
+---
 ## Final Output
 
 Only final after validation passes.
@@ -400,3 +654,4 @@ Include:
 - package breakdown
 - win conditions
 - weaknesses/warnings
+- optional build feedback, only if the build had meaningful friction

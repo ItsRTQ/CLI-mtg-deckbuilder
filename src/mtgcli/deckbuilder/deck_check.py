@@ -1,8 +1,27 @@
 import json
 from typing import List, Dict, Any, Optional
 from mtgcli.config import SEED_DATA_DIR
-from mtgcli.cards.repository import CardRepository
 from mtgcli.deckbuilder.theme_profiles import get_theme_packages
+
+
+def _get_category_phrases(
+    category: str,
+    tag_definitions: Dict[str, List[str]],
+    role_definitions: Dict[str, Any],
+) -> List[str]:
+    """
+    Returns search phrases for a deck-check category.
+    If the category maps to a role definition, expands to sub-tag phrases.
+    Otherwise falls back to direct card_tags lookup.
+    """
+    role_def = role_definitions.get(category, {})
+    sub_tags = role_def.get("tags", [])
+    if sub_tags:
+        phrases: List[str] = []
+        for sub_tag in sub_tags:
+            phrases.extend(tag_definitions.get(sub_tag, []))
+        return phrases
+    return tag_definitions.get(category, [])
 
 def check_theme_packages(deck_cards: List[Dict[str, Any]], theme: str) -> Dict[str, Any]:
     """
@@ -59,6 +78,12 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
         with open(tag_file, "r", encoding="utf-8") as f:
             tag_definitions = json.load(f)
 
+    role_file = SEED_DATA_DIR / "role_definitions.json"
+    role_definitions = {}
+    if role_file.exists():
+        with open(role_file, "r", encoding="utf-8") as f:
+            role_definitions = json.load(f)
+
     stats = {
         "lands": 0,
         "ramp": 0,
@@ -83,7 +108,8 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
         is_synergy = False
         found_core = False
         
-        for category, phrases in tag_definitions.items():
+        for category in list(tag_definitions.keys()) + [c for c in core_categories if c not in tag_definitions]:
+            phrases = _get_category_phrases(category, tag_definitions, role_definitions)
             matches = False
             for phrase in phrases:
                 phrase = phrase.lower()

@@ -56,21 +56,86 @@ def normalize_bracket(power_level: Optional[str] = None, bracket: Optional[str] 
     return "T4"
 
 
+def next_final_build_name(
+    commander: str,
+    theme: str,
+    bracket: str,
+    final_builds_dir: Path = Path("final-builds"),
+) -> str:
+    """Returns the next available versioned build name, checking for existing directories."""
+    final_builds_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"{sanitize_filename_part(commander)}-{sanitize_filename_part(theme)}-{bracket}"
+    version = 1
+    while True:
+        candidate_name = f"{prefix}-v{version}"
+        if not (final_builds_dir / candidate_name).exists():
+            return candidate_name
+        version += 1
+
+
 def next_final_build_path(
     commander: str,
     theme: str,
     bracket: str,
     final_builds_dir: Path = Path("final-builds"),
 ) -> Path:
-    """Returns the next available versioned path for a final build file."""
-    final_builds_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"{sanitize_filename_part(commander)}-{sanitize_filename_part(theme)}-{bracket}"
-    version = 1
-    while True:
-        candidate = final_builds_dir / f"{prefix}-v{version}.txt"
-        if not candidate.exists():
-            return candidate
-        version += 1
+    """Backward-compatible: returns the decklist path inside the next available build dir."""
+    build_name = next_final_build_name(commander, theme, bracket, final_builds_dir)
+    return final_builds_dir / build_name / f"{build_name}.txt"
+
+
+def create_final_build_directory(
+    build_name: str,
+    final_builds_dir: Path = Path("final-builds"),
+) -> Path:
+    """Creates the versioned sub-directory for a final build. Never overwrites."""
+    build_dir = final_builds_dir / build_name
+    build_dir.mkdir(parents=True, exist_ok=False)
+    return build_dir
+
+
+def save_final_build_decklist(
+    decklist_text: str,
+    build_dir: Path,
+    build_name: str,
+) -> Path:
+    """Saves the Moxfield decklist .txt inside the build directory."""
+    path = build_dir / f"{build_name}.txt"
+    path.write_text(decklist_text, encoding="utf-8")
+    return path
+
+
+def save_final_build_explanation(
+    explanation_text: str,
+    build_dir: Path,
+    build_name: str,
+) -> Path:
+    """Saves the explanation .md inside the build directory."""
+    path = build_dir / f"{build_name}.explanation.md"
+    path.write_text(explanation_text, encoding="utf-8")
+    return path
+
+
+def build_minimal_explanation(
+    commander: str,
+    theme: str,
+    bracket: str,
+    partner: Optional[str] = None,
+) -> str:
+    """Generates a minimal explanation stub when no explanation file was provided."""
+    commander_line = f"{commander} / {partner}" if partner else commander
+    return (
+        f"# Deck Explanation: {commander_line} — {theme}\n\n"
+        f"- **Commander:** {commander_line}\n"
+        f"- **Theme:** {theme}\n"
+        f"- **Bracket:** {bracket}\n"
+        f"- **Validation:** Passed\n"
+        f"- **Note:** No full explanation was provided for this build.\n\n"
+        f"## Gameplan\n\n_Not documented._\n\n"
+        f"## Key Packages\n\n_Not documented._\n\n"
+        f"## Win Conditions\n\n_Not documented._\n\n"
+        f"## Weaknesses\n\n_Not documented._\n"
+    )
 
 
 def save_final_build(
@@ -80,10 +145,13 @@ def save_final_build(
     bracket: str,
     final_builds_dir: Path = Path("final-builds"),
 ) -> Path:
-    """Saves a Moxfield-format decklist to final-builds/ with a versioned filename."""
-    path = next_final_build_path(commander, theme, bracket, final_builds_dir)
-    path.write_text(decklist_text, encoding="utf-8")
-    return path
+    """
+    Saves a decklist into a versioned sub-directory.
+    Returns the decklist file path.
+    """
+    build_name = next_final_build_name(commander, theme, bracket, final_builds_dir)
+    build_dir = create_final_build_directory(build_name, final_builds_dir)
+    return save_final_build_decklist(decklist_text, build_dir, build_name)
 
 
 def deck_entries_to_moxfield_text(deck_entries: List[Dict[str, Any]]) -> str:

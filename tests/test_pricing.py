@@ -1,6 +1,6 @@
 import pytest
 from mtgcli.data.normalize_cards import parse_price, normalize_card, _price_status, min_known_price
-from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
+from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary, evaluate_budget
 
 
 # --- parse_price ---
@@ -287,3 +287,117 @@ def test_price_source_is_aggregated():
     printings = [_make_printing("abc", {"usd": "1.00"})]
     result = _aggregate_printings(printings)
     assert result["abc"]["price_source"] == "scryfall_aggregated_printings"
+
+
+# --- evaluate_budget ---
+
+def test_under_budget():
+    result = evaluate_budget(280.0, 500.0)
+    assert result["budget_status"] == "under_budget"
+
+def test_exactly_at_budget_is_under():
+    result = evaluate_budget(500.0, 500.0)
+    assert result["budget_status"] == "under_budget"
+
+def test_within_overage_10pct():
+    # $528 on a $500 budget = 5.6% over, within 10%
+    result = evaluate_budget(528.0, 500.0, overage_percent=10)
+    assert result["budget_status"] == "within_overage"
+
+def test_at_hard_limit_is_within_overage():
+    # $550 exactly = 10% over $500 → within_overage (not over)
+    result = evaluate_budget(550.0, 500.0, overage_percent=10)
+    assert result["budget_status"] == "within_overage"
+
+def test_over_budget():
+    # $551 on $500 → over hard limit of $550
+    result = evaluate_budget(551.0, 500.0, overage_percent=10)
+    assert result["budget_status"] == "over_budget"
+
+def test_overage_0_strict():
+    # $501 on $500 with 0% overage → over budget
+    result = evaluate_budget(501.0, 500.0, overage_percent=0)
+    assert result["budget_status"] == "over_budget"
+
+def test_overage_0_exact_passes():
+    result = evaluate_budget(500.0, 500.0, overage_percent=0)
+    assert result["budget_status"] == "under_budget"
+
+def test_hard_budget_limit_calculated():
+    result = evaluate_budget(0, 500.0, overage_percent=10)
+    assert result["hard_budget_limit"] == 550.0
+
+def test_hard_budget_limit_with_0_overage():
+    result = evaluate_budget(0, 200.0, overage_percent=0)
+    assert result["hard_budget_limit"] == 200.0
+
+def test_evaluate_budget_returns_note():
+    result = evaluate_budget(280.0, 500.0)
+    assert "note" in result
+    assert len(result["note"]) > 0
+
+def test_evaluate_budget_over_budget_note():
+    result = evaluate_budget(612.0, 500.0)
+    assert result["budget_status"] == "over_budget"
+    assert "note" in result
+
+
+# --- build_budget_summary with budget_limit ---
+
+def test_summary_with_budget_limit_under():
+    deck = [{"name": "Sol Ring", "quantity": 1, "usd_price": 1.50}]
+    summary = build_budget_summary(deck, budget_limit=500.0)
+    assert summary["budget_status"] == "under_budget"
+    assert summary["budget_limit"] == 500.0
+    assert summary["hard_budget_limit"] == 550.0
+
+def test_summary_with_budget_limit_within_overage():
+    # deck costs $528 on $500 budget
+    deck = [{"name": "Expensive Card", "quantity": 1, "usd_price": 528.0}]
+    summary = build_budget_summary(deck, budget_limit=500.0, overage_percent=10)
+    assert summary["budget_status"] == "within_overage"
+
+def test_summary_with_budget_limit_over():
+    deck = [{"name": "Very Expensive Card", "quantity": 1, "usd_price": 612.0}]
+    summary = build_budget_summary(deck, budget_limit=500.0)
+    assert summary["budget_status"] == "over_budget"
+
+def test_summary_without_budget_limit_has_no_status():
+    deck = [{"name": "Sol Ring", "quantity": 1, "usd_price": 1.50}]
+    summary = build_budget_summary(deck)
+    assert "budget_status" not in summary
+
+def test_under_budget_not_a_problem():
+    # $280 deck on $500 budget is fine — budget_status under_budget, no error implied
+    deck = [{"name": "Card", "quantity": 1, "usd_price": 280.0}]
+    summary = build_budget_summary(deck, budget_limit=500.0)
+    assert summary["budget_status"] == "under_budget"
+    assert "note" in summary
+    # note should not suggest spending more
+    assert "target" in summary["note"].lower() or "maximum" in summary["note"].lower()
+
+def test_partial_confidence_with_unknown_price_cards():
+    deck = [
+        {"name": "Sol Ring", "quantity": 1, "usd_price": 1.50},
+        {"name": "Mystery", "quantity": 1, "usd_price": None},
+    ]
+    summary = build_budget_summary(deck, budget_limit=500.0)
+    assert summary["budget_confidence"] == "partial"
+    assert summary["budget_status"] == "under_budget"  # based on known total only
+
+def test_overage_0_on_build_summary():
+    deck = [{"name": "Sol Ring", "quantity": 1, "usd_price": 501.0}]
+    summary = build_budget_summary(deck, budget_limit=500.0, overage_percent=0)
+    assert summary["budget_status"] == "over_budget"
+
+def test_overage_10_pct_budget_100():
+    # $100 budget allows up to $110
+    result = evaluate_budget(105.0, 100.0, overage_percent=10)
+    assert result["budget_status"] == "within_overage"
+    assert result["hard_budget_limit"] == 110.0
+
+def test_overage_10_pct_budget_150():
+    # $150 budget allows up to $165
+    result = evaluate_budget(160.0, 150.0, overage_percent=10)
+    assert result["budget_status"] == "within_overage"
+    assert result["hard_budget_limit"] == 165.0

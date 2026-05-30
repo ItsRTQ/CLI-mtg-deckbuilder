@@ -259,6 +259,41 @@ Defaults:
 
 ---
 
+## Deckbuilding Philosophy Question
+
+Ask this when power level alone is not enough — e.g. the user seems to want a very specific deck feel.
+
+```text
+Question: What deckbuilding philosophy do you prefer?
+
+a) Balanced — no specific bias (default)
+b) Consistency first — more draw and tutors, reliable engine
+c) Casual do-the-thing — focus on the commander plan, fewer tutors/counterspells
+d) Win optimization — maximize win conditions and tutors
+e) Agent choice
+```
+
+Other valid philosophy options if the user asks or if their request implies one:
+
+```text
+explosive_fast      — more ramp, faster starts
+resilient           — more protection and recursion
+synergy_max         — maximize archetype and synergy slots
+interaction_heavy   — more removal and counterspells
+theme_flavor        — flavor over optimization
+low_salt            — minimal tutors and counterspells (casual playgroup)
+control_grind       — lots of counterspells and board wipes
+combo_focus         — tutor-heavy, card-selection-heavy
+combat_pressure     — protection and combat-focused archetype
+value_engine        — draw and recursion emphasis
+```
+
+Default if Agent choice: `balanced`
+
+Use the philosophy when running `mtg category-counts --philosophy <value>`.
+
+---
+
 ## Meta Answers Question
 
 Ask only if the user mentions a meta/playgroup or if the deck has obvious weakness.
@@ -294,6 +329,8 @@ After collecting feedback, return JSON only:
   "combo_policy": "no_infinite_combos",
   "tutor_policy": "1_to_2_if_make_sense",
   "mana_base_policy": "avoid_bad_tapped_lands_when_possible",
+  "philosophy": "balanced",
+  "meta": "universal",
   "specific_includes": [],
   "specific_excludes": [],
   "effect_preferences": [],

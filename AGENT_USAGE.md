@@ -659,7 +659,7 @@ Optional flags:
 9. Search candidates by role and package.
 10. Rank candidates.
 11. Build 100-card deck using count targets as guidance.
-12. Save `output/deck.json`.
+12. Write plain decklist to `output/decklist.txt`, then convert with `mtg deck-write --input output/decklist.txt --output output/deck.json --force`, then fill basic lands with `mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force`.
 13. Validate.
 14. Fix errors.
 15. Run deck-check.

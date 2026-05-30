@@ -62,8 +62,7 @@
   "protection": {
     "tags": [
       "protection",
-      "board_protection",
-      "recursion"
+      "board_protection"
     ]
   },
   "graveyard_hate": {
@@ -128,20 +127,21 @@
     "tags": [
       "finisher",
       "extra_combat",
-      "overrun",
-      "mass_pump",
+      "anthem",
       "damage_payoff",
       "lifedrain",
       "combo_piece",
       "alternate_wincon",
-      "double_strike"
+      "double_strike",
+      "damage_multiplier"
     ]
   },
   "support": {
     "tags": [
-      "support",
       "protection",
+      "board_protection",
       "recursion",
+      "graveyard_recursion",
       "evasion",
       "haste",
       "artifact_enchantment_removal",
@@ -150,11 +150,22 @@
   },
   "strategy": {
     "tags": [
-      "enabler",
-      "payoff",
+      "token_maker",
+      "sacrifice_outlet",
+      "death_trigger",
+      "spell_payoff",
+      "attack_trigger",
+      "combat_damage_trigger",
+      "etb_value",
+      "blink",
+      "artifact_payoff",
+      "enchantment_payoff",
+      "lifegain_payoff",
+      "landfall",
+      "counter_enabler",
+      "counter_payoff",
       "engine",
-      "finisher",
-      "support"
+      "finisher"
     ]
   },
   "token_package": {
@@ -172,7 +183,7 @@
       "self_sacrifice",
       "death_trigger",
       "aristocrats",
-      "recursive_creature"
+      "graveyard_recursion"
     ]
   },
   "graveyard_package": {
@@ -181,7 +192,8 @@
       "discard_outlet",
       "graveyard_recursion",
       "reanimation",
-      "recurrable_permanent"
+      "etb_value",
+      "self_sacrifice"
     ]
   },
   "spellslinger_package": {
@@ -226,7 +238,8 @@
       "mana_rock",
       "treasure",
       "artifact_payoff",
-      "artifact_recursion"
+      "artifact_recursion",
+      "sacrifice_outlet"
     ]
   },
   "enchantment_package": {
@@ -276,7 +289,7 @@
       "poison",
       "proliferate",
       "evasion",
-      "pump_spells"
+      "counter_enabler"
     ]
   }
 }

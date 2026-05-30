@@ -102,20 +102,35 @@ Avoid narrow hardcoded commander templates. Do not say “this commander must al
 Use broad archetypes only as labels, not as rigid templates:
 
 ```text
+aristocrats
+artifacts
+auras
 battlecruiser
-stax
-spellslinger
+blink
+combo
 control
-pillowfort
-voltron
+enchantress
+equipment
+go_tall_aggro
+go_wide_aggro
+graveyard_value
 group_hug
 group_slug
-reanimator
-mill
-theft
-tribal
-tokens
 infect
+landfall
+lands
+lifegain
+mill
+pillowfort
+reanimator
+spellslinger
+stax
+stompy
+theft
+tokens
+tribal
+value_engine
+voltron
 ```
 
 A deck can combine archetypes.

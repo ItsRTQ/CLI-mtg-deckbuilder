@@ -61,7 +61,9 @@
     "draw cards"
   ],
   "card_advantage": [
-    "draw",
+    "draw a card",
+    "draw two cards",
+    "draw X cards",
     "look at the top",
     "you may cast",
     "you may play",
@@ -125,7 +127,6 @@
     "phase out"
   ],
   "recursion": [
-    "return target",
     "from your graveyard",
     "from a graveyard"
   ],
@@ -134,6 +135,10 @@
     "return target creature card",
     "return target permanent card",
     "cast from your graveyard"
+  ],
+  "regrowth": [
+    "return target card from your graveyard to your hand",
+    "return up to one target card from your graveyard"
   ],
   "self_mill": [
     "mill",
@@ -157,6 +162,11 @@
     "Sacrifice a creature:",
     "Sacrifice another creature:"
   ],
+  "mana_sacrifice_outlet": [
+    "Sacrifice a creature: Add",
+    "Sacrifice another creature: Add",
+    "Sacrifice a permanent: Add"
+  ],
   "self_sacrifice": [
     "sacrifice this",
     "sacrifice it"
@@ -174,13 +184,17 @@
     "whenever you sacrifice"
   ],
   "token_maker": [
-    "create",
-    "token"
+    "creature token",
+    "token creature",
+    "create a token",
+    "create one or more tokens",
+    "create X"
   ],
   "repeatable_token_maker": [
-    "whenever",
-    "create",
-    "token"
+    "whenever you create",
+    "creature token",
+    "at the beginning of each",
+    "create a token"
   ],
   "token_payoff": [
     "whenever a token",
@@ -191,6 +205,16 @@
   "token_doubler": [
     "twice that many",
     "create one or more tokens"
+  ],
+  "replacement_multiplier": [
+    "twice that many tokens",
+    "that many of those tokens plus",
+    "create twice that many"
+  ],
+  "go_wide_payoff": [
+    "for each creature you control",
+    "number of creatures you control",
+    "the number of creatures you control"
   ],
   "anthem": [
     "creatures you control get",
@@ -212,6 +236,16 @@
     "modified",
     "whenever one or more counters"
   ],
+  "modified_payoff": [
+    "modified",
+    "modified creature you control",
+    "whenever a modified"
+  ],
+  "counter_doubler": [
+    "twice that many counters",
+    "if one or more +1/+1 counters would be put",
+    "additional +1/+1 counters"
+  ],
   "proliferate": [
     "proliferate"
   ],
@@ -221,11 +255,26 @@
     "prowess",
     "copy target instant or sorcery"
   ],
+  "magecraft": [
+    "magecraft"
+  ],
+  "prowess": [
+    "prowess"
+  ],
+  "storm": [
+    "storm"
+  ],
+  "spell_recursion": [
+    "from your graveyard, you may cast",
+    "cast target instant or sorcery card from your graveyard",
+    "from your graveyard as though it had flash"
+  ],
   "cheap_spell": [
-    "instant",
-    "sorcery",
     "draw a card",
-    "target"
+    "scry",
+    "surveil",
+    "flashback",
+    "cycling"
   ],
   "spell_copy": [
     "copy target instant or sorcery",
@@ -244,6 +293,11 @@
     "additional combat",
     "untap all creatures that attacked"
   ],
+  "damage_multiplier": [
+    "damage is doubled",
+    "deals double",
+    "double that much damage"
+  ],
   "evasion": [
     "can't be blocked",
     "flying",
@@ -252,8 +306,17 @@
     "skulk",
     "shadow"
   ],
+  "flying": [
+    "flying"
+  ],
+  "trample": [
+    "trample"
+  ],
   "haste": [
     "haste"
+  ],
+  "lifelink": [
+    "lifelink"
   ],
   "double_strike": [
     "double strike"
@@ -263,9 +326,11 @@
     "when this enters"
   ],
   "blink": [
-    "exile",
     "return it to the battlefield",
-    "flicker"
+    "return that card to the battlefield",
+    "blink",
+    "flicker",
+    "exile target permanent you control"
   ],
   "trigger_doubler": [
     "triggers an additional time",
@@ -279,6 +344,11 @@
     "artifacts you control",
     "sacrifice an artifact"
   ],
+  "artifact_recursion": [
+    "return target artifact card",
+    "artifact card from your graveyard",
+    "return target artifact"
+  ],
   "enchantment": [
     "Enchantment"
   ],
@@ -286,6 +356,15 @@
     "whenever you cast an enchantment",
     "whenever an enchantment enters",
     "draw a card"
+  ],
+  "enchantment_payoff": [
+    "whenever an enchantment enters",
+    "for each enchantment you control",
+    "enchantments you control",
+    "whenever you cast an enchantment"
+  ],
+  "constellation": [
+    "constellation"
   ],
   "lifegain": [
     "you gain",
@@ -295,14 +374,24 @@
     "whenever you gain life",
     "if you gained life"
   ],
+  "life_payment": [
+    "pay life",
+    "pay X life",
+    "pays life"
+  ],
   "damage_payoff": [
     "deals damage to each opponent",
-    "deals damage",
-    "whenever"
+    "deals damage to each player",
+    "whenever you deal damage",
+    "whenever a creature deals combat damage"
   ],
   "lifedrain": [
     "each opponent loses",
     "you gain"
+  ],
+  "alternate_wincon": [
+    "you win the game",
+    "that player loses the game"
   ],
   "landfall": [
     "landfall",
@@ -312,6 +401,11 @@
     "play lands from your graveyard",
     "return target land"
   ],
+  "land_payoff": [
+    "for each land you control",
+    "lands you control",
+    "land you control"
+  ],
   "tribal_creature": [
     "{creature_type}"
   ],
@@ -319,6 +413,11 @@
     "{creature_type} you control",
     "choose a creature type",
     "creatures of the chosen type"
+  ],
+  "tribal_lord": [
+    "other creatures you control of the chosen type get",
+    "creatures you control of the chosen type get",
+    "other creatures you control get +"
   ],
   "changeling": [
     "changeling"
@@ -372,28 +471,18 @@
   ],
   "combo_piece": [
     "untap",
-    "return",
-    "copy",
+    "create a copy",
+    "copy target",
     "sacrifice",
     "add mana",
     "triggered ability"
   ],
   "engine": [
-    "whenever",
-    "at the beginning",
-    "you may",
-    "draw",
-    "create",
-    "return"
-  ],
-  "support": [
-    "protect",
-    "return",
-    "search",
-    "draw",
-    "remove",
-    "destroy",
-    "exile"
+    "whenever you",
+    "at the beginning of each",
+    "once each turn",
+    "the first time each",
+    "each end step"
   ],
   "removal": [
     "destroy target",

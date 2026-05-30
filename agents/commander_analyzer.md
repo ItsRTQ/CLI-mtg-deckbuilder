@@ -148,6 +148,24 @@ critical
 
 Increase protection recommendations if commander dependency is high/critical.
 
+Dependency signals that increase score:
+- Commander triggers on "whenever" (reactive, ongoing engine)
+- Commander text contains "triggers an additional time" (high value multiplier)
+- Commander requires a specific event every turn to generate value
+- Deck clearly fails if commander is removed more than once
+
+Threat signals that draw attention/removal:
+- Mass card draw (draw 3+ cards)
+- Gives free mana generation
+- Wins on its own if left uncontested
+- Goes infinite with common cards
+
+Mana value pressure signals:
+- MV ≥ 4 means the deck needs to support replaying an expensive commander
+- MV ≥ 6 creates significant pressure on ramp requirements
+
+These signals inform category-count recommendations but are also useful for package planning.
+
 ### 6. Identify User-Facing Build Choices
 
 If the commander supports multiple valid build directions, output them as options for `user-feedback.md`.
@@ -161,20 +179,35 @@ Do not decide all paths silently when user preference would matter.
 Use these broad labels:
 
 ```text
+aristocrats
+artifacts
+auras
 battlecruiser
-stax
-spellslinger
+blink
+combo
 control
-pillowfort
-voltron
+enchantress
+equipment
+go_tall_aggro
+go_wide_aggro
+graveyard_value
 group_hug
 group_slug
-reanimator
-mill
-theft
-tribal
-tokens
 infect
+landfall
+lands
+lifegain
+mill
+pillowfort
+reanimator
+spellslinger
+stax
+stompy
+theft
+tokens
+tribal
+value_engine
+voltron
 ```
 
 Archetypes are labels, not rigid deck templates.

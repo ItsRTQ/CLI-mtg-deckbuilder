@@ -201,6 +201,23 @@ If a CLI suggestion for ramp returns `matched_tags: []`, do not include it as a 
 
 ---
 
+## Multi-Tag Coverage Caution
+
+A single physical card slot can support multiple categories, but it cannot fully cover all of them.
+
+One card may be:
+- ramp + sacrifice synergy → counts toward both, but you still need enough of each
+- draw + engine → multi-role value, but one slot cannot count as full coverage for both
+
+When slot pressure is high (category-counts reports `compression_needed: true`), use `need_score` to decide which categories are truly most important. Do not try to "satisfy" two high-need categories with the same card and assume coverage is complete.
+
+Rules:
+- Cards that serve multiple roles score higher (as usual)
+- But do not assume a deck with 10 dual-role cards has 10 cards per role
+- Physical slot count sets the real ceiling
+
+---
+
 ## Explore Recommendations
 
 Cards from `mtg explore` output (`high_synergy`, `top_cards`) are **community signal only**.

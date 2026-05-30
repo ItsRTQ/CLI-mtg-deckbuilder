@@ -246,9 +246,16 @@ Build Feedback:
 - Search friction: ramp suggestions returned cards with empty matched_tags.
 - Pricing: 4 cards had unknown USD price; budget_confidence is partial.
 - Missing CLI feature: deck-check did not count custom enchantment-based ramp.
+- category-counts: archetype_core target was 26 but nonland slots were 63,
+  causing extreme compression that reduced recursion to 0. Agent overrode to 4.
 ```
 
 Do not use Build Feedback as a complaint. It should explain what specific tool behavior or data gap affected the build.
+
+Category-counts feedback worth reporting:
+- Extreme slot compression that forced a category below functional minimum.
+- Archetype fit score below 4.0 (forced archetype).
+- `need_score` disagreed significantly with actual deck needs for the specific commander.
 
 ---
 

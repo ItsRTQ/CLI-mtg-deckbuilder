@@ -1,0 +1,204 @@
+{
+  "_note": "Per-archetype demand bonus scores added to base category needs. Positive = archetype needs this category more.",
+  "aristocrats": {
+    "archetype_core": 4.0,
+    "synergy_enablers": 3.0,
+    "synergy_payoffs": 3.0,
+    "recursion": 2.5,
+    "win_conditions": 1.0,
+    "draw": 0.5,
+    "board_wipes": 0.5
+  },
+  "voltron": {
+    "archetype_core": 3.0,
+    "protection": 3.5,
+    "win_conditions": 2.0,
+    "synergy_enablers": 2.0,
+    "normal_ramp": 0.5,
+    "draw": 0.5,
+    "board_wipes": -1.0
+  },
+  "tokens": {
+    "archetype_core": 3.5,
+    "synergy_enablers": 2.5,
+    "synergy_payoffs": 2.5,
+    "board_wipes": 1.5,
+    "win_conditions": 1.0,
+    "targeted_removal": -0.5
+  },
+  "spellslinger": {
+    "archetype_core": 3.5,
+    "draw": 2.0,
+    "card_selection": 3.0,
+    "synergy_payoffs": 2.0,
+    "counterspells": 1.5,
+    "normal_ramp": 0.5
+  },
+  "control": {
+    "draw": 2.5,
+    "targeted_removal": 2.5,
+    "board_wipes": 2.5,
+    "counterspells": 3.0,
+    "card_selection": 1.5,
+    "recursion": 1.0,
+    "archetype_core": -1.0
+  },
+  "combo": {
+    "archetype_core": 3.0,
+    "tutors": 3.5,
+    "draw": 2.0,
+    "card_selection": 2.5,
+    "win_conditions": 2.0,
+    "normal_ramp": 1.5,
+    "protection": 1.0,
+    "redundancy": 1.5
+  },
+  "stompy": {
+    "big_ramp": 3.0,
+    "normal_ramp": 1.5,
+    "archetype_core": 2.5,
+    "win_conditions": 1.5,
+    "protection": 1.5,
+    "synergy_payoffs": 2.0
+  },
+  "reanimator": {
+    "recursion": 4.0,
+    "archetype_core": 3.5,
+    "draw": 1.5,
+    "win_conditions": 1.5,
+    "synergy_enablers": 2.0,
+    "graveyard_hate": -1.0
+  },
+  "graveyard_value": {
+    "recursion": 3.5,
+    "archetype_core": 3.0,
+    "synergy_enablers": 2.5,
+    "draw": 1.5,
+    "graveyard_hate": -1.0
+  },
+  "artifacts": {
+    "archetype_core": 4.0,
+    "synergy_enablers": 3.0,
+    "synergy_payoffs": 2.5,
+    "normal_ramp": 1.5,
+    "tutors": 0.5
+  },
+  "enchantress": {
+    "archetype_core": 4.0,
+    "synergy_enablers": 3.0,
+    "draw": 2.0,
+    "card_selection": 1.0,
+    "protection": 1.0
+  },
+  "equipment": {
+    "archetype_core": 3.5,
+    "protection": 3.0,
+    "synergy_enablers": 2.0,
+    "win_conditions": 1.5,
+    "draw": 0.5
+  },
+  "auras": {
+    "archetype_core": 3.5,
+    "protection": 3.5,
+    "win_conditions": 2.0,
+    "recursion": 1.5,
+    "draw": 0.5
+  },
+  "lands": {
+    "normal_ramp": 2.5,
+    "archetype_core": 3.5,
+    "synergy_payoffs": 3.0,
+    "big_ramp": 1.5,
+    "recursion": 1.5
+  },
+  "landfall": {
+    "normal_ramp": 2.5,
+    "archetype_core": 3.5,
+    "synergy_payoffs": 3.0,
+    "big_ramp": 1.5,
+    "recursion": 1.0
+  },
+  "lifegain": {
+    "synergy_enablers": 2.5,
+    "synergy_payoffs": 2.5,
+    "archetype_core": 3.0,
+    "win_conditions": 1.5,
+    "protection": 0.5
+  },
+  "group_slug": {
+    "archetype_core": 3.5,
+    "win_conditions": 2.0,
+    "protection": 2.0,
+    "board_wipes": 1.0,
+    "draw": 1.0
+  },
+  "mill": {
+    "archetype_core": 3.5,
+    "win_conditions": 2.0,
+    "synergy_enablers": 2.0,
+    "draw": 1.5,
+    "protection": 0.5
+  },
+  "blink": {
+    "archetype_core": 3.5,
+    "synergy_enablers": 3.0,
+    "synergy_payoffs": 2.5,
+    "draw": 1.0,
+    "recursion": 0.5
+  },
+  "theft": {
+    "archetype_core": 3.5,
+    "win_conditions": 2.0,
+    "targeted_removal": 1.0,
+    "draw": 1.5
+  },
+  "go_wide_aggro": {
+    "archetype_core": 3.5,
+    "win_conditions": 1.5,
+    "protection": 1.5,
+    "synergy_payoffs": 2.0,
+    "board_wipes": -0.5
+  },
+  "go_tall_aggro": {
+    "protection": 3.0,
+    "win_conditions": 2.0,
+    "archetype_core": 2.5,
+    "synergy_payoffs": 1.5,
+    "board_wipes": -1.0
+  },
+  "tribal": {
+    "archetype_core": 4.0,
+    "synergy_enablers": 3.0,
+    "synergy_payoffs": 2.5,
+    "draw": 0.5,
+    "redundancy": 1.0
+  },
+  "pillowfort": {
+    "archetype_core": 3.5,
+    "protection": 2.5,
+    "recursion": 1.5,
+    "draw": 1.0,
+    "board_wipes": 1.0
+  },
+  "stax": {
+    "archetype_core": 4.0,
+    "win_conditions": 2.0,
+    "targeted_removal": 1.0,
+    "recursion": 1.0,
+    "counterspells": 1.0
+  },
+  "value_engine": {
+    "draw": 2.5,
+    "archetype_core": 3.0,
+    "recursion": 2.5,
+    "synergy_enablers": 2.0,
+    "utility": 1.0
+  },
+  "battlecruiser": {
+    "big_ramp": 3.0,
+    "normal_ramp": 1.5,
+    "win_conditions": 1.5,
+    "archetype_core": 1.5,
+    "draw": 0.5
+  }
+}

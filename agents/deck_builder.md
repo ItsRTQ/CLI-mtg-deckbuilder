@@ -301,12 +301,50 @@ Do not avoid auto-includes only because they are staples unless user requests a 
 
 ---
 
+## Category-Count Guidance
+
+Before planning packages, run `mtg category-counts` to get soft count targets:
+
+```bash
+mtg category-counts \
+  --commander "<commander>" \
+  --archetype <archetype> \
+  --power-level <number> \
+  --philosophy <philosophy> \
+  --json-output
+```
+
+For partner decks:
+
+```bash
+mtg category-counts \
+  --commander "<commander>" \
+  --partner "<partner>" \
+  --archetype <archetype> \
+  --power-level <number> \
+  --philosophy <philosophy> \
+  --json-output
+```
+
+Use the output as guidance:
+
+- `need_score`: How important the system thinks this category is. Use this to judge priority even if `target_count` was compressed.
+- `recommended_range`: Ideal range before slot-budget compression. Use this when planning packages.
+- `target_count`: Post-compression final target. May be lower than the range if total demand exceeds nonland slots.
+
+Category-count output is soft guidance — not a hard lock. Your deckbuilding judgment applies. If `compression_needed` is true, the system is flagging slot pressure; prioritize categories with the highest `need_score`.
+
+If category-counts produces poor recommendations (slot pressure too extreme, wrong archetype fit, unrealistic numbers), note it in Build Feedback.
+
+---
+
 ## Build Process
 
 1. Add commander (or both commanders for partner decks).
 2. Apply user feedback and constraints.
-3. Build role targets from power level, commander dependency, curve, and engine.
-4. Select strategy packages first.
+3. Run `mtg category-counts` to get package count targets.
+4. Build role targets from power level, commander dependency, curve, engine, and category-counts guidance.
+5. Select strategy packages first.
 5. Select ramp package.
 6. Select draw/card advantage/search.
 7. Select removal/interaction.

@@ -95,6 +95,8 @@ mtg suggest-lands --commander "<commander>" --count <count> --json-output
 mtg deck-write --input output/decklist.txt --output output/deck.json --force
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --dry-run --json-output
+mtg category-counts --commander "<commander>" --archetype <archetype> --power-level <number> --philosophy balanced --json-output
+mtg category-counts --commander "<commander>" --partner "<partner>" --archetype voltron --power-level 6 --philosophy combat_pressure --json-output
 mtg validate --commander "<commander>" --deck output/deck.json --json-output
 mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
 mtg enrich output/deck.json --output output/deck.enriched.json
@@ -606,6 +608,44 @@ If a community recommendation conflicts with user constraints (budget, power lev
 
 ---
 
+## Category-Count Recommendations
+
+Use `mtg category-counts` to get soft target ranges for each category before building.
+
+```bash
+mtg category-counts \
+  --commander "Teysa Karlov" \
+  --archetype aristocrats \
+  --power-level 6 \
+  --philosophy balanced \
+  --json-output
+
+mtg category-counts \
+  --commander "Ardenn, Intrepid Archaeologist" \
+  --partner "Rograkh, Son of Rohgahh" \
+  --archetype voltron \
+  --power-level 6 \
+  --philosophy combat_pressure \
+  --json-output
+```
+
+Optional flags:
+- `--meta <meta>` — e.g. `creature_heavy`, `graveyard_heavy`, `combo_heavy`, `fast_high_power`
+- `--projected-average-mv <float>` — refine land and ramp estimates
+- `--bracket T1/T2/T3/T4` — alternative to `--power-level`
+
+### category-counts output rules
+
+- `need_score`: How important this category is (0–10). Use this to judge priority even if `target_count` was compressed.
+- `target_count`: Final count after slot-budget compression. May be below the `recommended_range` if total demand exceeds available nonland slots.
+- `recommended_range`: Ideal range before compression. Use this as the agent's planning target.
+- `slot_budget.compression_needed`: If `true`, compression notes explain what was reduced.
+- `multi_tag_policy`: A card may count toward multiple categories but uses one physical slot. Do not assume 100% coverage for each category independently.
+
+**Category-count output is soft guidance — not a hard lock.** User constraints, synergy judgment, and actual card availability override it. If the output shows unrealistic slot pressure or poor recommendations, include it in Build Feedback.
+
+---
+
 ## Required Build Steps
 
 1. Parse user request.
@@ -614,18 +654,19 @@ If a community recommendation conflicts with user constraints (budget, power lev
 4. Confirm legality and commander eligibility.
 5. Analyze commander engine.
 6. Detect archetype/detail/constraints.
-7. Build package plan.
-8. Search candidates by role and package.
-9. Rank candidates.
-10. Build 100-card deck.
-11. Save `output/deck.json`.
-12. Validate.
-13. Fix errors.
-14. Run deck-check.
-15. Fix major coherence issues.
-16. Export only after validation passes.
-17. Explain deck.
-18. If the build had meaningful friction, include optional build feedback.
+7. Run `mtg category-counts` to get package count targets.
+8. Use `need_score` and `recommended_range` to plan package sizes.
+9. Search candidates by role and package.
+10. Rank candidates.
+11. Build 100-card deck using count targets as guidance.
+12. Save `output/deck.json`.
+13. Validate.
+14. Fix errors.
+15. Run deck-check.
+16. Fix major coherence issues.
+17. Export only after validation passes.
+18. Explain deck.
+19. If the build had meaningful friction (including poor category-counts recommendations), include optional build feedback.
 
 ---
 

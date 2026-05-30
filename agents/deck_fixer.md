@@ -65,6 +65,22 @@ If the deck is under budget, do not add expensive cards to fill the gap. Optiona
 
 ---
 
+## Category-Count Reference
+
+When fixing structural issues (too little ramp, draw, removal, etc.), you may re-run:
+
+```bash
+mtg category-counts --commander "<commander>" --archetype <archetype> --power-level <n> --json-output
+```
+
+Use `need_score` to prioritize which structural categories matter most for this specific commander/archetype.
+
+Categories with `need_score >= 6.5` are High or Critical — fix those first.
+
+Categories with `need_score < 3.0` are Low or Negligible — fixing them is optional.
+
+---
+
 ## Replacement Rules
 
 Replace like-for-like when possible:

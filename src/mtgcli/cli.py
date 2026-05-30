@@ -31,6 +31,7 @@ from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
 from mtgcli.deckbuilder.land_filler import fill_deck_with_lands
 from mtgcli.utils.deck_io import normalize_deck_input
 from mtgcli.utils.decklist_parser import parse_decklist_text
+from mtgcli.category_counts import calculate_category_counts, format_human_readable
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -1181,6 +1182,39 @@ def budget(
         if strict and summary.get("strict_mode_failed"):
             print(f"[red]Strict mode: {summary['strict_mode_reason']}[/red]")
             raise typer.Exit(code=1)
+
+
+@app.command()
+def category_counts(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander card name"),
+    archetype: str = typer.Option(..., "--archetype", help="Deck archetype (e.g. aristocrats, voltron, combo)"),
+    power_level: Optional[float] = typer.Option(None, "--power-level", help="Numeric power level 1-10"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Bracket label T1/T2/T3/T4"),
+    philosophy: str = typer.Option("balanced", "--philosophy", help="Deckbuilding philosophy"),
+    meta: str = typer.Option("universal", "--meta", help="Playgroup meta environment"),
+    projected_avg_mv: Optional[float] = typer.Option(None, "--projected-average-mv", help="Projected average nonland MV"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Recommend category counts for a Commander deck."""
+    db_path = str(SQLITE_PATH) if SQLITE_PATH.exists() else None
+
+    result = calculate_category_counts(
+        commander,
+        archetype,
+        partner_name=partner,
+        power_level=power_level,
+        bracket=bracket,
+        philosophy=philosophy,
+        meta=meta,
+        projected_avg_mv=projected_avg_mv,
+        db_path=db_path,
+    )
+
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        print(format_human_readable(result))
 
 
 if __name__ == "__main__":

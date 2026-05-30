@@ -113,6 +113,10 @@ Default if Agent choice:
 No strict budget, but avoid expensive cards unless they strongly fit.
 ```
 
+Budget is a **maximum constraint, not a spending target**.
+
+If the deck can be built for less and is synergistic and coherent, keep it under budget. Do not add expensive cards to fill the budget headroom. A 10% overage above the stated limit is acceptable by default.
+
 If custom budget is too low:
 
 - do not stop deckbuilding
@@ -120,6 +124,23 @@ If custom budget is too low:
 - get as close as practical
 - prioritize deck function over perfect budget compliance
 - note the limitation honestly
+
+---
+
+## Partner Commander Question
+
+Ask if the user has not specified whether they want a partner deck and the commander has the Partner keyword.
+
+```text
+Question: This commander has the Partner keyword. Do you want to use a partner?
+
+a) Yes — I have a specific partner in mind (please name them)
+b) Yes — choose the best partner for the strategy
+c) No — single commander deck
+d) Agent choice
+```
+
+If Agent choice: choose a partner that best complements the commander's engine and color identity.
 
 ---
 

@@ -28,7 +28,9 @@ from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_th
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
 from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
+from mtgcli.deckbuilder.land_filler import fill_deck_with_lands
 from mtgcli.utils.deck_io import normalize_deck_input
+from mtgcli.utils.decklist_parser import parse_decklist_text
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -340,6 +342,160 @@ def validate(
     except Exception as e:
         print(f"[red]Failed to validate deck: {e}[/red]")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def deck_write(
+    input_path: Path = typer.Option(..., "--input", help="Path to plain text decklist file"),
+    output_path: Path = typer.Option(Path("output/deck.json"), "--output", help="Output JSON path"),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing output file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
+):
+    """Convert a plain text decklist to deck JSON."""
+    if not input_path.exists():
+        print(f"[red]Input file not found: {input_path}[/red]")
+        raise typer.Exit(code=1)
+
+    if output_path.exists() and not force:
+        print(f"[red]Output already exists: {output_path}. Use --force to overwrite.[/red]")
+        raise typer.Exit(code=1)
+
+    text = input_path.read_text(encoding="utf-8")
+    entries = parse_decklist_text(text)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(output_path, entries)
+
+    if json_output:
+        print(json.dumps({
+            "written": True,
+            "output": str(output_path),
+            "entries": len(entries),
+            "total_cards": sum(e.get("quantity", 1) for e in entries),
+        }))
+    else:
+        total = sum(e.get("quantity", 1) for e in entries)
+        print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
+
+
+@app.command()
+def deck_fill_lands(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to deck JSON file"),
+    commander: str = typer.Option(..., "--commander", help="Commander name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander name"),
+    output_path: Optional[Path] = typer.Option(None, "--output", help="Output JSON path (default: same as --deck)"),
+    target_main: Optional[int] = typer.Option(None, "--target-main", help="Target main deck size (default: 99 or 98 for partner)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be added without writing"),
+    force: bool = typer.Option(False, "--force", help="Allow overwriting the output file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
+):
+    """Fill a partial deck with basic lands to reach the target main deck size."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+
+    out_path = output_path or deck_path
+    if out_path.exists() and not dry_run and not force:
+        print(f"[red]Output already exists: {out_path}. Use --force to overwrite.[/red]")
+        raise typer.Exit(code=1)
+
+    # Resolve commander color identity
+    repo = CardRepository(str(SQLITE_PATH))
+    cmd_card = repo.get_card_by_exact_name(commander)
+    if not cmd_card:
+        print(f"[red]Commander '{commander}' not found in database.[/red]")
+        raise typer.Exit(code=1)
+
+    color_identity = list(cmd_card.get("color_identity", []))
+
+    if partner:
+        partner_card = repo.get_card_by_exact_name(partner)
+        if not partner_card:
+            print(f"[red]Partner '{partner}' not found in database.[/red]")
+            raise typer.Exit(code=1)
+        for c in partner_card.get("color_identity", []):
+            if c not in color_identity:
+                color_identity.append(c)
+
+    # Determine target main deck size
+    commander_slots = 2 if partner else 1
+    if target_main is not None:
+        target = target_main
+    else:
+        target = 100 - commander_slots  # 99 or 98
+
+    # Load and normalize deck
+    raw = read_json(deck_path)
+    deck_entries = normalize_deck_input(raw)["main_deck"]
+
+    result = fill_deck_with_lands(deck_entries, color_identity, target)
+
+    if not result["filled"]:
+        if json_output:
+            print(json.dumps({"filled": False, "error": result["error"]}))
+        else:
+            print(f"[red]{result['error']}[/red]")
+        raise typer.Exit(code=1)
+
+    lands_added = result["lands_added"]
+    current = result["current_main_deck_size"]
+    remaining = result.get("remaining_slots", 0)
+
+    if dry_run:
+        payload = {
+            "deck": str(deck_path),
+            "output": str(out_path),
+            "commander": commander,
+            "partner": partner,
+            "target_main_deck_size": target,
+            "current_main_deck_size": current,
+            "remaining_slots": remaining,
+            "lands_added": lands_added,
+            "written": False,
+            "dry_run": True,
+        }
+        if json_output:
+            print(json.dumps(payload))
+        else:
+            print(f"[bold blue]Dry run — no files written[/bold blue]")
+            print(f"  Deck: {current} / {target} main deck cards")
+            print(f"  Would add {remaining} basic land(s):")
+            for name, qty in lands_added.items():
+                print(f"    - {qty} {name}")
+        return
+
+    # Write updated deck
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out_path, result["updated_deck"])
+
+    payload = {
+        "deck": str(deck_path),
+        "output": str(out_path),
+        "commander": commander,
+        "partner": partner,
+        "target_main_deck_size": target,
+        "current_main_deck_size": current,
+        "remaining_slots": remaining,
+        "lands_added": lands_added,
+        "written": True,
+    }
+
+    if json_output:
+        print(json.dumps(payload))
+    else:
+        if remaining == 0:
+            note = result.get("note", "")
+            print(f"[green]{note or 'Deck is already at target size.'}[/green]")
+        else:
+            print(f"[bold blue]Deck has {current} / {target} main deck cards.[/bold blue]")
+            print(f"Added {remaining} basic land(s):")
+            for name, qty in lands_added.items():
+                print(f"  - {qty} {name}")
+            print(f"[green]Wrote updated deck to {out_path}[/green]")
 
 
 @app.command()

@@ -173,6 +173,59 @@ Prioritize efficiency, speed, tutors, combos, and strongest legal options.
 
 Budget should lower score for expensive cards only when budget is active.
 
+**Price is not power.** Do not rank a card higher only because it is expensive. An expensive card that weakly fits the plan scores lower than a cheap card that strongly fits it.
+
+**Budget is a maximum, not a target.** Do not reward expensive cards to fill budget headroom.
+
+---
+
+## Ramp vs Cheap
+
+`ramp` cards clearly accelerate mana:
+
+```text
+mana rocks ({T}: Add ...)
+mana dorks ({T}: Add {G} etc.)
+land ramp (search/put land onto battlefield)
+Treasure makers
+rituals (Add {B}{B}{B} etc.)
+extra land drops
+cost reducers (spells you cast cost less)
+```
+
+Low mana value alone does not qualify a card as ramp.
+
+If a CLI suggestion for ramp returns `matched_tags: []`, do not include it as a ramp card.
+
+`cheap` means low-cost synergistic cards (MV ≤ 3) that support the commander engine. Not every cheap card qualifies — it must advance the plan.
+
+---
+
+## Explore Recommendations
+
+Cards from `mtg explore` output (`high_synergy`, `top_cards`) are **community signal only**.
+
+Treat them as additional candidates, not as mandatory includes.
+
+They must still pass:
+
+- legality
+- color identity
+- budget
+- role balance
+- theme fit
+- commander synergy
+
+If an explore card conflicts with user constraints or the commander engine, ignore it.
+
+---
+
+## Unknown Prices
+
+If `usd_price` is null for a card, note it as unknown price. Do not treat it as $0.
+
+Do not exclude unknown-price cards from consideration unless the user requested strict budget mode.
+
 ---
 
 ## Output Format

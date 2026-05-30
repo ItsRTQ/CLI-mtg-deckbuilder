@@ -36,6 +36,22 @@ Never use Commander-illegal cards.
 
 Never use duplicate non-basic cards.
 
+Never create helper scripts like `build_*.py`, `temp_*.py`, or one-off Python files. Use official CLI commands instead. If the CLI lacks a needed command, report it in Build Feedback instead of writing project files.
+
+Allowed output files during a deck build:
+
+```text
+output/decklist.txt
+output/deck.json
+output/deck.enriched.json
+output/deck.moxfield.txt
+output/deck_explanation.md
+output/validation_report.json
+final-builds/<build-name>/
+```
+
+Do not edit source code, seed files, README, agent files, `.env`, or `.gitignore` during normal deckbuilding.
+
 ---
 
 ## 2. Core Architecture
@@ -355,9 +371,21 @@ Default if forced to proceed:
 No strict budget
 ```
 
+**Budget is a maximum constraint, not a spending target.**
+
+A deck costing $280 on a $500 budget is acceptable if it is synergistic, legal, and coherent. Do not add expensive cards just to get closer to the budget limit.
+
+Allowed overage: up to 10% by default. A $500 budget allows spending up to $550.
+
+If deck exceeds the 10% overage, replace expensive low-synergy cards first. Preserve key engine pieces.
+
+If `usd_price` is unknown for some cards, report them and note `budget_confidence = "partial"`. Do not treat unknown price as $0.
+
 If a custom budget is too low, do not stop deckbuilding. Build as close as practical, use basics as $0, reduce expensive staples, and prioritize functional deck quality over perfect budget compliance.
 
-After the deck is completed, upgrades should be offered separately, ranked by impact and power increase.
+Optional upgrades when the deck is under budget: list separately, do not apply automatically unless the user asks.
+
+Use `mtg budget output/deck.json --budget <amount> --json-output` to check deck cost.
 
 ---
 
@@ -387,23 +415,24 @@ A combo is acceptable when the individual cards are already useful to the main d
 When asked to build a Commander deck:
 
 1. Read user request.
-2. Extract commander, archetype, detail, constraints.
+2. Extract commander, archetype, detail, constraints. For partner decks, extract both commanders.
 3. Use `user-feedback.md` if important preferences are missing.
-4. Look up commander with CLI.
-5. Confirm card exists, legality, commander eligibility, and color identity.
-6. Run `commander_analyzer.md`.
+4. Look up commander (and partner if applicable) with CLI.
+5. Confirm each card exists, is legal, is eligible as commander, and determine combined color identity.
+6. Run `commander_analyzer.md`. For partner decks, analyze both commanders together.
 7. Run `theme_detector.md`.
 8. Build package plan.
 9. Search/suggest candidate cards using CLI by role/package.
 10. Rank candidates using `card_ranker.md`.
-11. Build deck using `deck_builder.md`.
-12. Save `output/deck.json`.
-13. Validate with CLI.
-14. Fix with `deck_fixer.md` until valid or blocked.
-15. Run deck-check if available.
-16. Fix major deck-check issues.
-17. Export only after validation passes.
-18. Explain with `deck_explainer.md`.
+11. Build deck using `deck_builder.md`. For partner decks: 2 commanders + 98 main deck cards = 100.
+12. Write plain decklist to `output/decklist.txt`, then convert: `mtg deck-write --input output/decklist.txt --output output/deck.json --force`
+13. Fill any remaining basic land slots: `mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force`
+14. Validate with CLI.
+15. Fix with `deck_fixer.md` until valid or blocked.
+16. Run deck-check if available.
+17. Fix major deck-check issues.
+18. Export only after validation passes.
+19. Explain with `deck_explainer.md`.
 
 ---
 
@@ -412,8 +441,18 @@ When asked to build a Commander deck:
 Use installed `mtg` command when available:
 
 ```bash
+# Card lookup
 mtg card "<card name>" --json-output
+mtg cards "Sol Ring" "Arcane Signet" "Chaos Warp" --json-output
+mtg cards-batch output/deck.json --json-output
+
+# Search — supports structured tokens: type:, oracle:, text:, name:, mv:, mv<=, mv>=
+mtg search "type:demon" --limit 20 --json-output
+mtg search "type:artifact oracle:Add" --colors WU --limit 20 --json-output
+mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
 mtg search "<query>" --colors "<colors>" --limit 30 --json-output
+
+# Suggest by role
 mtg suggest --commander "<commander name>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role card_draw --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role removal --limit 30 --json-output
@@ -421,10 +460,34 @@ mtg suggest --commander "<commander name>" --role board_wipe --limit 20 --json-o
 mtg suggest --commander "<commander name>" --role protection --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role synergy --limit 60 --json-output
 mtg suggest-lands --commander "<commander name>" --count <count> --json-output
+
+# Deck file creation
+mtg deck-write --input output/decklist.txt --output output/deck.json --force
+mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
+# For partner commanders:
+mtg deck-fill-lands --deck output/deck.json --commander "<commander A>" --partner "<commander B>" --output output/deck.json --force
+
+# Validation
 mtg validate --commander "<commander name>" --deck output/deck.json --json-output
+# Partner validation:
+mtg validate --commander "<commander A>" --partner "<commander B>" --deck output/deck.json --json-output
+
+# Deck quality and export
 mtg deck-check --commander "<commander name>" --deck output/deck.json --json-output
 mtg enrich output/deck.json --output output/deck.enriched.json
 mtg export output/deck.json --output output/deck.moxfield.txt
+
+# Pricing and budget
+mtg price "<card name>" --json-output
+mtg prices "Sol Ring" "Arcane Signet" --json-output
+mtg prices-batch output/deck.json --json-output
+mtg budget output/deck.json --budget <amount> --json-output
+
+# Community recommendations
+mtg explore --commander "<commander name>" --json-output
+
+# Final build (validation gated)
+mtg final-build --deck output/deck.json --commander "<commander>" --theme "<theme>" --bracket T3 --explanation output/deck_explanation.md
 ```
 
 When package-aware commands exist, prefer them. If they do not exist, emulate them through `mtg search` and `mtg suggest`.

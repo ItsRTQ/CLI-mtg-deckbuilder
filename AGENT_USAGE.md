@@ -80,6 +80,10 @@ Typical commands:
 
 ```bash
 mtg card "<commander>" --json-output
+# Structured search (type:, oracle:, name:, mv: tokens)
+mtg search "type:demon" --limit 20 --json-output
+mtg search "type:creature oracle:draw" --colors UB --limit 20 --json-output
+mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
 mtg search "<query>" --colors "<colors>" --limit 30 --json-output
 mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
@@ -87,6 +91,10 @@ mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
 mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
 mtg suggest --commander "<commander>" --role synergy --limit 60 --json-output
 mtg suggest-lands --commander "<commander>" --count <count> --json-output
+# Deck file creation
+mtg deck-write --input output/decklist.txt --output output/deck.json --force
+mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
+mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --dry-run --json-output
 mtg validate --commander "<commander>" --deck output/deck.json --json-output
 mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
 mtg enrich output/deck.json --output output/deck.enriched.json
@@ -95,6 +103,7 @@ mtg explore --commander "<commander>" --json-output
 mtg final-build --deck output/deck.json --commander "<commander>" --theme "<theme>" --bracket T4
 # Partner decks:
 mtg validate --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --deck output/deck.json
+mtg deck-fill-lands --deck output/deck.json --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --output output/deck.json --force
 mtg final-build --deck output/deck.json --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --theme "Goodstuff" --bracket T2
 ```
 
@@ -195,6 +204,85 @@ Only after `"validated": true` does the final build folder get created.
 ---
 
 
+## Deck File Creation and Land Filling
+
+Do not create temporary Python scripts such as `build_<commander>.py`, `temp_deck.py`, or one-off helper scripts to generate deck files or fill lands.
+
+Use the official CLI workflow:
+
+1. Write a plain decklist to `output/decklist.txt` (one card per line).
+2. Convert it to JSON:
+
+```bash
+mtg deck-write --input output/decklist.txt --output output/deck.json --force
+```
+
+3. Fill missing basic lands:
+
+```bash
+mtg deck-fill-lands --deck output/deck.json --commander "<Commander>" --output output/deck.json --force
+```
+
+4. Validate:
+
+```bash
+mtg validate --commander "<Commander>" --deck output/deck.json --json-output
+```
+
+### deck-write input formats
+
+```text
+1 Sol Ring
+1x Sol Ring
+Sol Ring        (quantity defaults to 1)
+# Ramp          (comment — skipped)
+## Lands        (section header — skipped)
+```
+
+### deck-fill-lands behavior
+
+- Fills remaining slots with basic lands based on commander color identity.
+- Does NOT remove cards. If deck is over target, returns an error instead.
+- Dry-run mode: `--dry-run` shows what would be added without writing.
+- Target defaults to 99 (single commander) or 98 (partner commanders).
+- For a deck with an exact target size, no lands are added.
+
+```bash
+mtg deck-fill-lands --deck output/deck.json --commander "Be'lakor, the Dark Master" --dry-run --json-output
+mtg deck-fill-lands --deck output/deck.json --commander "Be'lakor, the Dark Master" --output output/deck.json --force
+```
+
+---
+
+## Search Token Syntax
+
+`mtg search` supports simple structured tokens in addition to plain free-text:
+
+```text
+type:<value>    → match type_line (e.g. type:demon, type:artifact)
+oracle:<value>  → match oracle_text (e.g. oracle:draw, oracle:sacrifice)
+text:<value>    → alias for oracle:
+name:<value>    → match card name (e.g. name:ring)
+mv:<n>          → exact mana value (e.g. mv:3)
+mv<=<n>         → mana value ≤ n (e.g. mv<=2)
+mv>=<n>         → mana value ≥ n (e.g. mv>=4)
+```
+
+Examples:
+
+```bash
+mtg search "type:demon" --limit 20 --json-output
+mtg search "type:creature oracle:draw" --colors UB --limit 20 --json-output
+mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
+mtg search "type:demon sacrifice" --json-output   # free text mixed with token
+```
+
+All tokens are AND'd: every token must match for a card to appear.
+Unrecognized tokens (e.g. `color:red`) fall back to free-text search.
+Plain searches like `mtg search "Sol Ring"` still work as before.
+
+---
+
 ## File Editing Boundaries
 
 During normal deckbuilding, the agent should avoid creating, editing, or deleting project files that are not part of the deck being built.
@@ -202,6 +290,7 @@ During normal deckbuilding, the agent should avoid creating, editing, or deletin
 The agent may create or update deck-build artifacts only, such as:
 
 ```text
+output/decklist.txt
 output/deck.json
 output/deck.enriched.json
 output/deck.moxfield.txt
@@ -227,7 +316,20 @@ pyproject.toml
 .gitignore
 ```
 
+**Forbidden during normal deckbuilding unless explicitly requested:**
+
+```text
+build_*.py
+temp_*.py
+one-off Python helper scripts in the project root
+project source code edits
+seed data edits
+agent instruction file edits
+```
+
 If the agent discovers that the CLI, tags, search, suggestions, validation, pricing, or seed files need improvement, it should not silently edit those files during deckbuilding. It should finish the deck as well as possible and report the issue in the optional build feedback section.
+
+If the CLI lacks a command needed for deck creation, finish as far as possible and report the missing command in Build Feedback instead of creating a helper script.
 
 Do not create random scratch files in the project root. If a temporary file is necessary, place it under `output/` and prefer CLI-supported cleanup commands such as:
 

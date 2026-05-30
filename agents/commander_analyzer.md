@@ -33,6 +33,23 @@ Infer strategy from:
 
 ---
 
+## Partner Commander Support
+
+If two commanders are provided (partner deck):
+
+1. Analyze each commander separately first.
+2. Then identify shared or complementary patterns:
+   - shared trigger conditions
+   - complementary resources (e.g., one generates, one cashes in)
+   - combined color identity
+   - shared card type preferences
+   - overlapping archetypes or orthogonal archetypes that coexist
+3. Determine which commander is primary vs support, or if they share equal priority.
+4. Combined color identity = union of both commanders' color identity.
+5. Deck size for partner decks: 2 commanders + 98 main deck cards = 100 total.
+
+---
+
 ## Required Analysis Steps
 
 ### 1. Validate Commander Eligibility
@@ -43,6 +60,8 @@ Confirm from CLI data:
 - Commander legal
 - can be commander
 - color identity
+
+For partner decks, confirm both commanders. Verify each individually.
 
 If invalid, stop and return JSON explaining why.
 
@@ -169,8 +188,11 @@ Return only JSON:
 ```json
 {
   "commander": "Card Name",
+  "partner": null,
   "is_valid_commander": true,
   "color_identity": ["W", "U"],
+  "combined_color_identity": ["W", "U"],
+  "commander_slots": 1,
   "oracle_text_summary": "Short factual summary based only on CLI card data.",
   "text_signals": {
     "trigger_conditions": [],

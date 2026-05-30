@@ -14,24 +14,54 @@ Return only JSON.
 
 Fix in this order:
 
-1. illegal cards
-2. cards outside color identity
-3. banned cards
-4. duplicate non-basic cards
-5. incorrect commander count
-6. incorrect deck size
-7. user constraint violations
-8. too few lands
-9. too little ramp
-10. too little draw/card advantage
-11. too little interaction/removal
-12. too little protection for commander-dependent decks
-13. missing win conditions
-14. package imbalance
-15. off-plan filler
-16. budget/power-level mismatch
+1. cards not found in database (`card_not_found` errors) — treat as hallucination or misspelling, replace with a verified real card
+2. illegal cards (`not_commander_legal`)
+3. cards outside color identity (`color_identity_violation`)
+4. banned cards
+5. duplicate non-basic cards (`singleton_violation`)
+6. incorrect commander (`commander_not_found`, `invalid_commander`, `commander_missing`)
+7. incorrect deck size (`invalid_deck_size`)
+8. user constraint violations
+9. too few lands
+10. too little ramp
+11. too little draw/card advantage
+12. too little interaction/removal
+13. too little protection for commander-dependent decks
+14. missing win conditions
+15. package imbalance
+16. off-plan filler
+17. budget/power-level mismatch
 
 Do not fix cosmetic issues before legality and structure.
+
+### card_not_found Rule
+
+If validation returns `card_not_found` for a card:
+
+- The card name is hallucinated, misspelled, or does not exist in the local database.
+- Do not keep it. Do not assume it is real.
+- Search the CLI for the intended card by effect or name fragment.
+- Replace with a verified card that fills the same role.
+- Never skip `card_not_found` errors. They must be resolved before final-build.
+
+### Budget Overage Rule
+
+Budget is a maximum constraint, not a target.
+
+Do not cut synergy cards just because the deck is under budget.
+
+Only apply budget fixes when `known_price_total > budget_limit * 1.10` (default 10% overage).
+
+When fixing over-budget decks:
+
+1. Replace expensive low-synergy cards first.
+2. Replace expensive staples that are not essential to the engine.
+3. Preserve commander engine pieces.
+4. Preserve key synergy cards.
+5. Preserve required role balance.
+6. Do not degrade the deck into incoherence just to meet the budget.
+
+If the deck is under budget, do not add expensive cards to fill the gap. Optional upgrades may be suggested separately.
 
 ---
 

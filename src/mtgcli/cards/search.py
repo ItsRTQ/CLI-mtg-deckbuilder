@@ -3,6 +3,7 @@ import json
 from typing import List, Dict, Any, Optional
 from mtgcli.config import SQLITE_PATH, SEED_DATA_DIR
 from mtgcli.cards.repository import row_to_card
+from mtgcli.cards.query_parser import parse_search_query, build_search_conditions
 
 
 def dedupe_cards(cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -43,11 +44,13 @@ def search_commander_legal_cards(
     sql = "SELECT * FROM cards WHERE commander_legal = 1"
     params = []
 
-    # Text search (name, type_line, oracle_text)
+    # Structured token search — supports type:, oracle:, name:, mv: filters
     if query:
-        sql += " AND (name LIKE ? OR type_line LIKE ? OR oracle_text LIKE ?)"
-        like_query = f"%{query}%"
-        params.extend([like_query, like_query, like_query])
+        parsed = parse_search_query(query)
+        conditions, cond_params = build_search_conditions(parsed)
+        for cond in conditions:
+            sql += f" AND {cond}"
+        params.extend(cond_params)
 
     # Execute query
     cursor.execute(sql, params)

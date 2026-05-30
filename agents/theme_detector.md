@@ -21,11 +21,33 @@ Commander + Archetype + Detail + Constraints + User Feedback
 
 Definitions:
 
-- **Commander**: the legal commander card.
+- **Commander**: the legal commander card (or two commanders for partner decks).
 - **Archetype**: broad deck strategy label.
 - **Detail**: specific tribe, mechanic, resource, card type, flavor, or subtheme.
 - **Constraints**: user-specific requirements.
 - **User Feedback**: power, budget, combos, tutors, mana base, includes/excludes.
+
+### Partner Commander Theme Detection
+
+When two partner commanders are provided:
+
+1. Check if both commanders share an archetype or detail (e.g., both trigger on attacks, both care about tokens).
+2. Check if they are complementary (one supports the other's engine).
+3. Use the combined color identity for all card searches.
+4. Select a unified archetype/detail that reflects both commanders' contributions.
+
+---
+
+## Community Signal (Optional)
+
+You may use `mtg explore --commander "<commander>" --json-output` to get community card recommendations as an additional signal.
+
+Use explore output as **community signal only**:
+
+- `high_synergy` and `top_cards` are popular picks, not guaranteed fits.
+- Cross-reference against the engine analysis.
+- Do not include explore cards automatically. They must pass legality, color identity, budget, and engine fit.
+- If explore output conflicts with user constraints, ignore it.
 
 ---
 
@@ -166,6 +188,16 @@ return from graveyard
 copy target spell
 additional combat
 ```
+
+Use structured search tokens when searching for specific card types or effects:
+
+```bash
+mtg search "type:demon" --json-output
+mtg search "type:creature oracle:sacrifice" --colors BG --json-output
+mtg search "mv<=2 oracle:draw" --colors UB --json-output
+```
+
+Supported tokens: `type:`, `oracle:`, `text:`, `name:`, `mv:`, `mv<=`, `mv>=`
 
 Include negative/avoid patterns when useful.
 

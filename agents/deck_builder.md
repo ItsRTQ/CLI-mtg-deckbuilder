@@ -17,19 +17,29 @@ Return JSON when building plans or deck category output.
 
 ## Required Deck Size
 
-Final deck:
+Single commander:
 
 ```text
 1 commander
 99 main deck cards
-100 total cards
+100 total
 ```
 
-Commander must appear exactly once.
+Partner commanders (two commanders with the Partner keyword):
+
+```text
+2 commanders
+98 main deck cards
+100 total
+```
+
+Both commanders appear exactly once.
 
 Non-basic cards must be singleton.
 
 Basic lands may have quantity greater than 1.
+
+Color identity for partner decks is the combined color identity of both commanders.
 
 ---
 
@@ -293,7 +303,7 @@ Do not avoid auto-includes only because they are staples unless user requests a 
 
 ## Build Process
 
-1. Add commander.
+1. Add commander (or both commanders for partner decks).
 2. Apply user feedback and constraints.
 3. Build role targets from power level, commander dependency, curve, and engine.
 4. Select strategy packages first.
@@ -302,16 +312,20 @@ Do not avoid auto-includes only because they are staples unless user requests a 
 7. Select removal/interaction.
 8. Select protection/resilience.
 9. Select win conditions.
-10. Build preliminary 67-card nonland main deck.
+10. Build preliminary nonland main deck (67 cards for single commander, 66 for partner).
 11. Calculate lands.
-12. Add lands and mana fixing.
-13. Cut or add nonlands to reach exactly 99 main deck cards.
-14. Save `output/deck.json`.
-15. Validate with CLI.
-16. Fix with `deck_fixer.md` if invalid.
-17. Run deck-check if available.
-18. Fix major coherence issues.
-19. Export only after validation passes.
+12. Add nonbasic lands and mana fixing.
+13. Cut or add nonlands to reach target size (99 for single, 98 for partner).
+14. Write `output/decklist.txt` in plain text format (one card per line, `1 Card Name`).
+15. Convert: `mtg deck-write --input output/decklist.txt --output output/deck.json --force`
+16. Fill remaining basics: `mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force`
+17. Validate with CLI.
+18. Fix with `deck_fixer.md` if invalid.
+19. Run deck-check if available.
+20. Fix major coherence issues.
+21. Export only after validation passes.
+
+Do not create helper Python scripts to generate `output/deck.json`. Use `deck-write` and `deck-fill-lands` instead.
 
 ---
 
@@ -383,14 +397,11 @@ Final `output/deck.json` should be a flat list:
 
 ```json
 [
-  {
-    "quantity": 1,
-    "name": "Card Name",
-    "set_code": "abc",
-    "collector_number": "123"
-  }
+  { "quantity": 1, "name": "Card Name" }
 ]
 ```
+
+Do not include `set_code`, `collector_number`, rarity, or printing-specific fields in the deck list.
 
 ---
 

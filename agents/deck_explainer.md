@@ -8,6 +8,27 @@ Do not invent card rulings, combos, or unsupported claims.
 
 ---
 
+## Save Target
+
+Write the explanation to:
+
+```text
+output/deck_explanation.md
+```
+
+When calling `mtg final-build`, pass it:
+
+```bash
+mtg final-build \
+  --deck output/deck.json \
+  --commander "<commander>" \
+  --theme "<theme>" \
+  --bracket T3 \
+  --explanation output/deck_explanation.md
+```
+
+---
+
 ## Required Sections
 
 Use this structure:
@@ -38,6 +59,8 @@ Use this structure:
 ## Upgrade Ideas
 
 ## Moxfield Export
+
+## Build Feedback (optional)
 ```
 
 ---
@@ -59,6 +82,15 @@ input -> engine action -> output -> win conversion
 State selected or assumed power level and budget.
 
 Mention assumptions clearly.
+
+If budget was active, report:
+
+- `known_price_total` from `mtg budget` output
+- `budget_confidence`: complete (all cards priced) or partial (some prices unknown)
+- `budget_status`: under_budget / within_overage / over_budget
+- List unknown-price cards if any
+
+Do not claim exact budget compliance when `budget_confidence = "partial"`. Do not treat unknown prices as $0.
 
 ### Archetype and Detail
 
@@ -192,6 +224,31 @@ Point to:
 ```text
 output/deck.moxfield.txt
 ```
+
+Also note the final build folder if `mtg final-build` was run:
+
+```text
+final-builds/<build-name>/
+  <build-name>.txt
+  <build-name>.explanation.md
+```
+
+### Build Feedback (optional)
+
+Include this section only if the build had meaningful friction that would help improve future builds.
+
+Skip this section if the build went smoothly.
+
+Good feedback is specific and actionable:
+
+```text
+Build Feedback:
+- Search friction: ramp suggestions returned cards with empty matched_tags.
+- Pricing: 4 cards had unknown USD price; budget_confidence is partial.
+- Missing CLI feature: deck-check did not count custom enchantment-based ramp.
+```
+
+Do not use Build Feedback as a complaint. It should explain what specific tool behavior or data gap affected the build.
 
 ---
 

@@ -26,6 +26,7 @@ from mtgcli.deckbuilder.suggestion_scorer import score_suggestion
 from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_theme_profile
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
+from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -48,9 +49,11 @@ def init_data():
     else:
         print(f"[green]Raw card data already exists at {RAW_CARDS_PATH}[/green]")
 
-    print("[yellow]Building SQLite database...[/yellow]")
-    db_path = build_sqlite_database()
-    print(f"[green]Built SQLite database at {db_path}[/green]")
+    print("[yellow]Building SQLite database (aggregating prices across all printings)...[/yellow]")
+    result = build_sqlite_database()
+    print(f"[green]Built SQLite database at {result['path']}[/green]")
+    print(f"[green]  {result['unique_card_identities']} unique cards from {result['cards_processed']} printings[/green]")
+    print(f"[green]  {result['cards_with_known_usd_price']} cards with known USD price, {result['cards_with_unknown_price']} unknown[/green]")
 
 
 @app.command()
@@ -231,11 +234,15 @@ def suggest(
         )
         final_results = scored_results[:limit]
     else:
+        # For roles with a max mana value (e.g. cheap), pre-filter in SQL
+        role_max_mv = role_defs[role].get("target_mana_value_max")
+
         results = search_by_tags(
-            tags=tags, 
-            colors=colors, 
-            limit=limit * 2, # Get more results to allow for better sorting after scoring
+            tags=tags,
+            colors=colors,
+            limit=limit * 4,
             max_price=max_price,
+            max_mana_value=role_max_mv,
             exclude_names=list(exclude_names),
             dedupe=dedupe
         )
@@ -244,14 +251,20 @@ def suggest(
             print(f"[yellow]No suggestions found for role '{role}' in colors '{colors}'[/yellow]")
             return
 
-        # Score and enrich results
+        # Score and enrich results; drop score-0 (failed requires_tag_match)
         scored_results = []
         for card in results:
             score_data = score_suggestion(card, role, theme)
+            if score_data["score"] == 0:
+                continue
             card["suggestion_score"] = score_data["score"]
             card["matched_tags"] = score_data["matched_tags"]
             card["reason_hint"] = score_data["reason_hint"]
             scored_results.append(card)
+
+        if not scored_results:
+            print(f"[yellow]No qualifying suggestions found for role '{role}' in colors '{colors}'[/yellow]")
+            return
 
         # Sort by score descending, then mana_value ascending
         scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
@@ -288,6 +301,7 @@ def suggest(
 @app.command()
 def validate(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Name of the partner commander (for two-commander decks)"),
     deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output validation report as JSON")
 ):
@@ -299,7 +313,7 @@ def validate(
     try:
         repo = CardRepository(str(SQLITE_PATH))
         deck_entries = read_json(deck_path)
-        report = validate_commander_deck(commander, deck_entries, repo)
+        report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
         
         # Save report
         report_path = Path("output/validation_report.json")
@@ -640,6 +654,7 @@ def temp_clean(
 def final_build(
     deck_path: Path = typer.Option(..., "--deck", help="Path to deck JSON file"),
     commander: str = typer.Option(..., "--commander", help="Commander name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander name (two-commander decks)"),
     theme: str = typer.Option(..., "--theme", help="Deck theme or archetype"),
     bracket: Optional[str] = typer.Option(None, "--bracket", help="Power bracket: T1, T2, T3, or T4"),
     power_level: Optional[str] = typer.Option(None, "--power-level", help="Power level label (e.g. casual, competitive)"),
@@ -656,7 +671,7 @@ def final_build(
 
     deck_entries = read_json(deck_path)
     repo = CardRepository(str(SQLITE_PATH))
-    report = validate_commander_deck(commander, deck_entries, repo)
+    report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
 
     if not report["valid"]:
         if json_output:
@@ -694,6 +709,105 @@ def final_build(
     else:
         print("[bold green]Deck validated successfully.[/bold green]")
         print(f"Final build saved to: [bold]{saved_path}[/bold]")
+
+
+@app.command()
+def price(
+    name: str,
+    json_output: bool = typer.Option(False, "--json-output", help="Output price data as JSON"),
+):
+    """Look up local Scryfall price data for a card."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    card_data = repo.get_card_by_exact_name(name)
+
+    if not card_data:
+        print(f"[red]Card '{name}' not found.[/red]")
+        raise typer.Exit(code=1)
+
+    result = {
+        "name": card_data["name"],
+        "usd_price": card_data.get("usd_price"),
+        "usd_foil_price": card_data.get("usd_foil_price"),
+        "eur_price": card_data.get("eur_price"),
+        "tix_price": card_data.get("tix_price"),
+        "price_status": card_data.get("price_status", "unknown"),
+        "price_source": card_data.get("price_source", "scryfall"),
+    }
+
+    if json_output:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"[bold blue]{result['name']}[/bold blue]")
+        if result["usd_price"] is not None:
+            print(f"  USD:     [green]${result['usd_price']}[/green]")
+        if result["usd_foil_price"] is not None:
+            print(f"  USD Foil: [green]${result['usd_foil_price']}[/green]")
+        if result["eur_price"] is not None:
+            print(f"  EUR:     [green]€{result['eur_price']}[/green]")
+        if result["tix_price"] is not None:
+            print(f"  TIX:     [green]{result['tix_price']}[/green]")
+        if result["price_status"] == "unknown":
+            print("  [yellow]Price: unknown[/yellow]")
+
+
+@app.command()
+def budget(
+    deck_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output budget summary as JSON"),
+    strict: bool = typer.Option(False, "--strict", help="Fail if any card has unknown price"),
+):
+    """Summarize deck budget using local Scryfall price data."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    deck_entries = read_json(deck_path)
+
+    hydrated = []
+    for entry in deck_entries:
+        name = entry.get("name")
+        if not name:
+            continue
+        card_data = repo.get_card_by_exact_name(name)
+        if card_data:
+            card_data["quantity"] = entry.get("quantity", 1)
+            hydrated.append(card_data)
+        else:
+            hydrated.append({"name": name, "quantity": entry.get("quantity", 1), "usd_price": None})
+
+    summary = build_budget_summary(hydrated)
+
+    if strict and summary["unknown_price_cards_count"] > 0:
+        summary["strict_mode_failed"] = True
+        summary["strict_mode_reason"] = (
+            f"{summary['unknown_price_cards_count']} card(s) have unknown price."
+        )
+
+    if json_output:
+        print(json.dumps(summary, indent=2))
+    else:
+        conf_color = "green" if summary["budget_confidence"] == "complete" else "yellow"
+        print(f"[bold blue]Budget Summary[/bold blue]")
+        print(f"  Total (known USD):  [green]${summary['known_price_total']}[/green]")
+        print(f"  Known price cards:  {summary['known_price_cards_count']}")
+        print(f"  Unknown price cards: [{conf_color}]{summary['unknown_price_cards_count']}[/{conf_color}]")
+        print(f"  Budget confidence:  [{conf_color}]{summary['budget_confidence']}[/{conf_color}]")
+        if summary["unknown_price_cards"]:
+            print("[yellow]Unknown price cards:[/yellow]")
+            for cname in summary["unknown_price_cards"]:
+                print(f"  - {cname}")
+        if strict and summary.get("strict_mode_failed"):
+            print(f"[red]Strict mode: {summary['strict_mode_reason']}[/red]")
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

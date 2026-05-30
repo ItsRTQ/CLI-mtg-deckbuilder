@@ -1,4 +1,13 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+
+def parse_price(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def get_oracle_text(card: Dict[str, Any]) -> str:
@@ -41,6 +50,20 @@ def can_be_commander(card: Dict[str, Any]) -> bool:
     return False
 
 
+def min_known_price(current: Optional[float], candidate: Optional[float]) -> Optional[float]:
+    """Returns the lower of two prices, treating None as 'no data' not zero."""
+    if candidate is None:
+        return current
+    if current is None:
+        return candidate
+    return min(current, candidate)
+
+
+def _price_status(prices: Dict[str, Any]) -> str:
+    fields = ["usd", "usd_foil", "usd_etched", "eur", "eur_foil", "tix"]
+    return "known" if any(parse_price(prices.get(f)) is not None for f in fields) else "unknown"
+
+
 def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """Transforms a raw Scryfall card dict into our internal format."""
     raw_oracle_id = card.get("oracle_id")
@@ -56,7 +79,14 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         "color_identity": card.get("color_identity", []),
         "commander_legal": card.get("legalities", {}).get("commander") == "legal",
         "can_be_commander": can_be_commander(card),
-        "usd_price": card.get("prices", {}).get("usd"),
+        "usd_price": parse_price((card.get("prices") or {}).get("usd")),
+        "usd_foil_price": parse_price((card.get("prices") or {}).get("usd_foil")),
+        "usd_etched_price": parse_price((card.get("prices") or {}).get("usd_etched")),
+        "eur_price": parse_price((card.get("prices") or {}).get("eur")),
+        "eur_foil_price": parse_price((card.get("prices") or {}).get("eur_foil")),
+        "tix_price": parse_price((card.get("prices") or {}).get("tix")),
+        "price_source": "scryfall",
+        "price_status": _price_status(card.get("prices") or {}),
         "layout": card.get("layout"),
         "games": card.get("games", []),
         "digital": card.get("digital", False),

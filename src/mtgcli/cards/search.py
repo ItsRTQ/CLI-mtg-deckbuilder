@@ -90,6 +90,7 @@ def search_by_tags(
     colors: Optional[str] = None,
     limit: int = 50,
     max_price: Optional[float] = None,
+    max_mana_value: Optional[int] = None,
     exclude_names: Optional[List[str]] = None,
     dedupe: bool = True
 ) -> List[Dict[str, Any]]:
@@ -132,6 +133,11 @@ def search_by_tags(
     if max_price is not None:
         sql += " AND (usd_price <= ? OR usd_price IS NULL)"
         params.append(max_price)
+
+    # Mana value filter
+    if max_mana_value is not None:
+        sql += " AND mana_value <= ?"
+        params.append(float(max_mana_value))
 
     # Exclusions
     if exclude_names:

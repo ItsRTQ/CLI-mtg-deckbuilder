@@ -93,9 +93,35 @@ mtg enrich output/deck.json --output output/deck.enriched.json
 mtg export output/deck.json --output output/deck.moxfield.txt
 mtg explore --commander "<commander>" --json-output
 mtg final-build --deck output/deck.json --commander "<commander>" --theme "<theme>" --bracket T4
+# Partner decks:
+mtg validate --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --deck output/deck.json
+mtg final-build --deck output/deck.json --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --theme "Goodstuff" --bracket T2
 ```
 
 If package-aware commands exist, prefer them. If not, use `search` and normal `suggest` to approximate package searches.
+
+---
+
+## Single vs Partner Commander Decks
+
+| Format | Commanders | Main Deck Cards | Total |
+|---|---|---|---|
+| Normal | 1 | 99 | 100 |
+| Partner | 2 | 98 | 100 |
+
+For partner decks:
+- Both commanders must be present in the deck list
+- Color identity = **combined** color identity of both commanders
+- All 98 main deck cards must fit within the combined identity
+- Build around **both** commanders' strategies
+- Analyze what both commanders share (e.g. color synergy, mechanic overlap, shared trigger conditions)
+
+CLI partner flags:
+```bash
+--partner "Partner Commander Name"
+```
+
+Supported on: `validate`, `final-build`
 
 ---
 
@@ -149,6 +175,79 @@ Edgar-Markov-Tribal-T4-v2.txt
 ```
 
 Old builds are never overwritten. Final builds use simple Moxfield format (`1 Card Name`) with no set codes or collector numbers.
+
+---
+
+## Role Guide: ramp vs cheap
+
+### ramp
+
+Use `ramp` only for cards that clearly accelerate mana:
+
+```text
+mana rocks ({T}: Add ...)
+mana dorks ({T}: Add {G} etc.)
+land ramp (search library for a land, put a land onto the battlefield)
+treasure makers (create a Treasure token)
+rituals (Add {B}{B}{B} etc.)
+extra land drops (play an additional land)
+cost reducers (spells cost less to cast)
+```
+
+`ramp` has `requires_tag_match = true`. Cards with no matched ramp tag are excluded regardless of mana value.
+
+Low mana value alone never qualifies a card as ramp.
+
+If `suggest --role ramp` returns cards with `"matched_tags": []`, treat that as a tool problem and do not use those cards.
+
+### cheap
+
+Use `cheap` for low-cost synergistic cards (mana_value ≤ 3) that support the commander engine, archetype, or theme.
+
+`cheap` is different from ramp:
+- ETB effects (for blink/flicker)
+- Cheap protection
+- Cheap removal
+- Cheap enablers (sacrifice outlet, token maker)
+- Cheap draw
+- Cheap equipment or aura
+- Cheap haste / evasion
+
+`cheap` also requires at least one synergy tag match. Do not include cards only because they are cheap.
+
+```bash
+mtg suggest --commander "Brago, King Eternal" --role cheap --limit 10 --json-output
+```
+
+---
+
+## Pricing and Budget
+
+Price data comes from the local Scryfall database. Do not search the web for card prices during deckbuilding.
+
+```bash
+mtg price "Sol Ring" --json-output
+mtg budget output/deck.json --json-output
+mtg budget output/deck.json --strict --json-output  # fail if any price is unknown
+```
+
+### Price rules
+
+- `usd_price` is the primary budget field.
+- `price_status = "unknown"` means price data is missing, not that the card is free.
+- Unknown-price cards are allowed by default (`allow_with_warning` policy).
+- Do not treat unknown price as $0 when estimating budget.
+- `budget_confidence = "complete"` only when all non-basic-land cards have known USD price.
+- `budget_confidence = "partial"` when any card has unknown price.
+
+### Budget deckbuilding rules
+
+- For budget decks, use `mtg budget` for price totals. Do not estimate prices manually.
+- Cards with missing USD price may still be strong candidates — report them, do not exclude them.
+- Basic lands (Plains, Island, Swamp, Mountain, Forest, Wastes) are treated as free unless price data exists.
+- Only exclude unknown-price cards if the user explicitly requests `--strict` budget mode.
+- When reporting budget: list unknown-price cards and set `budget_confidence = "partial"` in your summary.
+- Never claim exact budget compliance when unknown-price cards remain in the deck.
 
 ---
 

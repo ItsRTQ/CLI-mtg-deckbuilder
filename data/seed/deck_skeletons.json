@@ -1,7 +1,7 @@
 {
   "generic_commander": {
     "description": "Generic engine-first Commander skeleton. Use when no specialized structure is obvious.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 10,
     "card_draw": 10,
@@ -17,7 +17,7 @@
   },
   "low_curve_aggressive": {
     "description": "Low-curve combat decks that want early pressure and lower land count.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula_low_curve",
     "ramp": 8,
     "card_draw": 10,
@@ -33,7 +33,7 @@
   },
   "high_curve_battlecruiser": {
     "description": "High-mana decks built around big spells and large threats.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula_high_curve",
     "ramp": 13,
     "card_draw": 9,
@@ -49,7 +49,7 @@
   },
   "spell_cast_engine": {
     "description": "Instants/sorceries or noncreature-spell decks.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 12,
@@ -65,7 +65,7 @@
   },
   "creature_combat_engine": {
     "description": "Creature decks focused on attacking, combat triggers, or board pressure.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 9,
@@ -81,7 +81,7 @@
   },
   "go_wide_tokens": {
     "description": "Token decks focused on wide boards, token payoffs, and mass finishers.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 9,
@@ -97,7 +97,7 @@
   },
   "graveyard_engine": {
     "description": "Decks that use graveyard fill and recursion as a main resource.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 10,
     "card_draw": 9,
@@ -113,7 +113,7 @@
   },
   "voltron": {
     "description": "One-threat decks using equipment, auras, counters, evasion, and protection.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 8,
@@ -129,7 +129,7 @@
   },
   "control": {
     "description": "Interaction-heavy decks that win late.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 12,
@@ -144,7 +144,7 @@
   },
   "stax": {
     "description": "Restriction decks that break parity and win under lock pieces.",
-    "commander": 1,
+    "commander_slots": 1,
     "lands": "calculate_by_formula",
     "ramp": 9,
     "card_draw": 8,
@@ -160,8 +160,13 @@
   },
   "landfall_landsmatter": {
     "description": "Landfall or landsmatter decks using high land count and land engines.",
-    "commander": 1,
-    "lands": 40,
+    "commander_slots": 1,
+    "lands": {
+      "mode": "flexible_range",
+      "min": 38,
+      "target": 40,
+      "max": 42
+    },
     "ramp": 12,
     "card_draw": 8,
     "removal": 5,

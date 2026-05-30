@@ -1,38 +1,59 @@
 {
-  "ramp": [
-    "add one mana",
-    "add two mana",
-    "add mana",
-    "search your library for a basic land",
-    "search your library for a land",
-    "Treasure token",
-    "mana of any color"
-  ],
   "mana_rock": [
-    "Artifact",
-    "add one mana",
-    "add mana",
-    "mana of any color"
+    "{T}: Add",
+    "Add one mana of any color",
+    "Add {C}{C}",
+    "Add {W}{U}",
+    "Add {W}{B}",
+    "Add {U}{B}",
+    "Add {U}{R}",
+    "Add {B}{R}",
+    "Add {B}{G}",
+    "Add {R}{G}",
+    "Add {R}{W}",
+    "Add {G}{W}",
+    "Add {G}{U}",
+    "mana of any color",
+    "mana of any type"
   ],
   "land_ramp": [
     "search your library for a basic land",
-    "search your library for a land",
-    "put a land card onto the battlefield"
+    "search your library for a land card",
+    "search your library for up to two basic land",
+    "put a land card onto the battlefield",
+    "put that land onto the battlefield",
+    "put up to one target land card from your graveyard onto the battlefield"
   ],
   "extra_land_drop": [
     "play an additional land"
   ],
   "mana_dork": [
-    "add one mana",
-    "add mana",
-    "Creature"
+    "{T}: Add {G}",
+    "{T}: Add {W}",
+    "{T}: Add {U}",
+    "{T}: Add {B}",
+    "{T}: Add {R}",
+    "{T}: Add one mana of any color",
+    "Add one mana of any color"
   ],
   "ritual": [
-    "add",
-    "until end of turn"
+    "Add {B}{B}{B}",
+    "Add {R}{R}{R}",
+    "Add {G}{G}{G}",
+    "Add three mana",
+    "Add four mana",
+    "Add five mana"
   ],
   "treasure": [
-    "Treasure token"
+    "Treasure token",
+    "create a Treasure",
+    "create X Treasure"
+  ],
+  "cost_reducer": [
+    "costs {1} less to cast",
+    "costs {2} less to cast",
+    "spells you cast cost",
+    "spells cost"
   ],
   "card_draw": [
     "draw a card",

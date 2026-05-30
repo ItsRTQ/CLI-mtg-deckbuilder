@@ -2,90 +2,145 @@ import sqlite3
 import json
 import ijson
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 from mtgcli.config import RAW_CARDS_PATH, SQLITE_PATH
-from mtgcli.data.normalize_cards import normalize_card
-from mtgcli.utils.json_io import safe_float
+from mtgcli.data.normalize_cards import normalize_card, min_known_price
 
 CHUNK_SIZE = 1000
 
-def build_sqlite_database() -> Path:
+_PRICE_FIELDS = [
+    "usd_price", "usd_foil_price", "usd_etched_price",
+    "eur_price", "eur_foil_price", "tix_price",
+]
+
+_CREATE_TABLE = """
+CREATE TABLE IF NOT EXISTS cards (
+    oracle_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    mana_cost TEXT,
+    mana_value REAL,
+    type_line TEXT,
+    oracle_text TEXT,
+    colors TEXT,
+    color_identity TEXT,
+    commander_legal INTEGER,
+    can_be_commander INTEGER,
+    usd_price REAL,
+    usd_foil_price REAL,
+    usd_etched_price REAL,
+    eur_price REAL,
+    eur_foil_price REAL,
+    tix_price REAL,
+    price_status TEXT,
+    price_source TEXT,
+    layout TEXT,
+    games TEXT,
+    digital INTEGER,
+    finishes TEXT
+);
+"""
+
+_INSERT_SQL = """
+INSERT OR REPLACE INTO cards (
+    oracle_id, name, mana_cost, mana_value, type_line, oracle_text,
+    colors, color_identity, commander_legal, can_be_commander,
+    usd_price, usd_foil_price, usd_etched_price, eur_price, eur_foil_price, tix_price,
+    price_status, price_source,
+    layout, games, digital, finishes
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+
+
+def _to_row(norm: Dict[str, Any]) -> tuple:
+    return (
+        norm["oracle_id"],
+        norm["name"],
+        norm["mana_cost"],
+        float(norm["mana_value"]),
+        norm["type_line"],
+        norm["oracle_text"],
+        json.dumps(norm["colors"]),
+        json.dumps(norm["color_identity"]),
+        1 if norm["commander_legal"] else 0,
+        1 if norm["can_be_commander"] else 0,
+        norm["usd_price"],
+        norm["usd_foil_price"],
+        norm["usd_etched_price"],
+        norm["eur_price"],
+        norm["eur_foil_price"],
+        norm["tix_price"],
+        norm["price_status"],
+        norm["price_source"],
+        norm["layout"],
+        json.dumps(norm["games"]),
+        1 if norm["digital"] else 0,
+        json.dumps(norm["finishes"]),
+    )
+
+
+def build_sqlite_database() -> Dict[str, Any]:
     """
-    Reads raw Scryfall cards, normalizes them, and builds a SQLite database.
-    Deduplicates by oracle_id so each card identity appears exactly once.
+    Phase 1: stream all Scryfall printings, group by oracle_id, aggregate prices
+             (min non-null) across every printing of the same card identity.
+    Phase 2: write one merged row per card identity to SQLite.
+    Returns counters dict including the SQLite path.
     """
     if not RAW_CARDS_PATH.exists():
         raise FileNotFoundError(f"Raw cards file not found at {RAW_CARDS_PATH}")
 
-    SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # --- Phase 1: aggregate ---
+    card_identities: Dict[str, Dict[str, Any]] = {}
+    cards_processed = 0
 
+    with open(RAW_CARDS_PATH, "rb") as f:
+        for raw_card in ijson.items(f, "item"):
+            norm = normalize_card(raw_card)
+            key = norm["oracle_id"]
+            cards_processed += 1
+
+            if key not in card_identities:
+                card_identities[key] = norm
+            else:
+                existing = card_identities[key]
+                for field in _PRICE_FIELDS:
+                    existing[field] = min_known_price(existing[field], norm[field])
+
+    # Finalize price_status and price_source after all printings are merged
+    cards_with_known_usd = 0
+    cards_with_unknown_price = 0
+    for card in card_identities.values():
+        any_known = any(card.get(f) is not None for f in _PRICE_FIELDS)
+        card["price_status"] = "known" if any_known else "unknown"
+        card["price_source"] = "scryfall_aggregated_printings"
+        if card.get("usd_price") is not None:
+            cards_with_known_usd += 1
+        else:
+            cards_with_unknown_price += 1
+
+    # --- Phase 2: write SQLite ---
+    SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(SQLITE_PATH)
     cursor = conn.cursor()
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cards (
-        oracle_id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        mana_cost TEXT,
-        mana_value REAL,
-        type_line TEXT,
-        oracle_text TEXT,
-        colors TEXT,
-        color_identity TEXT,
-        commander_legal INTEGER,
-        can_be_commander INTEGER,
-        usd_price REAL,
-        layout TEXT,
-        games TEXT,
-        digital INTEGER,
-        finishes TEXT
-    );
-    """)
-
+    cursor.execute(_CREATE_TABLE)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_commander_legal ON cards(commander_legal);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_can_be_commander ON cards(can_be_commander);")
 
-    insert_sql = """
-    INSERT OR IGNORE INTO cards (
-        oracle_id, name, mana_cost, mana_value, type_line, oracle_text,
-        colors, color_identity, commander_legal, can_be_commander,
-        usd_price, layout, games, digital, finishes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
-
-    with open(RAW_CARDS_PATH, "rb") as f:
-        parser = ijson.items(f, 'item')
-        chunk = []
-        for raw_card in parser:
-            norm = normalize_card(raw_card)
-            chunk.append((
-                norm["oracle_id"],
-                norm["name"],
-                norm["mana_cost"],
-                float(norm["mana_value"]),
-                norm["type_line"],
-                norm["oracle_text"],
-                json.dumps(norm["colors"]),
-                json.dumps(norm["color_identity"]),
-                1 if norm["commander_legal"] else 0,
-                1 if norm["can_be_commander"] else 0,
-                safe_float(norm["usd_price"]),
-                norm["layout"],
-                json.dumps(norm["games"]),
-                1 if norm["digital"] else 0,
-                json.dumps(norm["finishes"])
-            ))
-
-            if len(chunk) >= CHUNK_SIZE:
-                cursor.executemany(insert_sql, chunk)
-                conn.commit()
-                chunk = []
-
-        if chunk:
-            cursor.executemany(insert_sql, chunk)
-            conn.commit()
+    all_cards = list(card_identities.values())
+    for i in range(0, len(all_cards), CHUNK_SIZE):
+        chunk = [_to_row(c) for c in all_cards[i : i + CHUNK_SIZE]]
+        cursor.executemany(_INSERT_SQL, chunk)
+        conn.commit()
 
     conn.close()
-    return SQLITE_PATH
+
+    return {
+        "path": str(SQLITE_PATH),
+        "cards_processed": cards_processed,
+        "unique_card_identities": len(card_identities),
+        "cards_with_known_usd_price": cards_with_known_usd,
+        "cards_with_unknown_price": cards_with_unknown_price,
+        "price_aggregation_enabled": True,
+    }

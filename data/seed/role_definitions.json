@@ -1,12 +1,37 @@
 {
   "ramp": {
+    "description": "Cards that generate mana, search lands, create Treasure tokens, or otherwise clearly accelerate mana.",
+    "requires_tag_match": true,
     "tags": [
-      "ramp",
       "mana_rock",
       "land_ramp",
       "mana_dork",
       "treasure",
-      "ritual"
+      "ritual",
+      "extra_land_drop",
+      "cost_reducer"
+    ]
+  },
+  "cheap": {
+    "description": "Low-cost synergistic cards that support the commander engine, deck archetype, or selected theme.",
+    "requires_tag_match": true,
+    "target_mana_value_max": 3,
+    "tags": [
+      "etb_value",
+      "blink",
+      "protection",
+      "card_draw",
+      "spot_removal",
+      "creature_removal",
+      "sacrifice_outlet",
+      "death_trigger",
+      "token_maker",
+      "spell_payoff",
+      "equipment",
+      "aura",
+      "counter_enabler",
+      "evasion",
+      "haste"
     ]
   },
   "card_draw": {

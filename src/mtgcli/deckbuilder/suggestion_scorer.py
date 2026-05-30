@@ -2,52 +2,86 @@ import json
 from typing import Dict, Any, List, Optional
 from mtgcli.config import SEED_DATA_DIR
 
+
+def _load_tag_definitions() -> Dict[str, List[str]]:
+    tag_file = SEED_DATA_DIR / "card_tags.json"
+    if not tag_file.exists():
+        return {}
+    with open(tag_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_role_config(role: str) -> Dict[str, Any]:
+    role_file = SEED_DATA_DIR / "role_definitions.json"
+    if not role_file.exists():
+        return {}
+    with open(role_file, "r", encoding="utf-8") as f:
+        return json.load(f).get(role, {})
+
+
+def _match_sub_tags(
+    card_text: str,
+    sub_tags: List[str],
+    tag_definitions: Dict[str, List[str]],
+) -> List[str]:
+    """Returns list of sub-tag names where at least one phrase matches card_text."""
+    matched = []
+    for sub_tag in sub_tags:
+        phrases = tag_definitions.get(sub_tag, [])
+        for phrase in phrases:
+            if phrase.lower() in card_text:
+                matched.append(sub_tag)
+                break
+    return matched
+
+
 def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = None) -> Dict[str, Any]:
     """
-    Heuristically scores a card based on its role and optional theme.
-    Returns a score from 1-10, matched tags, and a reason hint.
+    Scores a card for a given role using sub-tag matching from role_definitions.json.
+    Returns score (1-10), matched_tags (sub-tag names), and reason_hint.
     """
     score = 0
-    matched_tags = []
-    reasons = []
+    matched_tags: List[str] = []
+    reasons: List[str] = []
 
     name = card.get("name", "").lower()
     type_line = card.get("type_line", "").lower()
     oracle_text = card.get("oracle_text", "").lower()
-    mana_value = card.get("mana_value", 0)
+    mana_value = card.get("mana_value", 0) or 0
     is_commander_legal = card.get("commander_legal", False)
 
-    # Load tag definitions for role matching
-    tag_file = SEED_DATA_DIR / "card_tags.json"
-    tag_definitions = {}
-    if tag_file.exists():
-        with open(tag_file, "r", encoding="utf-8") as f:
-            tag_definitions = json.load(f)
+    card_text = name + " " + type_line + " " + oracle_text
 
-    # 1. Role tag matching (+3)
-    if role in tag_definitions:
-        role_phrases = tag_definitions[role]
-        matches_role = False
-        for phrase in role_phrases:
-            phrase_lower = phrase.lower()
-            if phrase_lower in name or phrase_lower in type_line or phrase_lower in oracle_text:
-                matches_role = True
-                if phrase_lower not in matched_tags:
-                    matched_tags.append(phrase_lower)
-        
-        if matches_role:
-            score += 3
-            reasons.append(f"Matches role: {role}")
+    tag_definitions = _load_tag_definitions()
+    role_config = _load_role_config(role)
+
+    requires_tag_match: bool = role_config.get("requires_tag_match", False)
+    role_sub_tags: List[str] = role_config.get("tags", [])
+
+    # 1. Sub-tag matching — tracks tag names, not phrases
+    if role_sub_tags:
+        matched_tags = _match_sub_tags(card_text, role_sub_tags, tag_definitions)
+
+    if matched_tags:
+        score += 3
+        reasons.append(f"Matches {role}: {', '.join(matched_tags)}")
+
+    # For strict roles (ramp): require at least one tag match
+    if requires_tag_match and not matched_tags:
+        return {
+            "score": 0,
+            "matched_tags": [],
+            "reason_hint": f"No {role} tag matched (required for role)",
+        }
 
     # 2. Theme matching (+3)
     if theme:
         theme_lower = theme.lower()
         theme_match = False
-        
-        # Specific theme logic
-        if theme_lower == "goblins" and "goblin" in (name + type_line + oracle_text):
+
+        if theme_lower == "goblins" and "goblin" in card_text:
             theme_match = True
-        elif theme_lower == "zombies" and "zombie" in (name + type_line + oracle_text):
+        elif theme_lower == "zombies" and "zombie" in card_text:
             theme_match = True
         elif theme_lower == "equipment" and ("equipment" in type_line or "equip" in oracle_text):
             theme_match = True
@@ -61,8 +95,7 @@ def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = Non
             theme_match = True
         elif theme_lower == "sacrifice" and "sacrifice" in oracle_text:
             theme_match = True
-        # Generic fallback
-        elif theme_lower in (name + type_line + oracle_text):
+        elif theme_lower in card_text:
             theme_match = True
 
         if theme_match:
@@ -71,34 +104,51 @@ def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = Non
             if theme_lower not in matched_tags:
                 matched_tags.append(theme_lower)
 
-    # 3. Efficiency bonus (+2)
-    # +2 if mana_value <= 3 for ramp, removal, card_draw, protection.
-    if role in ["ramp", "removal", "card_draw", "protection"] and mana_value <= 3:
+    # 3. Role-specific efficiency logic
+    if role == "ramp":
+        # Efficiency bonus only when a ramp tag is already matched
+        if matched_tags and mana_value <= 3:
+            score += 2
+            reasons.append("Efficient mana value bonus")
+
+    elif role == "cheap":
+        # cheap requires low mana value — filter out anything too expensive
+        if mana_value <= 2:
+            score += 3
+            reasons.append("Low mana value (≤2)")
+        elif mana_value <= 3:
+            score += 2
+            reasons.append("Low mana value (≤3)")
+        else:
+            return {
+                "score": 0,
+                "matched_tags": matched_tags,
+                "reason_hint": f"Mana value {mana_value} too high for cheap role (max 3)",
+            }
+
+    elif role in ["removal", "card_draw", "protection"] and mana_value <= 3:
         score += 2
         reasons.append("Efficient mana value for role")
 
-    # 4. Legality bonus (+1)
+    # 4. Commander legality bonus (+1)
     if is_commander_legal:
         score += 1
-    
+
     # 5. High cost penalty (-2)
-    # -2 if mana_value >= 6 and role is not win_conditions.
-    if mana_value >= 6 and role != "win_conditions":
+    if mana_value >= 6 and role not in ["win_conditions", "finisher"]:
         score -= 2
         reasons.append("High mana value for utility role")
 
-    # 6. Oracle text penalty (-3)
-    # -3 if card has no oracle_text and is not a land.
+    # 6. Missing oracle text penalty (-3)
     if not oracle_text and "land" not in type_line:
         score -= 3
         reasons.append("Missing oracle text on non-land")
 
-    # Final score processing
     final_score = max(1, min(10, score))
     reason_hint = "; ".join(reasons) if reasons else "Generic match"
 
     return {
         "score": final_score,
         "matched_tags": matched_tags,
-        "reason_hint": reason_hint
+        "reason_hint": reason_hint,
     }

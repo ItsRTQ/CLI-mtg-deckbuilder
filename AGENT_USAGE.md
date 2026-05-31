@@ -89,7 +89,12 @@ mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
 mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
 mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
-mtg suggest --commander "<commander>" --role synergy --limit 60 --json-output
+# --synergy narrows role results to cards that also connect with the commander's strategy
+# role = functional job of the card; --synergy = also shares commander synergy signals
+# --role synergy is INVALID — use --synergy as a modifier flag instead
+mtg suggest --commander "<commander>" --role engine --synergy --limit 40 --json-output
+mtg suggest --commander "<commander>" --role enabler --synergy --limit 40 --json-output
+mtg suggest --commander "<commander>" --role payoff --synergy --limit 40 --json-output
 mtg suggest-lands --commander "<commander>" --count <count> --json-output
 # Deck file creation
 mtg deck-write --input output/decklist.txt --output output/deck.json --force

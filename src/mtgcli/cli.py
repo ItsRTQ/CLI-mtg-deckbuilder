@@ -23,7 +23,9 @@ from mtgcli.validator.deck_validator import validate_commander_deck
 from mtgcli.deckbuilder.enrich_deck import enrich_deck
 from mtgcli.deckbuilder.basic_lands import suggest_basic_lands
 from mtgcli.deckbuilder.deck_check import check_deck_quality
-from mtgcli.deckbuilder.suggestion_scorer import score_suggestion
+from mtgcli.deckbuilder.suggestion_scorer import (
+    score_suggestion, extract_commander_synergy_signals, check_card_synergy
+)
 from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_theme_profile
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
@@ -148,7 +150,8 @@ def search_tags(
 @app.command()
 def suggest(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
-    role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, synergy)"),
+    role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, card_draw, removal, engine)"),
+    synergy: bool = typer.Option(False, "--synergy", help="Narrow results to cards that also connect with the commander's strategy (applied after role match)"),
     theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment, modified_creatures"),
     package: Optional[str] = typer.Option(None, "--package", help="Optional theme package, e.g. modified_enablers"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
@@ -176,6 +179,11 @@ def suggest(
         raise typer.Exit(code=1)
 
     role_defs = read_json(role_file)
+    if role == "synergy":
+        print("[red]'synergy' is not a valid role.[/red]")
+        print("[yellow]Use --synergy as a modifier flag to narrow role results by commander synergy.[/yellow]")
+        print("[yellow]Example: mtg suggest --commander 'Atraxa' --role ramp --synergy[/yellow]")
+        raise typer.Exit(code=1)
     if role not in role_defs:
         print(f"[red]Unknown role: {role}[/red]")
         print(f"[yellow]Available roles: {', '.join(role_defs.keys())}[/yellow]")
@@ -271,6 +279,24 @@ def suggest(
             print(f"[yellow]No qualifying suggestions found for role '{role}' in colors '{colors}'[/yellow]")
             return
 
+        # Apply --synergy filter: narrow to cards that connect with the commander's strategy
+        if synergy:
+            commander_signals = extract_commander_synergy_signals(commander_card)
+            synergy_results = []
+            for card in scored_results:
+                matched_synergy = check_card_synergy(card, commander_signals)
+                if not matched_synergy:
+                    continue
+                card["suggestion_score"] = min(10, card["suggestion_score"] + 2)
+                card["matched_tags"] = list(set(card.get("matched_tags", []) + matched_synergy))
+                existing_hint = card.get("reason_hint", "")
+                card["reason_hint"] = f"{existing_hint}; Commander synergy: {', '.join(matched_synergy)}" if existing_hint else f"Commander synergy: {', '.join(matched_synergy)}"
+                synergy_results.append(card)
+            if not synergy_results:
+                print(f"[yellow]No role-matching cards with commander synergy found for '{commander}' ({role})[/yellow]")
+                return
+            scored_results = synergy_results
+
         # Sort by score descending, then mana_value ascending
         scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
         final_results = scored_results[:limit]
@@ -288,6 +314,8 @@ def suggest(
         print(json.dumps(json_results, indent=2))
     else:
         title = f"Suggestions for {commander} ({role})"
+        if synergy:
+            title += " [+Synergy]"
         if theme:
             title += f" [Theme: {theme}]"
         if package:

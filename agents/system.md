@@ -468,12 +468,19 @@ mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
 mtg search "<query>" --colors "<colors>" --limit 30 --json-output
 
 # Suggest by role
+# role = functional job of the card (ramp, card_draw, removal, engine, etc.)
+# --synergy = modifier flag that narrows results to cards also sharing commander synergy signals
+# --role synergy is INVALID — never use it
 mtg suggest --commander "<commander name>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role card_draw --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role removal --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role board_wipe --limit 20 --json-output
 mtg suggest --commander "<commander name>" --role protection --limit 30 --json-output
-mtg suggest --commander "<commander name>" --role synergy --limit 60 --json-output
+# Commander-aligned searches: use --synergy to narrow role results by commander strategy
+mtg suggest --commander "<commander name>" --role engine --synergy --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role enabler --synergy --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role payoff --synergy --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role cheap --synergy --limit 30 --json-output
 mtg suggest-lands --commander "<commander name>" --count <count> --json-output
 
 # Deck file creation

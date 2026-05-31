@@ -1,6 +1,53 @@
 import json
-from typing import Dict, Any, List, Optional
+import re
+from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
+
+_SYNERGY_MECHANICS = [
+    "sacrifice", "proliferate", "convoke", "delve", "explore", "adapt", "mutate",
+    "foretell", "learn", "boast", "channel", "connive", "cultivate", "disturb",
+    "enlist", "flash", "flashback", "fortify", "hideaway", "kicker", "morph",
+    "ninjutsu", "overload", "partner", "persist", "populate", "raid", "revolt",
+    "scry", "surge", "threshold", "transform", "undergrowth", "ward",
+    "+1/+1 counter", "-1/-1 counter", "poison counter", "energy counter",
+    "whenever a creature dies", "whenever you cast", "whenever you gain life",
+    "whenever you draw", "enters the battlefield", "graveyard", "exile",
+    "create", "token", "copy", "enchant", "attach", "equip", "aura",
+    "tap", "untap", "combat damage", "trample", "flying", "haste",
+    "triggered ability", "activated ability", "mana ability",
+]
+
+
+def extract_commander_synergy_signals(commander_card: Dict[str, Any]) -> Set[str]:
+    """Extract meaningful synergy keywords from a commander's type line and oracle text."""
+    signals: Set[str] = set()
+    oracle = commander_card.get("oracle_text", "").lower()
+    type_line = commander_card.get("type_line", "").lower()
+
+    # Creature subtypes (tribal synergy)
+    if "—" in type_line:
+        subtypes_part = type_line.split("—", 1)[1]
+        for word in re.split(r"\s+", subtypes_part.strip()):
+            word = word.strip()
+            if len(word) > 2:
+                signals.add(word)
+
+    # Known mechanics from oracle text
+    for mechanic in _SYNERGY_MECHANICS:
+        if mechanic in oracle:
+            signals.add(mechanic)
+
+    return signals
+
+
+def check_card_synergy(card: Dict[str, Any], signals: Set[str]) -> List[str]:
+    """Returns list of matched synergy signals between card text and commander signals."""
+    card_text = (
+        card.get("name", "") + " " +
+        card.get("type_line", "") + " " +
+        card.get("oracle_text", "")
+    ).lower()
+    return [s for s in signals if s in card_text]
 
 
 def _load_tag_definitions() -> Dict[str, List[str]]:

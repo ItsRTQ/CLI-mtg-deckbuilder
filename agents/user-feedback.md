@@ -8,7 +8,7 @@ Use multiple-choice questions with options like `a`, `b`, `c`, and always includ
 
 Do not overload the user. Ask only the most useful questions.
 
-Default maximum: 3 questions before deckbuilding.
+Default maximum: 4 questions before deckbuilding.
 
 If the user already answered a question in the original request, do not ask it again.
 
@@ -316,12 +316,222 @@ Include only light flexible answers unless the user asks for more.
 
 ---
 
+## 4th Core Question: Build Mode
+
+Always ask this as the 4th question (or earlier if the other core questions were already answered by the user).
+
+```text
+Question: How much build detail do you want before I start building?
+
+a) Quick build — ask only the core questions, then build immediately.
+b) Detailed build — ask more targeted preference questions before and during building.
+c) Agent choice
+```
+
+**If Quick build:**
+
+- Move directly to deckbuilding after the 4-question flow.
+- Do not ask additional questions unless the build is blocked.
+- Make sensible defaults for unasked preferences.
+
+**If Detailed build:**
+
+- Ask additional targeted questions before building (see Detailed Build Questions below).
+- Ask small clarifying questions during building when a real decision point appears (see During-Build Clarification).
+- Do not spam questions. Stay productive.
+- Continue building once enough preference data is gathered.
+
+**If Agent choice:**
+
+- Use Quick build for: simple requests, generic commanders, clearly constrained requests.
+- Use Detailed build for: broad requests, expensive builds, high-power, niche themes, partner commanders, ambiguous strategy, or custom thematic builds.
+
+---
+
+## Detailed Build Questions
+
+Ask these only when Detailed build mode is selected. Ask the most useful questions first. Skip any the user already answered.
+
+### Playstyle
+
+```text
+Question: What playstyle do you prefer?
+
+a) Aggro / early pressure
+b) Midrange value
+c) Control / slow grind
+d) Combo / optimized win path
+e) Agent choice
+```
+
+### Speed
+
+```text
+Question: How fast should the deck play?
+
+a) Slow and resilient
+b) Medium paced
+c) Fast and explosive
+d) Depends on the commander
+e) Agent choice
+```
+
+### Theme commitment
+
+```text
+Question: How strictly should the theme be followed?
+
+a) Theme-first, even if weaker
+b) Balanced theme and power
+c) Power-first, theme is secondary
+d) Agent choice
+```
+
+### Ramp preference
+
+```text
+Question: How much ramp do you want?
+
+a) Normal ramp package
+b) High ramp / cast big spells faster
+c) Low curve / less ramp, more action
+d) Follow category-count recommendation
+e) Agent choice
+```
+
+### Interaction preference
+
+```text
+Question: How interactive should the deck be?
+
+a) Low interaction, focus on doing my thing
+b) Balanced interaction
+c) High interaction / removal-heavy
+d) Control-heavy
+e) Agent choice
+```
+
+### Win style
+
+```text
+Question: How should the deck prefer to win?
+
+a) Combat damage
+b) Value engine into board advantage
+c) Combo finish
+d) Drain / burn / attrition
+e) Agent choice
+```
+
+### Staples vs theme cards
+
+```text
+Question: How should staples be handled?
+
+a) Include strong staples when useful
+b) Use staples only if they fit the theme
+c) Avoid generic staples; keep it flavorful
+d) Agent choice
+```
+
+### Table friendliness
+
+```text
+Question: What table experience should this deck aim for?
+
+a) Low salt / friendly table
+b) Normal casual
+c) Strong but fair
+d) High power, no holding back
+e) Agent choice
+```
+
+### Budget flexibility
+
+```text
+Question: How should budget be handled?
+
+a) Stay under budget if possible
+b) Use up to 10% overage if it improves the deck
+c) Stay strict, no overage
+d) No budget concern
+e) Agent choice
+```
+
+### Pet cards / exclusions
+
+```text
+Question: Do you have specific card preferences?
+
+a) I have must-include cards (please name them)
+b) I have cards to avoid (please name them)
+c) No specific preferences
+d) Agent choice
+```
+
+If the user selects a or b, ask a follow-up for the card names, then search via CLI.
+
+---
+
+## During-Build Clarification
+
+In Detailed build mode, the agent may ask small clarifying questions during the build.
+
+**Only ask when the answer materially changes the deck.**
+
+Allowed cases:
+
+```text
+- Commander supports multiple strong archetypes and the user hasn't chosen
+- category-count results conflict with stated user preference
+- Budget is near overage and a key card is expensive
+- Synergy search returns weak / low-confidence candidates
+- Land count or ramp count requires a style decision
+- Theme strictness affects a major card slot choice
+- Combo, tutor, or stax inclusion is unclear
+```
+
+Rules:
+
+- Keep options multiple-choice.
+- Always include Agent choice.
+- If the user does not respond, choose the most coherent option and continue.
+- Do not ask questions just to delay building.
+- Maximum 2 during-build questions per build.
+
+---
+
+## How Detailed Build Answers Map to CLI Arguments
+
+Use collected preferences when running category-counts and suggest:
+
+```text
+Control / slow grind     → --philosophy control_grind
+Synergy-focused          → --philosophy synergy_max
+Low salt / friendly      → --philosophy low_salt
+High ramp                → --philosophy explosive_fast
+Interaction heavy        → --philosophy interaction_heavy
+Combo focus              → --philosophy combo_focus
+Combat pressure          → --philosophy combat_pressure
+```
+
+Examples:
+
+```bash
+mtg category-counts --commander "<Commander>" --archetype "<Archetype>" --power-level <number> --philosophy control_grind --json-output
+mtg category-counts --commander "<Commander>" --archetype "<Archetype>" --power-level <number> --philosophy synergy_max --json-output
+mtg category-counts --commander "<Commander>" --archetype "<Archetype>" --power-level <number> --philosophy low_salt --json-output
+```
+
+---
+
 ## Output Contract
 
 After collecting feedback, return JSON only:
 
 ```json
 {
+  "build_mode": "quick",
   "power_level": "optimized_casual",
   "budget": null,
   "budget_policy": "no_strict_budget",
@@ -335,9 +545,24 @@ After collecting feedback, return JSON only:
   "specific_excludes": [],
   "effect_preferences": [],
   "meta_answers": [],
+  "detailed_preferences": {
+    "playstyle": null,
+    "speed": null,
+    "theme_commitment": null,
+    "ramp_preference": null,
+    "interaction": null,
+    "win_style": null,
+    "staples_policy": null,
+    "table_friendliness": null,
+    "budget_flexibility": null
+  },
   "notes": "Short summary of assumptions."
 }
 ```
+
+`build_mode` values: `"quick"` or `"detailed"`.
+
+`detailed_preferences` fields are `null` if not asked or not answered. Only populated in Detailed build mode.
 
 ---
 

@@ -461,6 +461,13 @@ mtg card "<card name>" --json-output
 mtg cards "Sol Ring" "Arcane Signet" "Chaos Warp" --json-output
 mtg cards-batch output/deck.json --json-output
 
+# Commander analysis — shared tactical map; run early and reuse across commands
+# Writes output/commander_analysis.json by default
+mtg commander-analyze --commander "<commander name>" --output output/commander_analysis.json --json-output
+mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
+# Optional context flags:
+mtg commander-analyze --commander "<commander>" --archetype blink --power-level 7 --philosophy balanced --meta universal --output output/commander_analysis.json --json-output
+
 # Search — supports structured tokens: type:, oracle:, text:, name:, mv:, mv<=, mv>=
 mtg search "type:demon" --limit 20 --json-output
 mtg search "type:artifact oracle:Add" --colors WU --limit 20 --json-output
@@ -471,16 +478,17 @@ mtg search "<query>" --colors "<colors>" --limit 30 --json-output
 # role = functional job of the card (ramp, card_draw, removal, engine, etc.)
 # --synergy = modifier flag that narrows results to cards also sharing commander synergy signals
 # --role synergy is INVALID — never use it
+# --analysis = path to commander_analysis.json for richer synergy signal coverage
 mtg suggest --commander "<commander name>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role card_draw --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role removal --limit 30 --json-output
 mtg suggest --commander "<commander name>" --role board_wipe --limit 20 --json-output
 mtg suggest --commander "<commander name>" --role protection --limit 30 --json-output
-# Commander-aligned searches: use --synergy to narrow role results by commander strategy
-mtg suggest --commander "<commander name>" --role engine --synergy --limit 40 --json-output
-mtg suggest --commander "<commander name>" --role enabler --synergy --limit 40 --json-output
-mtg suggest --commander "<commander name>" --role payoff --synergy --limit 40 --json-output
-mtg suggest --commander "<commander name>" --role cheap --synergy --limit 30 --json-output
+# Commander-aligned searches: use --synergy + --analysis for best results
+mtg suggest --commander "<commander name>" --role engine --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role enabler --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role payoff --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander name>" --role cheap --synergy --analysis output/commander_analysis.json --limit 30 --json-output
 mtg suggest-lands --commander "<commander name>" --count <count> --json-output
 
 # Deck file creation

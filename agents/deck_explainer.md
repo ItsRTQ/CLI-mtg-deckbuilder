@@ -42,6 +42,8 @@ Use this structure:
 
 ## Archetype and Detail
 
+## Build Preferences (if Detailed build mode was used)
+
 ## Validation
 
 ## Package Breakdown
@@ -99,6 +101,26 @@ Explain:
 - broad archetype
 - specific detail/subtheme
 - why this direction fits the commander/user request
+
+### Build Preferences (if Detailed build mode was used)
+
+Only include this section if Detailed build mode was active and at least one preference was collected.
+
+Format:
+
+```text
+Build Preferences:
+- Mode: Detailed build
+- Playstyle: <value or omit if not asked>
+- Speed: <value or omit if not asked>
+- Theme commitment: <value or omit if not asked>
+- Interaction: <value or omit if not asked>
+- Win style: <value or omit if not asked>
+- Staples policy: <value or omit if not asked>
+- Table friendliness: <value or omit if not asked>
+```
+
+Skip this section entirely in Quick build mode.
 
 ### Validation
 

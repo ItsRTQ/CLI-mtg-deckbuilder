@@ -15,6 +15,61 @@ Return JSON when building plans or deck category output.
 
 ---
 
+## Build Mode
+
+Check the `build_mode` from user-feedback output before starting.
+
+**Quick build:**
+
+- Proceed directly after the 4-question flow.
+- Do not ask additional questions unless the build is blocked.
+- Apply sensible defaults for unasked preferences.
+
+**Detailed build:**
+
+- Apply all collected detailed preferences to category-counts arguments, archetype selection, philosophy, ramp count, interaction count, combo/tutor policy, theme strictness, and card ranking.
+- You may ask small clarifying questions during the build at real decision points (see During-Build Clarification below).
+- Maximum 2 during-build questions per build.
+
+**How detailed preferences map to build decisions:**
+
+```text
+Playstyle: control/slow grind   → --philosophy control_grind
+Playstyle: combo                → --philosophy combo_focus
+Table: low salt                 → --philosophy low_salt
+Ramp: high ramp                 → --philosophy explosive_fast
+Interaction: heavy              → --philosophy interaction_heavy
+Synergy max                     → --philosophy synergy_max
+Combat pressure                 → --philosophy combat_pressure
+```
+
+---
+
+## During-Build Clarification
+
+In Detailed build mode only, you may ask a small question mid-build when the answer materially changes the deck.
+
+Allowed cases:
+
+```text
+- Commander supports multiple equally strong archetypes
+- category-count results conflict with stated user preference
+- Budget is near overage and a key card is expensive
+- Synergy search returns weak candidates
+- Land count or ramp count requires a style decision
+- Combo, tutor, or stax inclusion is unclear
+```
+
+Rules:
+
+- Keep options multiple-choice.
+- Always include Agent choice.
+- If the user does not respond, choose the most coherent option and continue.
+- Do not ask questions just to delay building.
+- Maximum 2 during-build questions total per build.
+
+---
+
 ## Required Deck Size
 
 Single commander:
@@ -303,20 +358,34 @@ Do not avoid auto-includes only because they are staples unless user requests a 
 
 ## Category-Count Guidance
 
-Before planning packages, run `mtg category-counts` to get soft count targets:
+Before planning packages, run commander-analyze then category-counts:
 
 ```bash
+# Step 1: generate the shared tactical map
+mtg commander-analyze \
+  --commander "<commander>" \
+  --output output/commander_analysis.json \
+  --json-output
+
+# Step 2: use the analysis for richer commander scoring
 mtg category-counts \
   --commander "<commander>" \
   --archetype <archetype> \
   --power-level <number> \
   --philosophy <philosophy> \
+  --analysis output/commander_analysis.json \
   --json-output
 ```
 
 For partner decks:
 
 ```bash
+mtg commander-analyze \
+  --commander "<commander>" \
+  --partner "<partner>" \
+  --output output/commander_analysis.json \
+  --json-output
+
 mtg category-counts \
   --commander "<commander>" \
   --partner "<partner>" \
@@ -325,6 +394,8 @@ mtg category-counts \
   --philosophy <philosophy> \
   --json-output
 ```
+
+If `output/commander_analysis.json` does not exist, category-counts still works — it falls back to live commander scoring.
 
 Use the output as guidance:
 

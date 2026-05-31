@@ -267,6 +267,27 @@ def _default_card_data(name: str) -> Dict[str, Any]:
 
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
+def _load_analysis_scores(analysis_path: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Load pre-computed commander scores from a commander_analysis.json file."""
+    if not analysis_path:
+        return None
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        p = _Path(analysis_path)
+        if not p.exists():
+            return None
+        with open(p, "r", encoding="utf-8") as f:
+            analysis = _json.load(f)
+        scores = dict(analysis.get("commander_scores", {}))
+        scores["provides"] = analysis.get("provides", {})
+        scores["requires"] = analysis.get("requires", {})
+        scores["rewards"] = analysis.get("rewards", {})
+        return scores
+    except Exception:
+        return None
+
+
 def calculate_category_counts(
     commander_name: str,
     archetype: str,
@@ -280,6 +301,7 @@ def calculate_category_counts(
     commander_card_data: Optional[Dict[str, Any]] = None,
     partner_card_data: Optional[Dict[str, Any]] = None,
     db_path: Optional[str] = None,
+    analysis_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Calculate recommended category counts for a Commander deck.
@@ -337,12 +359,16 @@ def calculate_category_counts(
         color_identity = [c for c in ["W", "U", "B", "R", "G"] if c in color_identity]
 
     # ── Commander scores ───────────────────────────────────────────────────
-    primary_scores = score_commander(commander_card_data, archetype_key)
-    if partner_name and partner_card_data:
-        partner_scores = score_commander(partner_card_data, archetype_key)
-        commander_scores = merge_partner_scores(primary_scores, partner_scores)
+    analysis_scores = _load_analysis_scores(analysis_path)
+    if analysis_scores:
+        commander_scores = analysis_scores
     else:
-        commander_scores = primary_scores
+        primary_scores = score_commander(commander_card_data, archetype_key)
+        if partner_name and partner_card_data:
+            partner_scores = score_commander(partner_card_data, archetype_key)
+            commander_scores = merge_partner_scores(primary_scores, partner_scores)
+        else:
+            commander_scores = primary_scores
 
     # ── Archetype fit ──────────────────────────────────────────────────────
     oracle = (commander_card_data.get("oracle_text") or "")

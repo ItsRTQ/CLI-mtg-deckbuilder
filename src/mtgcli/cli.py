@@ -26,6 +26,7 @@ from mtgcli.deckbuilder.deck_check import check_deck_quality
 from mtgcli.deckbuilder.suggestion_scorer import (
     score_suggestion, extract_commander_synergy_signals, check_card_synergy
 )
+from mtgcli.deckbuilder.commander_analyzer import analyze_commander
 from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_theme_profile
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
@@ -152,6 +153,7 @@ def suggest(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
     role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, card_draw, removal, engine)"),
     synergy: bool = typer.Option(False, "--synergy", help="Narrow results to cards that also connect with the commander's strategy (applied after role match)"),
+    analysis: Optional[Path] = typer.Option(None, "--analysis", help="Path to commander_analysis.json; improves --synergy matching (default: output/commander_analysis.json)"),
     theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment, modified_creatures"),
     package: Optional[str] = typer.Option(None, "--package", help="Optional theme package, e.g. modified_enablers"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
@@ -281,7 +283,8 @@ def suggest(
 
         # Apply --synergy filter: narrow to cards that connect with the commander's strategy
         if synergy:
-            commander_signals = extract_commander_synergy_signals(commander_card)
+            analysis_path = analysis or Path("output/commander_analysis.json")
+            commander_signals = extract_commander_synergy_signals(commander_card, analysis_path=analysis_path)
             synergy_results = []
             for card in scored_results:
                 matched_synergy = check_card_synergy(card, commander_signals)
@@ -329,6 +332,75 @@ def suggest(
             score_str = f" [yellow](Score: {card['suggestion_score']})[/yellow]"
             print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}{price_str}{score_str}")
             print(f"  [italic white]{card['reason_hint']}[/italic white]")
+
+
+@app.command()
+def commander_analyze(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander card name"),
+    archetype: Optional[str] = typer.Option(None, "--archetype", help="Optional archetype context (e.g. blink, aristocrats)"),
+    theme: Optional[str] = typer.Option(None, "--theme", help="Optional theme context"),
+    power_level: Optional[float] = typer.Option(None, "--power-level", help="Optional power level 1-10"),
+    philosophy: Optional[str] = typer.Option(None, "--philosophy", help="Optional deckbuilding philosophy"),
+    meta: Optional[str] = typer.Option(None, "--meta", help="Optional meta context"),
+    output_path: Path = typer.Option(Path("output/commander_analysis.json"), "--output", help="Output file path"),
+    no_write: bool = typer.Option(False, "--no-write", help="Print analysis only, do not write file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Print JSON to stdout"),
+):
+    """Analyze a commander and write a reusable tactical JSON artifact."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    commander_card = repo.get_card_by_exact_name(commander)
+    if not commander_card:
+        print(f"[red]Commander '{commander}' not found in database.[/red]")
+        raise typer.Exit(code=1)
+
+    can_be_cmd = commander_card.get("can_be_commander", False)
+    is_cmd_legal = commander_card.get("commander_legal", False)
+    if not (can_be_cmd or is_cmd_legal):
+        print(f"[red]'{commander}' is not legal as a commander.[/red]")
+        print("[yellow]Analysis will be marked invalid.[/yellow]")
+
+    partner_card = None
+    if partner:
+        partner_card = repo.get_card_by_exact_name(partner)
+        if not partner_card:
+            print(f"[red]Partner '{partner}' not found in database.[/red]")
+            raise typer.Exit(code=1)
+
+    analysis = analyze_commander(
+        commander_card,
+        partner_card=partner_card,
+        archetype=archetype,
+        theme=theme,
+        power_level=power_level,
+        philosophy=philosophy,
+        meta=meta,
+    )
+
+    if not no_write:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output_path, analysis)
+        if not json_output:
+            print(f"[green]Analysis written to {output_path}[/green]")
+
+    if json_output:
+        print(json.dumps(analysis, indent=2))
+    elif no_write:
+        print(json.dumps(analysis, indent=2))
+    else:
+        print(f"[bold blue]Commander: {analysis['commander']}[/bold blue]")
+        if analysis.get("partner"):
+            print(f"[blue]Partner: {analysis['partner']}[/blue]")
+        print(f"Colors: {''.join(analysis['combined_color_identity'])}")
+        print(f"Best archetype: {analysis['best_archetype']}")
+        print(f"Primary pattern: {analysis['engine_profile']['primary_pattern']}")
+        print(f"Engine: {analysis['engine_profile']['engine_action']}")
+        if analysis.get("forced_archetype_warning"):
+            print(f"[yellow]{analysis['forced_archetype_warning']}[/yellow]")
 
 
 @app.command()
@@ -1222,6 +1294,7 @@ def category_counts(
     philosophy: str = typer.Option("balanced", "--philosophy", help="Deckbuilding philosophy"),
     meta: str = typer.Option("universal", "--meta", help="Playgroup meta environment"),
     projected_avg_mv: Optional[float] = typer.Option(None, "--projected-average-mv", help="Projected average nonland MV"),
+    analysis: Optional[Path] = typer.Option(None, "--analysis", help="Path to commander_analysis.json for richer commander scoring"),
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
     """Recommend category counts for a Commander deck."""
@@ -1237,6 +1310,7 @@ def category_counts(
         meta=meta,
         projected_avg_mv=projected_avg_mv,
         db_path=db_path,
+        analysis_path=str(analysis) if analysis else None,
     )
 
     if json_output:

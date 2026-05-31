@@ -218,6 +218,21 @@ Rules:
 
 ---
 
+## Commander Analysis Integration
+
+If `output/commander_analysis.json` exists, use it to inform card ranking:
+
+- `synergy_tags` — tags the commander cares about; prefer cards that match these
+- `engine_profile.primary_pattern` — engine type; prefer cards that directly feed, multiply, or protect it
+- `wanted_card_patterns` — explicit guidance on what to prioritize
+- `avoid_card_patterns` — explicit guidance on what to skip
+- `role_pressures` — if a pressure is "high", prioritize candidates in that role even when borderline
+- `provides` / `requires` / `rewards` — if the commander provides card_draw, de-prioritize generic draw; if it requires protection, prioritize protection candidates
+
+Do not over-index on analysis tags. A card that serves the role cleanly and efficiently still ranks above a card that matches synergy tags but serves the role poorly.
+
+---
+
 ## Explore Recommendations
 
 Cards from `mtg explore` output (`high_synergy`, `top_cards`) are **community signal only**.

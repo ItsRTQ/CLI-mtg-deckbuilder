@@ -83,6 +83,8 @@ _ARCHETYPE_FIT_KEYWORDS: Dict[str, list] = {
         "exile target creature", "return it", "return that card",
         "enters the battlefield under your control",
         "when it enters the battlefield",
+        "exile any number of target", "return those cards to the battlefield",
+        "exile target nonland", "return it to the battlefield",
     ],
     "theft": [
         "gain control", "control of target",

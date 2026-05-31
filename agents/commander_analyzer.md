@@ -6,7 +6,45 @@ Do not use memory as the source of truth.
 
 Do not invent card text, rules, legality, or card functions.
 
-Return only JSON.
+## CLI-backed analysis (preferred)
+
+Before running agent analysis, always run the CLI command to generate a structured analysis artifact:
+
+```bash
+mtg commander-analyze \
+  --commander "<Commander Name>" \
+  --output output/commander_analysis.json \
+  --json-output
+```
+
+For partner commanders:
+
+```bash
+mtg commander-analyze \
+  --commander "<Commander A>" \
+  --partner "<Commander B>" \
+  --output output/commander_analysis.json \
+  --json-output
+```
+
+With optional context:
+
+```bash
+mtg commander-analyze \
+  --commander "<Commander Name>" \
+  --archetype blink \
+  --power-level 7 \
+  --philosophy balanced \
+  --output output/commander_analysis.json \
+  --json-output
+```
+
+This writes `output/commander_analysis.json` — the shared tactical map for:
+- `mtg suggest --synergy --analysis output/commander_analysis.json`
+- `mtg category-counts --analysis output/commander_analysis.json`
+- Agent card ranking and deck planning
+
+Read the analysis JSON and use it as the basis for agent decisions. Do not override it without reason. If the analysis is missing or incomplete for the commander's strategy, supplement with your own judgment and note what was added.
 
 ---
 

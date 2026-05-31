@@ -1,7 +1,10 @@
 import json
 import re
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
+
+_DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
 
 _SYNERGY_MECHANICS = [
     "sacrifice", "proliferate", "convoke", "delve", "explore", "adapt", "mutate",
@@ -18,13 +21,41 @@ _SYNERGY_MECHANICS = [
 ]
 
 
-def extract_commander_synergy_signals(commander_card: Dict[str, Any]) -> Set[str]:
-    """Extract meaningful synergy keywords from a commander's type line and oracle text."""
-    signals: Set[str] = set()
+def extract_commander_synergy_signals(
+    commander_card: Dict[str, Any],
+    analysis_path: Optional[Path] = _DEFAULT_ANALYSIS_PATH,
+) -> Set[str]:
+    """
+    Extract synergy keywords for the given commander.
+
+    If analysis_path exists, uses analysis["synergy_tags"] + ["commander_type_tags"]
+    + engine profile patterns for richer signal coverage.
+    Falls back to heuristic oracle/type-line extraction if not available.
+    """
+    resolved_path = Path(analysis_path) if analysis_path else None
+    if resolved_path and resolved_path.exists():
+        try:
+            with open(resolved_path, "r", encoding="utf-8") as f:
+                analysis = json.load(f)
+            signals: Set[str] = set()
+            signals.update(analysis.get("synergy_tags", []))
+            signals.update(analysis.get("commander_type_tags", []))
+            engine = analysis.get("engine_profile", {})
+            if engine.get("primary_pattern"):
+                signals.add(engine["primary_pattern"])
+            signals.update(engine.get("secondary_patterns", []))
+            # Also add key oracle phrases from analysis text_signals
+            for zone in analysis.get("text_signals", {}).get("resource_zones", []):
+                signals.add(zone)
+            return signals
+        except Exception:
+            pass  # Fall through to heuristic below
+
+    # Heuristic fallback: extract from oracle text and type line directly
+    signals = set()
     oracle = commander_card.get("oracle_text", "").lower()
     type_line = commander_card.get("type_line", "").lower()
 
-    # Creature subtypes (tribal synergy)
     if "—" in type_line:
         subtypes_part = type_line.split("—", 1)[1]
         for word in re.split(r"\s+", subtypes_part.strip()):
@@ -32,7 +63,6 @@ def extract_commander_synergy_signals(commander_card: Dict[str, Any]) -> Set[str
             if len(word) > 2:
                 signals.add(word)
 
-    # Known mechanics from oracle text
     for mechanic in _SYNERGY_MECHANICS:
         if mechanic in oracle:
             signals.add(mechanic)

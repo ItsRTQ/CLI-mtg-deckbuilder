@@ -56,9 +56,17 @@ Ask only useful multiple-choice questions.
 
 Always include `Agent choice`.
 
-Default maximum: 3 questions before deckbuilding.
+Default maximum: 4 questions before deckbuilding.
 
-Important questions:
+The 4th question always asks **Quick build vs Detailed build**:
+
+```text
+a) Quick build — ask only core questions, then build.
+b) Detailed build — ask more targeted preference questions before and during building.
+c) Agent choice
+```
+
+Core questions (ask the most useful ones first):
 
 ```text
 power level
@@ -70,6 +78,10 @@ tutor policy
 mana base quality
 ```
 
+**Quick build:** proceed to deckbuilding after the 4-question flow; use sensible defaults for unasked preferences.
+
+**Detailed build:** ask additional targeted questions (playstyle, speed, theme commitment, ramp preference, interaction, win style, staples, table friendliness, budget flexibility); may also ask small clarifying questions during the build when a real decision point appears.
+
 If the user does not answer, choose a reasonable option and continue.
 
 ---
@@ -80,27 +92,32 @@ Typical commands:
 
 ```bash
 mtg card "<commander>" --json-output
+# Commander analysis — run first to build the shared tactical map
+mtg commander-analyze --commander "<commander>" --output output/commander_analysis.json --json-output
+mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
 # Structured search (type:, oracle:, name:, mv: tokens)
 mtg search "type:demon" --limit 20 --json-output
 mtg search "type:creature oracle:draw" --colors UB --limit 20 --json-output
 mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
 mtg search "<query>" --colors "<colors>" --limit 30 --json-output
+# role = functional job of the card
 mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
 mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
 mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
 mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
 # --synergy narrows role results to cards that also connect with the commander's strategy
-# role = functional job of the card; --synergy = also shares commander synergy signals
 # --role synergy is INVALID — use --synergy as a modifier flag instead
-mtg suggest --commander "<commander>" --role engine --synergy --limit 40 --json-output
-mtg suggest --commander "<commander>" --role enabler --synergy --limit 40 --json-output
-mtg suggest --commander "<commander>" --role payoff --synergy --limit 40 --json-output
+# Provide --analysis to use commander_analysis.json for richer synergy signals
+mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander>" --role enabler --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander>" --role payoff --synergy --analysis output/commander_analysis.json --limit 40 --json-output
 mtg suggest-lands --commander "<commander>" --count <count> --json-output
 # Deck file creation
 mtg deck-write --input output/decklist.txt --output output/deck.json --force
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --dry-run --json-output
-mtg category-counts --commander "<commander>" --archetype <archetype> --power-level <number> --philosophy balanced --json-output
+# category-counts: pass --analysis for richer commander scoring
+mtg category-counts --commander "<commander>" --archetype <archetype> --power-level <number> --philosophy balanced --analysis output/commander_analysis.json --json-output
 mtg category-counts --commander "<commander>" --partner "<partner>" --archetype voltron --power-level 6 --philosophy combat_pressure --json-output
 mtg validate --commander "<commander>" --deck output/deck.json --json-output
 mtg deck-check --commander "<commander>" --deck output/deck.json --json-output

@@ -92,8 +92,12 @@ Typical commands:
 
 ```bash
 mtg card "<commander>" --json-output
-# Commander analysis — run first to build the shared tactical map
+# Commander analysis — run early to build the shared tactical map
 mtg commander-analyze --commander "<commander>" --output output/commander_analysis.json --json-output
+# Commander combo data — optional; run when combos/combo pieces are relevant
+# Combo data is context only, not mandatory includes
+mtg combos --commander "<commander>" --output output/commander_combos.json --json-output
+mtg combos --commander "<commander>" --max-bracket 3 --limit 20 --output output/commander_combos.json --json-output
 mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
 # Structured search (type:, oracle:, name:, mv: tokens)
 mtg search "type:demon" --limit 20 --json-output
@@ -320,6 +324,8 @@ output/deck.enriched.json
 output/deck.moxfield.txt
 output/deck_explanation.md
 output/validation_report.json
+output/commander_analysis.json
+output/commander_combos.json
 final-builds/<commander>-<theme>-<bracket>-<version>/
 final-builds/<commander>-<theme>-<bracket>-<version>/<name>.txt
 final-builds/<commander>-<theme>-<bracket>-<version>/<name>.explanation.md

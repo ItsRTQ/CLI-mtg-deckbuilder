@@ -339,6 +339,48 @@ Do not make casual/optimized casual decks combo-focused unless user requests it.
 
 ---
 
+## Combo Data (mtg combos)
+
+When combos are relevant, fetch combo data first:
+
+```bash
+mtg combos \
+  --commander "<commander>" \
+  --output output/commander_combos.json \
+  --json-output
+```
+
+Optionally filter by power bracket:
+
+```bash
+mtg combos \
+  --commander "<commander>" \
+  --max-bracket 3 \
+  --limit 20 \
+  --output output/commander_combos.json \
+  --json-output
+```
+
+**Combo data is optional context — not mandatory includes.**
+
+Use combo data for two purposes:
+
+1. **If the user wants combos:** identify compact combo packages; check bracket/power appropriateness; verify all cards are legal, in color identity, and budget-appropriate; include only if power level and salt policy allow it.
+
+2. **If the user does not want combos:** use individual combo pieces as synergy signal candidates; do not include full combo lines if the user asked for low-salt or no-combo.
+
+Rules:
+
+```text
+- Do not force combos into every deck.
+- Do not include combos in low-salt/friendly builds unless user wants them.
+- Do not include high-bracket combos in low-power decks.
+- All combo pieces must still pass: legality, color identity, budget, role balance, theme fit.
+- Verify combo cards exist: mtg cards "Card A" "Card B" --json-output
+```
+
+---
+
 ## Staples vs Theme
 
 Staples are allowed when they:

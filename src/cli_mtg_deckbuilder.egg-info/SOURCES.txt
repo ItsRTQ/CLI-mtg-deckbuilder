@@ -19,6 +19,9 @@ src/mtgcli/category_counts/models.py
 src/mtgcli/category_counts/output.py
 src/mtgcli/category_counts/profiles.py
 src/mtgcli/category_counts/scoring.py
+src/mtgcli/combos/__init__.py
+src/mtgcli/combos/fetcher.py
+src/mtgcli/combos/parser.py
 src/mtgcli/data/__init__.py
 src/mtgcli/data/build_sqlite.py
 src/mtgcli/data/download_cards.py
@@ -55,6 +58,7 @@ src/mtgcli/validator/deck_validator.py
 src/mtgcli/validator/singleton.py
 tests/test_card_lookup.py
 tests/test_category_counts.py
+tests/test_combos.py
 tests/test_commander_analyzer.py
 tests/test_constraints.py
 tests/test_deck_check_ramp.py

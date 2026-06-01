@@ -233,6 +233,20 @@ Do not over-index on analysis tags. A card that serves the role cleanly and effi
 
 ---
 
+## Combo Data Integration
+
+If `output/commander_combos.json` exists, use it as a soft signal only:
+
+- Cards that appear in listed combos may be good synergy candidates.
+- Do **not** automatically rank combo pieces higher just because they appear in a combo.
+- A combo piece only ranks higher if it also fits the role, color identity, budget, and power level.
+- Do not include full combo lines if the user asked for low-salt or no-combo builds.
+- Verify combo card names via CLI before inclusion: `mtg cards "Card A" "Card B" --json-output`
+
+Combo data is context, not a ranking override.
+
+---
+
 ## Explore Recommendations
 
 Cards from `mtg explore` output (`high_synergy`, `top_cards`) are **community signal only**.

@@ -35,6 +35,9 @@ from mtgcli.deckbuilder.land_filler import fill_deck_with_lands
 from mtgcli.utils.deck_io import normalize_deck_input
 from mtgcli.utils.decklist_parser import parse_decklist_text
 from mtgcli.category_counts import calculate_category_counts, format_human_readable
+from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
+from mtgcli.combos.parser import parse_combos, filter_combos, USE_GUIDANCE
+from mtgcli.explore.slug import commander_to_slug
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
 
@@ -1317,6 +1320,82 @@ def category_counts(
         print(json.dumps(result, indent=2))
     else:
         print(format_human_readable(result))
+
+
+@app.command()
+def combos(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    output_path: Path = typer.Option(Path("output/commander_combos.json"), "--output", help="Output file path"),
+    limit: Optional[int] = typer.Option(None, "--limit", help="Limit number of combos returned"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Exact bracket filter (e.g. 2)"),
+    max_bracket: Optional[str] = typer.Option(None, "--max-bracket", help="Maximum bracket value (numeric)"),
+    include_raw: bool = typer.Option(False, "--include-raw", help="Include raw source payload in output"),
+    no_write: bool = typer.Option(False, "--no-write", help="Print only, do not write file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Fetch and parse combo data for a commander."""
+    try:
+        url = build_combo_url(commander)
+    except ValueError as exc:
+        print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        raw = fetch_combo_data(url)
+    except ValueError as exc:
+        print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    all_combos = parse_combos(raw)
+    filtered = filter_combos(all_combos, bracket=bracket, max_bracket=max_bracket, limit=limit)
+    slug = commander_to_slug(commander)
+
+    result = {
+        "commander": commander,
+        "slug": slug,
+        "source_url": url,
+        "combo_count": len(filtered),
+        "written": False,
+        "output": None,
+        "combos": filtered,
+        "use_guidance": USE_GUIDANCE,
+    }
+
+    if include_raw:
+        result["raw"] = raw
+
+    if not filtered:
+        result["message"] = f"No combos found for {commander}."
+
+    if not no_write and filtered:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output_path, result)
+        result["written"] = True
+        result["output"] = str(output_path)
+
+    if json_output:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        count = result["combo_count"]
+        if count == 0:
+            print(f"[yellow]No combos found for {commander}.[/yellow]")
+        else:
+            print(f"[bold blue]Combos found for {commander}: {count}[/bold blue]")
+            for i, combo in enumerate(filtered, 1):
+                print(f"\n[Combo #{i}] [Bracket: {combo['bracket']}]")
+                print("Cards:")
+                for card in combo["cards"]:
+                    print(f"  - {card}")
+                if combo["results"]:
+                    print("Results:")
+                    for r in combo["results"]:
+                        print(f"  - {r}")
+            print(
+                "\n[italic]Note: Combo data is optional deckbuilding context, "
+                "not mandatory includes.[/italic]"
+            )
+        if result["written"]:
+            print(f"[green]Saved to {output_path}[/green]")
 
 
 if __name__ == "__main__":

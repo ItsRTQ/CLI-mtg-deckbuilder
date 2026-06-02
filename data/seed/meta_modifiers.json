@@ -1,0 +1,68 @@
+{
+  "_note": "Delta modifiers for meta/playgroup environment. Added to raw category scores.",
+  "universal": {
+    "display_name": "Universal / unknown"
+  },
+  "creature_heavy": {
+    "display_name": "Creature-heavy meta",
+    "targeted_removal": 1.5,
+    "board_wipes": 2.0
+  },
+  "combo_heavy": {
+    "display_name": "Combo-heavy meta",
+    "counterspells": 2.0,
+    "targeted_removal": 1.0,
+    "tutors": 0.5,
+    "graveyard_hate": 0.5
+  },
+  "graveyard_heavy": {
+    "display_name": "Graveyard-heavy meta",
+    "graveyard_hate": 3.0,
+    "targeted_removal": 0.5
+  },
+  "artifact_enchantment_heavy": {
+    "display_name": "Artifact/enchantment-heavy meta",
+    "targeted_removal": 1.5
+  },
+  "board_wipe_heavy": {
+    "display_name": "Board-wipe-heavy meta",
+    "protection": 2.0,
+    "recursion": 2.0,
+    "redundancy": 1.5
+  },
+  "removal_heavy": {
+    "display_name": "Removal-heavy meta",
+    "protection": 2.0,
+    "redundancy": 1.5,
+    "recursion": 1.0
+  },
+  "stax_heavy": {
+    "display_name": "Stax-heavy meta",
+    "counterspells": 1.5,
+    "targeted_removal": 1.0,
+    "protection": 1.0
+  },
+  "fast_high_power": {
+    "display_name": "Fast / high-power meta",
+    "normal_ramp": 1.0,
+    "card_selection": 1.0,
+    "counterspells": 1.5,
+    "tutors": 1.0,
+    "draw": 0.5
+  },
+  "slow_battlecruiser": {
+    "display_name": "Slow / battlecruiser meta",
+    "big_ramp": 2.0,
+    "normal_ramp": 0.5,
+    "win_conditions": 1.0,
+    "utility": 1.0,
+    "counterspells": -1.0
+  },
+  "low_interaction_casual": {
+    "display_name": "Low interaction / casual meta",
+    "targeted_removal": -1.0,
+    "counterspells": -2.0,
+    "board_wipes": -0.5,
+    "utility": 1.0
+  }
+}

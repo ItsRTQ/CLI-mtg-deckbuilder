@@ -17,7 +17,7 @@
       "max": 42
     },
     "absolute_safety": {
-      "min": 30,
+      "min": 32,
       "max": 42
     }
   },
@@ -74,6 +74,13 @@
   "budget_rules": {
     "ask_if_missing": true,
     "default_if_unanswered": "no_budget",
+    "budget_is_maximum_not_target": true,
+    "default_allowed_overage_percent": 10,
+    "do_not_force_spending_full_budget": true,
+    "under_budget_is_valid": true,
+    "unknown_price_policy": "allow_with_warning",
+    "strict_budget_excludes_unknown_prices": true,
+    "note": "A deck may be far under budget if it is synergistic and coherent. Do not add expensive cards only to spend more money. Deck synergy is more important than reaching the budget.",
     "preset_options": [
       100,
       150,
@@ -168,8 +175,15 @@
       "fair_finishers": 2
     }
   },
+  "bracket_mapping": {
+    "T1": "cedh",
+    "T2": "highly_optimized",
+    "T3": "slightly_optimized",
+    "T4": "precon_level",
+    "note": "T1=cEDH (power ~9.5), T2=high power (~8.0), T3=tuned casual (~6.5), T4=precon (~4.0)"
+  },
   "minimum_safety_counts": {
-    "lands": 30,
+    "lands": 32,
     "ramp": 6,
     "card_draw": 6,
     "removal": 5,

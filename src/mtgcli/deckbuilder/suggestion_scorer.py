@@ -1,6 +1,85 @@
 import json
-from typing import Dict, Any, List, Optional
+import re
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
+
+_DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
+
+_RAMP_LAND_ALLOWED_TAGS = frozenset({"land_ramp", "extra_land_drop", "land_recursion"})
+
+_SYNERGY_MECHANICS = [
+    "sacrifice", "proliferate", "convoke", "delve", "explore", "adapt", "mutate",
+    "foretell", "learn", "boast", "channel", "connive", "cultivate", "disturb",
+    "enlist", "flash", "flashback", "fortify", "hideaway", "kicker", "morph",
+    "ninjutsu", "overload", "partner", "persist", "populate", "raid", "revolt",
+    "scry", "surge", "threshold", "transform", "undergrowth", "ward",
+    "+1/+1 counter", "-1/-1 counter", "poison counter", "energy counter",
+    "whenever a creature dies", "whenever you cast", "whenever you gain life",
+    "whenever you draw", "enters the battlefield", "graveyard", "exile",
+    "create", "token", "copy", "enchant", "attach", "equip", "aura",
+    "tap", "untap", "combat damage", "trample", "flying", "haste",
+    "triggered ability", "activated ability", "mana ability",
+]
+
+
+def extract_commander_synergy_signals(
+    commander_card: Dict[str, Any],
+    analysis_path: Optional[Path] = _DEFAULT_ANALYSIS_PATH,
+) -> Set[str]:
+    """
+    Extract synergy keywords for the given commander.
+
+    If analysis_path exists, uses analysis["synergy_tags"] + ["commander_type_tags"]
+    + engine profile patterns for richer signal coverage.
+    Falls back to heuristic oracle/type-line extraction if not available.
+    """
+    resolved_path = Path(analysis_path) if analysis_path else None
+    if resolved_path and resolved_path.exists():
+        try:
+            with open(resolved_path, "r", encoding="utf-8") as f:
+                analysis = json.load(f)
+            signals: Set[str] = set()
+            signals.update(analysis.get("synergy_tags", []))
+            signals.update(analysis.get("commander_type_tags", []))
+            engine = analysis.get("engine_profile", {})
+            if engine.get("primary_pattern"):
+                signals.add(engine["primary_pattern"])
+            signals.update(engine.get("secondary_patterns", []))
+            # Also add key oracle phrases from analysis text_signals
+            for zone in analysis.get("text_signals", {}).get("resource_zones", []):
+                signals.add(zone)
+            return signals
+        except Exception:
+            pass  # Fall through to heuristic below
+
+    # Heuristic fallback: extract from oracle text and type line directly
+    signals = set()
+    oracle = commander_card.get("oracle_text", "").lower()
+    type_line = commander_card.get("type_line", "").lower()
+
+    if "—" in type_line:
+        subtypes_part = type_line.split("—", 1)[1]
+        for word in re.split(r"\s+", subtypes_part.strip()):
+            word = word.strip()
+            if len(word) > 2:
+                signals.add(word)
+
+    for mechanic in _SYNERGY_MECHANICS:
+        if mechanic in oracle:
+            signals.add(mechanic)
+
+    return signals
+
+
+def check_card_synergy(card: Dict[str, Any], signals: Set[str]) -> List[str]:
+    """Returns list of matched synergy signals between card text and commander signals."""
+    card_text = (
+        card.get("name", "") + " " +
+        card.get("type_line", "") + " " +
+        card.get("oracle_text", "")
+    ).lower()
+    return [s for s in signals if s in card_text]
 
 
 def _load_tag_definitions() -> Dict[str, List[str]]:
@@ -17,6 +96,10 @@ def _load_role_config(role: str) -> Dict[str, Any]:
         return {}
     with open(role_file, "r", encoding="utf-8") as f:
         return json.load(f).get(role, {})
+
+
+def _is_land(card: Dict[str, Any]) -> bool:
+    return "land" in (card.get("type_line") or "").lower()
 
 
 def _match_sub_tags(
@@ -61,6 +144,11 @@ def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = Non
     # 1. Sub-tag matching — tracks tag names, not phrases
     if role_sub_tags:
         matched_tags = _match_sub_tags(card_text, role_sub_tags, tag_definitions)
+
+    # Lands must not match mana-producing ramp tags (mana_rock, mana_dork, etc.)
+    # Only land-specific ramp tags are valid for land cards.
+    if role == "ramp" and _is_land(card):
+        matched_tags = [t for t in matched_tags if t in _RAMP_LAND_ALLOWED_TAGS]
 
     if matched_tags:
         score += 3

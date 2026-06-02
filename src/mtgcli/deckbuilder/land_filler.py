@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 COLOR_TO_LAND = {
     "W": "Plains",
@@ -36,6 +36,26 @@ def calculate_land_distribution(color_identity: List[str], slots: int) -> Dict[s
             dist[COLOR_TO_LAND[color]] = qty
 
     return dist
+
+
+def remove_command_zone_cards_from_main_deck(
+    deck_entries: List[Dict[str, Any]],
+    commanders: List[str],
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """
+    Remove commander/partner entries from a flat main-deck list.
+    Returns (cleaned_deck, list_of_removed_names).
+    Case-insensitive name matching.
+    """
+    lower_commanders = {c.lower() for c in commanders}
+    cleaned: List[Dict[str, Any]] = []
+    removed: List[str] = []
+    for entry in deck_entries:
+        if entry.get("name", "").lower() in lower_commanders:
+            removed.append(entry["name"])
+        else:
+            cleaned.append(entry)
+    return cleaned, removed
 
 
 def fill_deck_with_lands(

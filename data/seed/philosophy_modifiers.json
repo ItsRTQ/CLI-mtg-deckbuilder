@@ -1,0 +1,120 @@
+{
+  "_note": "Delta modifiers added to raw category scores. Positive = increase need, negative = decrease need.",
+  "balanced": {
+    "display_name": "Balanced / Default"
+  },
+  "consistency_first": {
+    "display_name": "Consistency First",
+    "draw": 1.5,
+    "card_selection": 1.0,
+    "tutors": 2.0,
+    "redundancy": 1.5,
+    "archetype_core": 0.5
+  },
+  "explosive_fast": {
+    "display_name": "Explosive / Fast",
+    "normal_ramp": 2.0,
+    "big_ramp": 1.0,
+    "card_selection": 1.0,
+    "win_conditions": 1.0,
+    "board_wipes": -1.0,
+    "recursion": -0.5
+  },
+  "resilient": {
+    "display_name": "Resilient / Hard to Kill",
+    "protection": 2.0,
+    "recursion": 2.0,
+    "redundancy": 2.0,
+    "utility": 0.5
+  },
+  "synergy_max": {
+    "display_name": "Synergy Max",
+    "archetype_core": 2.0,
+    "synergy_enablers": 2.0,
+    "synergy_payoffs": 2.0,
+    "tutors": 0.5,
+    "utility": -1.0
+  },
+  "interaction_heavy": {
+    "display_name": "Interaction Heavy",
+    "targeted_removal": 2.0,
+    "counterspells": 2.0,
+    "board_wipes": 1.5,
+    "graveyard_hate": 1.0,
+    "archetype_core": -1.0,
+    "synergy_payoffs": -0.5
+  },
+  "win_optimization": {
+    "display_name": "Win Optimization",
+    "win_conditions": 2.0,
+    "tutors": 2.0,
+    "card_selection": 1.0,
+    "archetype_core": 1.0,
+    "utility": -1.5,
+    "redundancy": 0.5
+  },
+  "casual_do_the_thing": {
+    "display_name": "Casual Do-the-Thing",
+    "archetype_core": 1.5,
+    "synergy_enablers": 1.0,
+    "synergy_payoffs": 1.0,
+    "tutors": -2.0,
+    "counterspells": -1.5,
+    "utility": 1.0
+  },
+  "theme_flavor": {
+    "display_name": "Theme / Flavor Preservation",
+    "archetype_core": 2.0,
+    "utility": 1.0,
+    "tutors": -1.0,
+    "counterspells": -1.0,
+    "graveyard_hate": -0.5
+  },
+  "low_salt": {
+    "display_name": "Low Salt / Friendly Table",
+    "tutors": -3.0,
+    "counterspells": -1.5,
+    "board_wipes": -0.5,
+    "archetype_core": 0.5,
+    "utility": 1.0,
+    "synergy_enablers": 0.5
+  },
+  "control_grind": {
+    "display_name": "Control / Grind",
+    "draw": 1.5,
+    "card_selection": 1.0,
+    "targeted_removal": 1.5,
+    "counterspells": 2.5,
+    "board_wipes": 1.5,
+    "recursion": 1.0,
+    "archetype_core": -1.0,
+    "synergy_payoffs": -0.5
+  },
+  "combo_focus": {
+    "display_name": "Combo Focus",
+    "tutors": 3.0,
+    "draw": 1.5,
+    "card_selection": 2.0,
+    "win_conditions": 2.0,
+    "archetype_core": 1.5,
+    "targeted_removal": -0.5,
+    "board_wipes": -1.0
+  },
+  "combat_pressure": {
+    "display_name": "Combat Pressure",
+    "protection": 2.0,
+    "archetype_core": 1.5,
+    "synergy_payoffs": 1.0,
+    "win_conditions": 1.0,
+    "counterspells": -1.0,
+    "board_wipes": -0.5
+  },
+  "value_engine": {
+    "display_name": "Value Engine",
+    "draw": 1.5,
+    "archetype_core": 1.5,
+    "recursion": 1.5,
+    "synergy_enablers": 1.0,
+    "utility": 0.5
+  }
+}

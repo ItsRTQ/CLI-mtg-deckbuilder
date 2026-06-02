@@ -1,11 +1,12 @@
 import typer
 import json
+import sys
 from rich import print
 from typing import Optional, List
 from pathlib import Path
 from mtgcli.config import PROJECT_ROOT, RAW_CARDS_PATH, SQLITE_PATH, SEED_DATA_DIR
 from mtgcli.explore.client import build_explore_url, fetch_commander_page
-from mtgcli.explore.cleaner import extract_target_cards_from_html
+from mtgcli.explore.cleaner import extract_target_cards_from_html, sanitize_json_string
 from mtgcli.utils.temp_cleaner import clean_output_files
 from mtgcli.export.final_builds import (
     normalize_bracket, next_final_build_name, create_final_build_directory,
@@ -23,16 +24,33 @@ from mtgcli.validator.deck_validator import validate_commander_deck
 from mtgcli.deckbuilder.enrich_deck import enrich_deck
 from mtgcli.deckbuilder.basic_lands import suggest_basic_lands
 from mtgcli.deckbuilder.deck_check import check_deck_quality
-from mtgcli.deckbuilder.suggestion_scorer import score_suggestion
+from mtgcli.deckbuilder.suggestion_scorer import (
+    score_suggestion, extract_commander_synergy_signals, check_card_synergy
+)
+from mtgcli.deckbuilder.commander_analyzer import analyze_commander
 from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_theme_profile
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
 from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
-from mtgcli.deckbuilder.land_filler import fill_deck_with_lands
+from mtgcli.deckbuilder.land_filler import fill_deck_with_lands, remove_command_zone_cards_from_main_deck
 from mtgcli.utils.deck_io import normalize_deck_input
 from mtgcli.utils.decklist_parser import parse_decklist_text
+from mtgcli.category_counts import calculate_category_counts, format_human_readable
+from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
+from mtgcli.combos.parser import parse_combos, filter_combos, USE_GUIDANCE
+from mtgcli.explore.slug import commander_to_slug
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
+
+
+def print_json(payload) -> None:
+    """Emit JSON to stdout WITHOUT rich formatting.
+
+    rich's ``print`` wraps long lines and can inject newlines into JSON string
+    values, producing invalid control characters that break strict
+    ``json.loads()``. Use this for all machine-readable JSON output.
+    """
+    sys.stdout.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
 
 @app.command()
@@ -75,7 +93,7 @@ def card(
 
     if card_data:
         if json_output:
-            print(json.dumps(card_data, indent=2))
+            print_json(card_data)
         else:
             print(f"[bold blue]{card_data['name']}[/bold blue] {card_data['mana_cost']}")
             print(f"[italic]{card_data['type_line']}[/italic]")
@@ -111,7 +129,7 @@ def search(
         return
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         print(f"[bold blue]Found {len(results)} cards:[/bold blue]")
         for card in results:
@@ -137,7 +155,7 @@ def search_tags(
         return
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         print(f"[bold blue]Found {len(results)} cards for tags {', '.join(tags)}:[/bold blue]")
         for card in results:
@@ -147,7 +165,9 @@ def search_tags(
 @app.command()
 def suggest(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
-    role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, synergy)"),
+    role: str = typer.Option(..., "--role", help="Role to suggest cards for (e.g. ramp, card_draw, removal, engine)"),
+    synergy: bool = typer.Option(False, "--synergy", help="Narrow results to cards that also connect with the commander's strategy (applied after role match)"),
+    analysis: Optional[Path] = typer.Option(None, "--analysis", help="Path to commander_analysis.json; improves --synergy matching (default: output/commander_analysis.json)"),
     theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment, modified_creatures"),
     package: Optional[str] = typer.Option(None, "--package", help="Optional theme package, e.g. modified_enablers"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
@@ -175,6 +195,11 @@ def suggest(
         raise typer.Exit(code=1)
 
     role_defs = read_json(role_file)
+    if role == "synergy":
+        print("[red]'synergy' is not a valid role.[/red]")
+        print("[yellow]Use --synergy as a modifier flag to narrow role results by commander synergy.[/yellow]")
+        print("[yellow]Example: mtg suggest --commander 'Atraxa' --role ramp --synergy[/yellow]")
+        raise typer.Exit(code=1)
     if role not in role_defs:
         print(f"[red]Unknown role: {role}[/red]")
         print(f"[yellow]Available roles: {', '.join(role_defs.keys())}[/yellow]")
@@ -270,6 +295,25 @@ def suggest(
             print(f"[yellow]No qualifying suggestions found for role '{role}' in colors '{colors}'[/yellow]")
             return
 
+        # Apply --synergy filter: narrow to cards that connect with the commander's strategy
+        if synergy:
+            analysis_path = analysis or Path("output/commander_analysis.json")
+            commander_signals = extract_commander_synergy_signals(commander_card, analysis_path=analysis_path)
+            synergy_results = []
+            for card in scored_results:
+                matched_synergy = check_card_synergy(card, commander_signals)
+                if not matched_synergy:
+                    continue
+                card["suggestion_score"] = min(10, card["suggestion_score"] + 2)
+                card["matched_tags"] = list(set(card.get("matched_tags", []) + matched_synergy))
+                existing_hint = card.get("reason_hint", "")
+                card["reason_hint"] = f"{existing_hint}; Commander synergy: {', '.join(matched_synergy)}" if existing_hint else f"Commander synergy: {', '.join(matched_synergy)}"
+                synergy_results.append(card)
+            if not synergy_results:
+                print(f"[yellow]No role-matching cards with commander synergy found for '{commander}' ({role})[/yellow]")
+                return
+            scored_results = synergy_results
+
         # Sort by score descending, then mana_value ascending
         scored_results.sort(key=lambda x: (-x["suggestion_score"], x["mana_value"]))
         final_results = scored_results[:limit]
@@ -284,9 +328,11 @@ def suggest(
         json_results = []
         for card in final_results:
             json_results.append({k: card.get(k) for k in output_fields})
-        print(json.dumps(json_results, indent=2))
+        print_json(json_results)
     else:
         title = f"Suggestions for {commander} ({role})"
+        if synergy:
+            title += " [+Synergy]"
         if theme:
             title += f" [Theme: {theme}]"
         if package:
@@ -303,8 +349,77 @@ def suggest(
 
 
 @app.command()
+def commander_analyze(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander card name"),
+    archetype: Optional[str] = typer.Option(None, "--archetype", help="Optional archetype context (e.g. blink, aristocrats)"),
+    theme: Optional[str] = typer.Option(None, "--theme", help="Optional theme context"),
+    power_level: Optional[float] = typer.Option(None, "--power-level", help="Optional power level 1-10"),
+    philosophy: Optional[str] = typer.Option(None, "--philosophy", help="Optional deckbuilding philosophy"),
+    meta: Optional[str] = typer.Option(None, "--meta", help="Optional meta context"),
+    output_path: Path = typer.Option(Path("output/commander_analysis.json"), "--output", help="Output file path"),
+    no_write: bool = typer.Option(False, "--no-write", help="Print analysis only, do not write file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Print JSON to stdout"),
+):
+    """Analyze a commander and write a reusable tactical JSON artifact."""
+    if not SQLITE_PATH.exists():
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    commander_card = repo.get_card_by_exact_name(commander)
+    if not commander_card:
+        print(f"[red]Commander '{commander}' not found in database.[/red]")
+        raise typer.Exit(code=1)
+
+    can_be_cmd = commander_card.get("can_be_commander", False)
+    is_cmd_legal = commander_card.get("commander_legal", False)
+    if not (can_be_cmd or is_cmd_legal):
+        print(f"[red]'{commander}' is not legal as a commander.[/red]")
+        print("[yellow]Analysis will be marked invalid.[/yellow]")
+
+    partner_card = None
+    if partner:
+        partner_card = repo.get_card_by_exact_name(partner)
+        if not partner_card:
+            print(f"[red]Partner '{partner}' not found in database.[/red]")
+            raise typer.Exit(code=1)
+
+    analysis = analyze_commander(
+        commander_card,
+        partner_card=partner_card,
+        archetype=archetype,
+        theme=theme,
+        power_level=power_level,
+        philosophy=philosophy,
+        meta=meta,
+    )
+
+    if not no_write:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output_path, analysis)
+        if not json_output:
+            print(f"[green]Analysis written to {output_path}[/green]")
+
+    if json_output:
+        print_json(analysis)
+    elif no_write:
+        print_json(analysis)
+    else:
+        print(f"[bold blue]Commander: {analysis['commander']}[/bold blue]")
+        if analysis.get("partner"):
+            print(f"[blue]Partner: {analysis['partner']}[/blue]")
+        print(f"Colors: {''.join(analysis['combined_color_identity'])}")
+        print(f"Best archetype: {analysis['best_archetype']}")
+        print(f"Primary pattern: {analysis['engine_profile']['primary_pattern']}")
+        print(f"Engine: {analysis['engine_profile']['engine_action']}")
+        if analysis.get("forced_archetype_warning"):
+            print(f"[yellow]{analysis['forced_archetype_warning']}[/yellow]")
+
+
+@app.command()
 def validate(
-    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    commander: Optional[str] = typer.Option(None, "--commander", help="Name of the commander (overrides deck metadata)"),
     partner: Optional[str] = typer.Option(None, "--partner", help="Name of the partner commander (for two-commander decks)"),
     deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output validation report as JSON")
@@ -319,14 +434,28 @@ def validate(
         raw = read_json(deck_path)
         normalized = normalize_deck_input(raw)
         deck_entries = normalized["main_deck"]
-        report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
+
+        # Resolve commander(s): CLI flags override structured file metadata.
+        if commander:
+            resolved_commander = commander
+            resolved_partner = partner
+        else:
+            meta_commanders = normalized.get("commanders") or []
+            if not meta_commanders:
+                raise ValueError(
+                    "No commander provided. Use --commander or include commander metadata in the deck JSON."
+                )
+            resolved_commander = meta_commanders[0]
+            resolved_partner = partner or (meta_commanders[1] if len(meta_commanders) > 1 else None)
+
+        report = validate_commander_deck(resolved_commander, deck_entries, repo, partner_name=resolved_partner)
         
         # Save report
         report_path = Path("output/validation_report.json")
         write_json(report_path, report)
         
         if json_output:
-            print(json.dumps(report, indent=2))
+            print_json(report)
         else:
             if report["valid"]:
                 print("[bold green]Deck is VALID![/bold green]")
@@ -348,6 +477,9 @@ def validate(
 def deck_write(
     input_path: Path = typer.Option(..., "--input", help="Path to plain text decklist file"),
     output_path: Path = typer.Option(Path("output/deck.json"), "--output", help="Output JSON path"),
+    commander: Optional[str] = typer.Option(None, "--commander", help="Commander name (used with --structured)"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander name (used with --structured)"),
+    structured: bool = typer.Option(False, "--structured", help="Write structured JSON with commander/main_deck keys"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing output file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
 ):
@@ -364,18 +496,39 @@ def deck_write(
     entries = parse_decklist_text(text)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(output_path, entries)
 
-    if json_output:
-        print(json.dumps({
-            "written": True,
-            "output": str(output_path),
-            "entries": len(entries),
-            "total_cards": sum(e.get("quantity", 1) for e in entries),
-        }))
+    if structured and commander:
+        commanders_list = [commander] + ([partner] if partner else [])
+        main_deck, _ = remove_command_zone_cards_from_main_deck(entries, commanders_list)
+        if partner:
+            deck_data: Any = {"commanders": commanders_list, "main_deck": main_deck}
+        else:
+            deck_data = {"commander": commander, "main_deck": main_deck}
+        write_json(output_path, deck_data)
+        total = sum(e.get("quantity", 1) for e in main_deck)
+        if json_output:
+            print_json({
+                "written": True,
+                "output": str(output_path),
+                "structured": True,
+                "commanders": commanders_list,
+                "entries": len(main_deck),
+                "total_cards": total,
+            })
+        else:
+            print(f"[green]Wrote structured deck ({len(main_deck)} entries, {total} cards) to {output_path}[/green]")
     else:
+        write_json(output_path, entries)
         total = sum(e.get("quantity", 1) for e in entries)
-        print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
+        if json_output:
+            print_json({
+                "written": True,
+                "output": str(output_path),
+                "entries": len(entries),
+                "total_cards": total,
+            })
+        else:
+            print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
 
 
 @app.command()
@@ -430,13 +583,20 @@ def deck_fill_lands(
 
     # Load and normalize deck
     raw = read_json(deck_path)
-    deck_entries = normalize_deck_input(raw)["main_deck"]
+    normalized = normalize_deck_input(raw)
+    deck_entries = normalized["main_deck"]
+    was_structured = isinstance(raw, dict)
+    deck_metadata = normalized.get("metadata", {})
+
+    # Remove commander/partner if they appear in the flat main deck list
+    commanders_list = [commander] + ([partner] if partner else [])
+    deck_entries, removed_from_main = remove_command_zone_cards_from_main_deck(deck_entries, commanders_list)
 
     result = fill_deck_with_lands(deck_entries, color_identity, target)
 
     if not result["filled"]:
         if json_output:
-            print(json.dumps({"filled": False, "error": result["error"]}))
+            print_json({"filled": False, "error": result["error"]})
         else:
             print(f"[red]{result['error']}[/red]")
         raise typer.Exit(code=1)
@@ -458,9 +618,13 @@ def deck_fill_lands(
             "written": False,
             "dry_run": True,
         }
+        if removed_from_main:
+            payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
         if json_output:
-            print(json.dumps(payload))
+            print_json(payload)
         else:
+            if removed_from_main:
+                print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
             print(f"[bold blue]Dry run — no files written[/bold blue]")
             print(f"  Deck: {current} / {target} main deck cards")
             print(f"  Would add {remaining} basic land(s):")
@@ -468,9 +632,19 @@ def deck_fill_lands(
                 print(f"    - {qty} {name}")
         return
 
-    # Write updated deck
+    # Write updated deck — preserve structured shape (commander metadata) when
+    # the input was structured, so the output validates without manual fixups.
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(out_path, result["updated_deck"])
+    if was_structured:
+        deck_data: Any = dict(deck_metadata)
+        if partner:
+            deck_data["commanders"] = commanders_list
+        else:
+            deck_data["commander"] = commander
+        deck_data["main_deck"] = result["updated_deck"]
+        write_json(out_path, deck_data)
+    else:
+        write_json(out_path, result["updated_deck"])
 
     payload = {
         "deck": str(deck_path),
@@ -483,10 +657,14 @@ def deck_fill_lands(
         "lands_added": lands_added,
         "written": True,
     }
+    if removed_from_main:
+        payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
 
     if json_output:
-        print(json.dumps(payload))
+        print_json(payload)
     else:
+        if removed_from_main:
+            print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
         if remaining == 0:
             note = result.get("note", "")
             print(f"[green]{note or 'Deck is already at target size.'}[/green]")
@@ -562,7 +740,7 @@ def suggest_lands(
     lands = suggest_basic_lands(colors, count)
 
     if json_output:
-        print(json.dumps(lands, indent=2))
+        print_json(lands)
     else:
         print(f"[bold blue]Land suggestions for {commander} ({''.join(colors)}):[/bold blue]")
         for land in lands:
@@ -604,7 +782,7 @@ def deck_check(
         report = check_deck_quality(deck_cards, theme=theme)
         
         if json_output:
-            print(json.dumps(report, indent=2))
+            print_json(report)
         else:
             print(f"[bold blue]Deck Quality Report for {commander}:[/bold blue]")
             if theme:
@@ -640,7 +818,7 @@ def themes(
     themes_list = list_themes()
 
     if json_output:
-        print(json.dumps(themes_list, indent=2))
+        print_json(themes_list)
     else:
         print("[bold blue]Available themes:[/bold blue]")
         for theme in themes_list:
@@ -660,7 +838,7 @@ def theme_info(
         raise typer.Exit(code=1)
 
     if json_output:
-        print(json.dumps(profile, indent=2))
+        print_json(profile)
     else:
         print(f"[bold blue]Theme: {theme}[/bold blue]")
         print(profile.get("description", ""))
@@ -708,7 +886,7 @@ def explore(
     def hydrate(names: List[str]) -> List[dict]:
         result = []
         for name in names:
-            entry: dict = {"name": name}
+            entry: dict = {"name": sanitize_json_string(name)}
             if repo:
                 card_data = repo.get_card_by_exact_name(name)
                 if card_data:
@@ -724,13 +902,13 @@ def explore(
 
     if json_output:
         output = {
-            "commander": commander,
-            "source_url": url,
+            "commander": sanitize_json_string(commander),
+            "source_url": sanitize_json_string(url),
             "high_synergy": hydrate(cards["high_synergy"]),
             "top_cards": hydrate(cards["top_cards"]),
-            "note": NOTE,
+            "note": sanitize_json_string(NOTE),
         }
-        print(json.dumps(output, indent=2))
+        print_json(output)
     else:
         print(f"[bold blue]Commander:[/bold blue] {commander}")
         print(f"[bold blue]Source:[/bold blue] {url}")
@@ -758,8 +936,8 @@ def temp_clean(
     if not output_dir.exists():
         msg = f"Output directory '{output_dir}' does not exist."
         if json_output:
-            print(json.dumps({"error": msg, "mode": "full" if full else "normal", "dry_run": dry_run,
-                              "deleted_count": 0, "matched_count": 0, "preserved_files": [], "files": []}))
+            print_json({"error": msg, "mode": "full" if full else "normal", "dry_run": dry_run,
+                        "deleted_count": 0, "matched_count": 0, "preserved_files": [], "files": []})
         else:
             print(f"[yellow]{msg}[/yellow]")
         return
@@ -779,7 +957,7 @@ def temp_clean(
     report = clean_output_files(output_dir=output_dir, full=full, dry_run=dry_run)
 
     if json_output:
-        print(json.dumps(report, indent=2))
+        print_json(report)
         return
 
     mode_label = "full clean" if full else "temp files"
@@ -836,7 +1014,7 @@ def final_build(
         msg = f"Deck file not found: {deck_path}"
         if json_output:
             _fail_payload["errors"] = [{"message": msg}]
-            print(json.dumps(_fail_payload))
+            print_json(_fail_payload)
         else:
             print(f"[red]{msg}[/red]")
         raise typer.Exit(code=1)
@@ -849,7 +1027,7 @@ def final_build(
     if not report["valid"]:
         if json_output:
             _fail_payload["errors"] = report.get("errors", [])
-            print(json.dumps(_fail_payload))
+            print_json(_fail_payload)
         else:
             print("[bold red]Validation failed. Final build was not saved.[/bold red]")
             for err in report.get("errors", [])[:5]:
@@ -882,7 +1060,7 @@ def final_build(
     version = build_name.rsplit("-", 1)[-1]
 
     if json_output:
-        print(json.dumps({
+        print_json({
             "validated": True,
             "saved": True,
             "build_name": build_name,
@@ -893,7 +1071,7 @@ def final_build(
             "theme": theme,
             "bracket": resolved_bracket,
             "version": version,
-        }))
+        })
     else:
         print("[bold green]Deck validated successfully.[/bold green]")
         print(f"Final build folder created: [bold]{build_dir}[/bold]")
@@ -929,7 +1107,7 @@ def price(
     }
 
     if json_output:
-        print(json.dumps(result, indent=2))
+        print_json(result)
     else:
         print(f"[bold blue]{result['name']}[/bold blue]")
         if result["usd_price"] is not None:
@@ -965,7 +1143,7 @@ def cards(
             results.append({"name": name, "found": False})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             if r.get("found"):
@@ -1010,7 +1188,7 @@ def cards_batch(
             results.append({"name": name, "found": False, "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             found_str = "" if r.get("found") else " [red](not found)[/red]"
@@ -1046,7 +1224,7 @@ def prices(
             results.append({"name": name, "found": False, "usd_price": None, "price_status": "not_found"})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             if not r.get("found"):
@@ -1105,7 +1283,7 @@ def prices_batch(
             })
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             qty = r.get("quantity", 1)
@@ -1159,7 +1337,7 @@ def budget(
         )
 
     if json_output:
-        print(json.dumps(summary, indent=2))
+        print_json(summary)
     else:
         conf_color = "green" if summary["budget_confidence"] == "complete" else "yellow"
         print(f"[bold blue]Budget Summary[/bold blue]")
@@ -1181,6 +1359,117 @@ def budget(
         if strict and summary.get("strict_mode_failed"):
             print(f"[red]Strict mode: {summary['strict_mode_reason']}[/red]")
             raise typer.Exit(code=1)
+
+
+@app.command()
+def category_counts(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander card name"),
+    archetype: str = typer.Option(..., "--archetype", help="Deck archetype (e.g. aristocrats, voltron, combo)"),
+    power_level: Optional[float] = typer.Option(None, "--power-level", help="Numeric power level 1-10"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Bracket label T1/T2/T3/T4"),
+    philosophy: str = typer.Option("balanced", "--philosophy", help="Deckbuilding philosophy"),
+    meta: str = typer.Option("universal", "--meta", help="Playgroup meta environment"),
+    projected_avg_mv: Optional[float] = typer.Option(None, "--projected-average-mv", help="Projected average nonland MV"),
+    analysis: Optional[Path] = typer.Option(None, "--analysis", help="Path to commander_analysis.json for richer commander scoring"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Recommend category counts for a Commander deck."""
+    db_path = str(SQLITE_PATH) if SQLITE_PATH.exists() else None
+
+    result = calculate_category_counts(
+        commander,
+        archetype,
+        partner_name=partner,
+        power_level=power_level,
+        bracket=bracket,
+        philosophy=philosophy,
+        meta=meta,
+        projected_avg_mv=projected_avg_mv,
+        db_path=db_path,
+        analysis_path=str(analysis) if analysis else None,
+    )
+
+    if json_output:
+        print_json(result)
+    else:
+        print(format_human_readable(result))
+
+
+@app.command()
+def combos(
+    commander: str = typer.Option(..., "--commander", help="Commander card name"),
+    output_path: Path = typer.Option(Path("output/commander_combos.json"), "--output", help="Output file path"),
+    limit: Optional[int] = typer.Option(None, "--limit", help="Limit number of combos returned"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Exact bracket filter (e.g. 2)"),
+    max_bracket: Optional[str] = typer.Option(None, "--max-bracket", help="Maximum bracket value (numeric)"),
+    include_raw: bool = typer.Option(False, "--include-raw", help="Include raw source payload in output"),
+    no_write: bool = typer.Option(False, "--no-write", help="Print only, do not write file"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Fetch and parse combo data for a commander."""
+    try:
+        url = build_combo_url(commander)
+    except ValueError as exc:
+        print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        raw = fetch_combo_data(url)
+    except ValueError as exc:
+        print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    all_combos = parse_combos(raw)
+    filtered = filter_combos(all_combos, bracket=bracket, max_bracket=max_bracket, limit=limit)
+    slug = commander_to_slug(commander)
+
+    result = {
+        "commander": commander,
+        "slug": slug,
+        "source_url": url,
+        "combo_count": len(filtered),
+        "written": False,
+        "output": None,
+        "combos": filtered,
+        "use_guidance": USE_GUIDANCE,
+    }
+
+    if include_raw:
+        result["raw"] = raw
+
+    if not filtered:
+        result["message"] = f"No combos found for {commander}."
+
+    if not no_write and filtered:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(output_path, result)
+        result["written"] = True
+        result["output"] = str(output_path)
+
+    if json_output:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        count = result["combo_count"]
+        if count == 0:
+            print(f"[yellow]No combos found for {commander}.[/yellow]")
+        else:
+            print(f"[bold blue]Combos found for {commander}: {count}[/bold blue]")
+            for i, combo in enumerate(filtered, 1):
+                print(f"\n[Combo #{i}] [Bracket: {combo['bracket']}]")
+                print("Cards:")
+                for card in combo["cards"]:
+                    print(f"  - {card}")
+                if combo["results"]:
+                    print("Results:")
+                    for r in combo["results"]:
+                        print(f"  - {r}")
+            print(
+                "\n[italic]Note: Combo data is optional deckbuilding context, "
+                "not mandatory includes.[/italic]"
+            )
+        if result["written"]:
+            print(f"[green]Saved to {output_path}[/green]")
 
 
 if __name__ == "__main__":

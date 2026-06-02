@@ -15,7 +15,6 @@
         "ideal": 28,
         "tags": [
           "tribal_creature",
-          "creature_type_match",
           "changeling"
         ],
         "search_phrases": [
@@ -30,8 +29,7 @@
         "ideal": 9,
         "tags": [
           "tribal_payoff",
-          "tribal_lord",
-          "type_matters"
+          "tribal_lord"
         ],
         "search_phrases": [
           "{creature_type} you control",
@@ -46,8 +44,7 @@
         "ideal": 7,
         "tags": [
           "engine",
-          "repeatable_value",
-          "type_matters"
+          "token_maker"
         ],
         "search_phrases": [
           "whenever a {creature_type}",
@@ -137,8 +134,7 @@
         "ideal": 5,
         "tags": [
           "finisher",
-          "overrun",
-          "mass_pump",
+          "anthem",
           "aristocrats"
         ],
         "search_phrases": [
@@ -179,9 +175,9 @@
         "min": 6,
         "ideal": 12,
         "tags": [
-          "fodder",
-          "recursive_creature",
-          "token_maker"
+          "token_maker",
+          "self_sacrifice",
+          "graveyard_recursion"
         ],
         "search_phrases": [
           "create",
@@ -241,8 +237,7 @@
         "ideal": 12,
         "tags": [
           "self_mill",
-          "discard_outlet",
-          "graveyard_fill"
+          "discard_outlet"
         ],
         "search_phrases": [
           "mill",
@@ -256,7 +251,6 @@
         "min": 10,
         "ideal": 18,
         "tags": [
-          "recurrable_permanent",
           "self_sacrifice",
           "etb_value",
           "death_trigger"
@@ -284,14 +278,13 @@
           "play lands from your graveyard"
         ]
       },
-      "graveyard_protection": {
+      "graveyard_resilience": {
         "description": "Cards that protect the graveyard plan or recover after graveyard hate.",
         "min": 0,
         "ideal": 3,
         "tags": [
           "protection",
-          "graveyard_protection",
-          "recursion"
+          "graveyard_recursion"
         ],
         "search_phrases": [
           "shuffle your graveyard",
@@ -318,8 +311,7 @@
         "tags": [
           "cheap_spell",
           "cantrip",
-          "interaction",
-          "spell_enabler"
+          "spot_removal"
         ],
         "search_phrases": [
           "draw a card",
@@ -336,8 +328,7 @@
         "tags": [
           "spell_payoff",
           "magecraft",
-          "prowess",
-          "storm_payoff"
+          "prowess"
         ],
         "search_phrases": [
           "whenever you cast",
@@ -370,7 +361,6 @@
         "tags": [
           "finisher",
           "storm",
-          "damage_payoff",
           "token_maker"
         ],
         "search_phrases": [
@@ -396,9 +386,7 @@
         "min": 8,
         "ideal": 15,
         "tags": [
-          "attack_trigger",
-          "combat_value",
-          "resource_on_attack"
+          "attack_trigger"
         ],
         "search_phrases": [
           "whenever this creature attacks",
@@ -413,8 +401,7 @@
         "tags": [
           "haste",
           "evasion",
-          "protection",
-          "combat_enabler"
+          "protection"
         ],
         "search_phrases": [
           "haste",
@@ -430,7 +417,6 @@
         "ideal": 4,
         "tags": [
           "extra_combat",
-          "combat_multiplier",
           "finisher"
         ],
         "search_phrases": [
@@ -445,7 +431,7 @@
         "ideal": 5,
         "tags": [
           "finisher",
-          "mass_pump",
+          "anthem",
           "damage_multiplier",
           "go_wide_payoff"
         ],
@@ -472,8 +458,7 @@
         "min": 6,
         "ideal": 12,
         "tags": [
-          "combat_damage_trigger",
-          "on_hit_value"
+          "combat_damage_trigger"
         ],
         "search_phrases": [
           "deals combat damage to a player",
@@ -487,8 +472,7 @@
         "tags": [
           "evasion",
           "flying",
-          "trample",
-          "unblockable"
+          "trample"
         ],
         "search_phrases": [
           "can't be blocked",
@@ -503,8 +487,6 @@
         "ideal": 7,
         "tags": [
           "protection",
-          "indestructible",
-          "hexproof",
           "blink"
         ],
         "search_phrases": [
@@ -547,10 +529,7 @@
         "min": 10,
         "ideal": 18,
         "tags": [
-          "etb_value",
-          "creature_etb",
-          "artifact_etb",
-          "enchantment_etb"
+          "etb_value"
         ],
         "search_phrases": [
           "enters the battlefield",
@@ -562,9 +541,7 @@
         "min": 4,
         "ideal": 8,
         "tags": [
-          "blink",
-          "flicker",
-          "reset"
+          "blink"
         ],
         "search_phrases": [
           "exile target",
@@ -578,8 +555,7 @@
         "min": 1,
         "ideal": 4,
         "tags": [
-          "trigger_doubler",
-          "etb_doubler"
+          "trigger_doubler"
         ],
         "search_phrases": [
           "triggered ability",
@@ -594,7 +570,6 @@
         "tags": [
           "finisher",
           "combo_piece",
-          "mill",
           "lifedrain",
           "damage_payoff"
         ],
@@ -623,8 +598,7 @@
         "tags": [
           "equipment",
           "aura",
-          "counter_enabler",
-          "power_boost"
+          "counter_enabler"
         ],
         "search_phrases": [
           "Equipment",
@@ -641,8 +615,7 @@
         "tags": [
           "evasion",
           "flying",
-          "trample",
-          "unblockable"
+          "trample"
         ],
         "search_phrases": [
           "can't be blocked",
@@ -657,9 +630,7 @@
         "ideal": 10,
         "tags": [
           "protection",
-          "hexproof",
-          "indestructible",
-          "recursion"
+          "board_protection"
         ],
         "search_phrases": [
           "hexproof",
@@ -701,8 +672,7 @@
         "min": 8,
         "ideal": 14,
         "tags": [
-          "counter_enabler",
-          "plus_one_counter"
+          "counter_enabler"
         ],
         "search_phrases": [
           "+1/+1 counter",
@@ -715,8 +685,7 @@
         "ideal": 9,
         "tags": [
           "counter_payoff",
-          "modified_payoff",
-          "scaling_payoff"
+          "modified_payoff"
         ],
         "search_phrases": [
           "counters on",
@@ -746,7 +715,7 @@
           "finisher",
           "trample",
           "evasion",
-          "mass_pump"
+          "anthem"
         ],
         "search_phrases": [
           "trample",
@@ -789,8 +758,8 @@
         "ideal": 12,
         "tags": [
           "artifact_payoff",
-          "artifact_etb",
-          "artifact_sacrifice"
+          "etb_value",
+          "sacrifice_outlet"
         ],
         "search_phrases": [
           "whenever an artifact",
@@ -846,8 +815,7 @@
         "ideal": 18,
         "tags": [
           "enchantment",
-          "aura",
-          "enchantment_enabler"
+          "aura"
         ],
         "search_phrases": [
           "Enchantment",
@@ -876,8 +844,7 @@
         "ideal": 8,
         "tags": [
           "enchantment_payoff",
-          "constellation",
-          "aura_payoff"
+          "constellation"
         ],
         "search_phrases": [
           "constellation",
@@ -891,7 +858,6 @@
         "ideal": 4,
         "tags": [
           "finisher",
-          "aura_finisher",
           "token_maker",
           "lifedrain"
         ],
@@ -919,7 +885,6 @@
         "ideal": 14,
         "tags": [
           "lifegain",
-          "repeatable_lifegain",
           "lifelink"
         ],
         "search_phrases": [
@@ -951,8 +916,7 @@
         "ideal": 6,
         "tags": [
           "life_payment",
-          "card_draw",
-          "resource_conversion"
+          "card_draw"
         ],
         "search_phrases": [
           "pay life",
@@ -997,8 +961,7 @@
         "ideal": 16,
         "tags": [
           "land_ramp",
-          "extra_land_drop",
-          "ramp"
+          "extra_land_drop"
         ],
         "search_phrases": [
           "search your library for a land",
@@ -1040,8 +1003,7 @@
         "ideal": 5,
         "tags": [
           "finisher",
-          "overrun",
-          "big_mana",
+          "ritual",
           "token_maker"
         ],
         "search_phrases": [
@@ -1049,6 +1011,423 @@
           "creatures you control get",
           "create",
           "X"
+        ]
+      }
+    }
+  },
+  "death_trigger_engine": {
+    "description": "Decks built around creatures dying and triggering repeatable value.",
+    "engine_focus": [
+      "death triggers",
+      "sacrifice outlets",
+      "creature density",
+      "drain or card advantage"
+    ],
+    "packages": {
+      "death_triggers": {
+        "description": "Cards with or that produce death-trigger effects.",
+        "min": 8,
+        "ideal": 14,
+        "tags": [
+          "death_trigger",
+          "aristocrats"
+        ],
+        "search_phrases": [
+          "whenever a creature dies",
+          "whenever another creature dies",
+          "when this creature dies",
+          "whenever you sacrifice"
+        ]
+      },
+      "sacrifice_outlets": {
+        "description": "Outlets that allow repeated sacrifice to feed death triggers.",
+        "min": 5,
+        "ideal": 9,
+        "tags": [
+          "sacrifice_outlet",
+          "free_sacrifice_outlet",
+          "mana_sacrifice_outlet"
+        ],
+        "search_phrases": [
+          "sacrifice a creature",
+          "sacrifice another creature"
+        ]
+      },
+      "creature_fodder": {
+        "description": "Cheap or self-replacing creatures to keep sacrificing.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "token_maker",
+          "self_sacrifice",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "creature token",
+          "return this card from your graveyard",
+          "when this creature dies, return"
+        ]
+      },
+      "death_finishers": {
+        "description": "Cards that close the game through death-trigger drain, damage, or combo.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "lifedrain",
+          "combo_piece"
+        ],
+        "search_phrases": [
+          "each opponent loses",
+          "deals damage to each opponent",
+          "whenever you sacrifice"
+        ]
+      }
+    }
+  },
+  "graveyard_reanimation": {
+    "description": "Decks that fill the graveyard with large or valuable creatures and bring them back ahead of rate.",
+    "engine_focus": [
+      "graveyard fill",
+      "discard outlets",
+      "reanimation",
+      "high-impact targets"
+    ],
+    "packages": {
+      "graveyard_fill": {
+        "description": "Cards that put creatures into the graveyard efficiently.",
+        "min": 7,
+        "ideal": 12,
+        "tags": [
+          "self_mill",
+          "discard_outlet"
+        ],
+        "search_phrases": [
+          "mill",
+          "put the top",
+          "discard",
+          "surveil"
+        ]
+      },
+      "reanimation_spells": {
+        "description": "Cards that return creatures from the graveyard to the battlefield.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "reanimation",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "return target creature card from your graveyard",
+          "return target creature card",
+          "from your graveyard to the battlefield"
+        ]
+      },
+      "reanimation_targets": {
+        "description": "High-impact creatures worth reanimating.",
+        "min": 7,
+        "ideal": 12,
+        "tags": [
+          "etb_value",
+          "finisher"
+        ],
+        "search_phrases": [
+          "enters the battlefield",
+          "when this enters",
+          "trample",
+          "flying"
+        ]
+      },
+      "graveyard_protection": {
+        "description": "Cards that protect the graveyard plan from hate.",
+        "min": 0,
+        "ideal": 3,
+        "tags": [
+          "protection",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "hexproof",
+          "shuffle your graveyard"
+        ]
+      }
+    }
+  },
+  "control_value_engine": {
+    "description": "Decks that answer threats, manage the board, and win once stable.",
+    "engine_focus": [
+      "targeted removal",
+      "counterspells",
+      "card advantage",
+      "resilient win conditions"
+    ],
+    "packages": {
+      "interaction": {
+        "description": "Removal, counterspells, and board wipes.",
+        "min": 10,
+        "ideal": 16,
+        "tags": [
+          "spot_removal",
+          "counterspell",
+          "board_wipe"
+        ],
+        "search_phrases": [
+          "counter target",
+          "destroy target",
+          "exile target",
+          "destroy all",
+          "exile all"
+        ]
+      },
+      "card_advantage": {
+        "description": "Card draw, tutors, and filtering.",
+        "min": 10,
+        "ideal": 14,
+        "tags": [
+          "card_draw",
+          "card_advantage",
+          "tutor"
+        ],
+        "search_phrases": [
+          "draw",
+          "search your library",
+          "look at the top"
+        ]
+      },
+      "engines": {
+        "description": "Repeatable value sources that generate ongoing advantage.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "engine",
+          "etb_value"
+        ],
+        "search_phrases": [
+          "whenever you",
+          "at the beginning of each",
+          "enters the battlefield"
+        ]
+      },
+      "win_conditions": {
+        "description": "Resilient win conditions that close the game once stabilized.",
+        "min": 2,
+        "ideal": 5,
+        "tags": [
+          "finisher",
+          "alternate_wincon"
+        ],
+        "search_phrases": [
+          "you win the game",
+          "each opponent loses",
+          "deals damage"
+        ]
+      }
+    }
+  },
+  "theft_opponent_resources": {
+    "description": "Decks that steal, copy, or cast opponents' cards and resources.",
+    "engine_focus": [
+      "steal effects",
+      "copy effects",
+      "cast opponents' cards",
+      "flexible answers"
+    ],
+    "packages": {
+      "steal_effects": {
+        "description": "Cards that take permanent control of opponents' permanents.",
+        "min": 6,
+        "ideal": 12,
+        "tags": [
+          "theft"
+        ],
+        "search_phrases": [
+          "gain control",
+          "target opponent controls",
+          "exchange control"
+        ]
+      },
+      "copy_effects": {
+        "description": "Cards that copy opponents' permanents or spells.",
+        "min": 3,
+        "ideal": 8,
+        "tags": [
+          "copy_effect"
+        ],
+        "search_phrases": [
+          "copy target",
+          "token that's a copy",
+          "create a copy"
+        ]
+      },
+      "cast_opponents_cards": {
+        "description": "Cards that cast or play opponents' cards from exile or hand.",
+        "min": 4,
+        "ideal": 9,
+        "tags": [
+          "theft",
+          "spell_copy"
+        ],
+        "search_phrases": [
+          "you may cast",
+          "from exile",
+          "cast target spell you don't own"
+        ]
+      },
+      "theft_finishers": {
+        "description": "Cards that close the game using stolen or copied resources.",
+        "min": 1,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "extra_combat"
+        ],
+        "search_phrases": [
+          "additional combat",
+          "each opponent loses",
+          "you win the game"
+        ]
+      }
+    }
+  },
+  "stax_resource_denial": {
+    "description": "Decks that restrict opponents' actions, resources, untaps, casting, or combat.",
+    "engine_focus": [
+      "tax effects",
+      "resource denial",
+      "parity breaking",
+      "hidden win conditions"
+    ],
+    "packages": {
+      "tax_effects": {
+        "description": "Permanents that tax opponents' actions or restrict their options.",
+        "min": 6,
+        "ideal": 10,
+        "tags": [
+          "stax"
+        ],
+        "search_phrases": [
+          "players can't",
+          "opponents can't",
+          "costs more",
+          "doesn't untap",
+          "unless its controller pays"
+        ]
+      },
+      "parity_breakers": {
+        "description": "Cards that let this deck break its own stax symmetry.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "extra_land_drop",
+          "cost_reducer",
+          "mana_rock"
+        ],
+        "search_phrases": [
+          "you may",
+          "you don't",
+          "skip that step",
+          "untap"
+        ]
+      },
+      "stax_protection": {
+        "description": "Cards that keep stax pieces on the board.",
+        "min": 4,
+        "ideal": 8,
+        "tags": [
+          "protection",
+          "board_protection",
+          "graveyard_recursion"
+        ],
+        "search_phrases": [
+          "indestructible",
+          "hexproof",
+          "return target"
+        ]
+      },
+      "stax_win_conditions": {
+        "description": "Win conditions that close the game under stax.",
+        "min": 1,
+        "ideal": 3,
+        "tags": [
+          "finisher",
+          "alternate_wincon",
+          "combo_piece"
+        ],
+        "search_phrases": [
+          "you win the game",
+          "each opponent loses",
+          "deals damage"
+        ]
+      }
+    }
+  },
+  "poison_engine": [
+    "Removed — use archetype_profiles.json infect instead.",
+    "This was a narrow theme entry. Poison/infect decks use the infect archetype profile."
+  ],
+  "mill_engine": {
+    "description": "Decks that win by emptying opponents' libraries or using milled cards as a resource.",
+    "engine_focus": [
+      "mill volume",
+      "burst mill",
+      "graveyard payoffs",
+      "survival"
+    ],
+    "packages": {
+      "mill_engines": {
+        "description": "Repeatable or mass mill sources.",
+        "min": 8,
+        "ideal": 14,
+        "tags": [
+          "self_mill"
+        ],
+        "search_phrases": [
+          "mill",
+          "mills",
+          "puts the top",
+          "library"
+        ]
+      },
+      "burst_mill": {
+        "description": "One-shot large mill effects.",
+        "min": 2,
+        "ideal": 6,
+        "tags": [
+          "finisher"
+        ],
+        "search_phrases": [
+          "mill X",
+          "mill ten",
+          "half",
+          "each player mills"
+        ]
+      },
+      "graveyard_payoffs": {
+        "description": "Cards that use opponents' milled cards as resources.",
+        "min": 3,
+        "ideal": 8,
+        "tags": [
+          "theft",
+          "reanimation"
+        ],
+        "search_phrases": [
+          "opponent's graveyard",
+          "any graveyard",
+          "from any graveyard"
+        ]
+      },
+      "mill_finishers": {
+        "description": "Cards that finish the game through mill, alternate win, or graveyard exploitation.",
+        "min": 2,
+        "ideal": 4,
+        "tags": [
+          "finisher",
+          "alternate_wincon"
+        ],
+        "search_phrases": [
+          "can't draw a card",
+          "you win the game",
+          "each opponent loses"
         ]
       }
     }

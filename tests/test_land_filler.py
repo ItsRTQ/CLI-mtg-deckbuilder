@@ -1,7 +1,11 @@
 import json
 import pytest
 from pathlib import Path
-from mtgcli.deckbuilder.land_filler import calculate_land_distribution, fill_deck_with_lands
+from mtgcli.deckbuilder.land_filler import (
+    calculate_land_distribution,
+    fill_deck_with_lands,
+    remove_command_zone_cards_from_main_deck,
+)
 from mtgcli.utils.decklist_parser import parse_decklist_text
 
 
@@ -191,3 +195,75 @@ def test_parse_quantity_with_uppercase_x():
 def test_parse_returns_empty_list_for_empty_input():
     assert parse_decklist_text("") == []
     assert parse_decklist_text("# only comments\n") == []
+
+
+# --- remove_command_zone_cards_from_main_deck ---
+
+def test_remove_commander_from_flat_deck():
+    deck = [
+        {"name": "Edgar Markov", "quantity": 1},
+        {"name": "Sol Ring", "quantity": 1},
+    ]
+    cleaned, removed = remove_command_zone_cards_from_main_deck(deck, ["Edgar Markov"])
+    assert len(cleaned) == 1
+    assert cleaned[0]["name"] == "Sol Ring"
+    assert removed == ["Edgar Markov"]
+
+
+def test_remove_commander_case_insensitive():
+    deck = [
+        {"name": "edgar markov", "quantity": 1},
+        {"name": "Arcane Signet", "quantity": 1},
+    ]
+    cleaned, removed = remove_command_zone_cards_from_main_deck(deck, ["Edgar Markov"])
+    assert len(cleaned) == 1
+    assert removed == ["edgar markov"]
+
+
+def test_remove_both_partners():
+    deck = [
+        {"name": "Tymna the Weaver", "quantity": 1},
+        {"name": "Thrasios, Triton Hero", "quantity": 1},
+        {"name": "Sol Ring", "quantity": 1},
+    ]
+    cleaned, removed = remove_command_zone_cards_from_main_deck(
+        deck, ["Tymna the Weaver", "Thrasios, Triton Hero"]
+    )
+    assert len(cleaned) == 1
+    assert "Sol Ring" == cleaned[0]["name"]
+    assert len(removed) == 2
+
+
+def test_no_commander_in_deck_no_removal():
+    deck = [{"name": "Sol Ring", "quantity": 1}]
+    cleaned, removed = remove_command_zone_cards_from_main_deck(deck, ["Edgar Markov"])
+    assert cleaned == deck
+    assert removed == []
+
+
+def test_flat_deck_with_commander_fills_to_99():
+    """Flat deck containing commander should fill main deck to 99 after removal."""
+    deck = [{"name": "Edgar Markov", "quantity": 1}] + _make_deck(90, "Card")
+    cleaned, removed = remove_command_zone_cards_from_main_deck(deck, ["Edgar Markov"])
+    assert len(cleaned) == 90
+    result = fill_deck_with_lands(cleaned, ["W", "B", "R"], 99)
+    assert result["filled"] is True
+    updated_total = sum(e["quantity"] for e in result["updated_deck"])
+    assert updated_total == 99
+
+
+def test_partner_deck_fills_to_98():
+    """After removing two partners, fill to 98."""
+    partners = [
+        {"name": "Tymna the Weaver", "quantity": 1},
+        {"name": "Thrasios, Triton Hero", "quantity": 1},
+    ]
+    deck = partners + _make_deck(90, "Card")
+    cleaned, removed = remove_command_zone_cards_from_main_deck(
+        deck, ["Tymna the Weaver", "Thrasios, Triton Hero"]
+    )
+    assert len(cleaned) == 90
+    result = fill_deck_with_lands(cleaned, ["W", "U", "B", "G"], 98)
+    assert result["filled"] is True
+    total = sum(e["quantity"] for e in result["updated_deck"])
+    assert total == 98

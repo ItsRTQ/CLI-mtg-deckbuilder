@@ -1,6 +1,6 @@
 # Card Ranker
 
-Purpose: rank provided candidate cards for the current deck plan.
+Purpose: rank CLI-provided candidate cards for the current deck plan.
 
 Return only JSON when acting as this sub-agent.
 
@@ -13,21 +13,22 @@ Never invent cards or card data. Rank only candidates returned by the CLI.
 A strong card does at least one of these well:
 
 ```text
-feeds the engine
+feeds the commander engine
 multiplies the engine
 protects the engine
-converts the engine into a win
+converts advantage into a win
 covers a required role efficiently
 compresses multiple relevant roles without fake coverage
+matches user preferences
 ```
 
-A weak card only mentions a related word but does not improve the gameplan.
+A weak card only shares a word/tag but does not improve the plan.
 
 ---
 
 ## Score Scale
 
-Use decimal 0.00–10.00 when producing your own ranking.
+Use decimal `0.00–10.00` when producing rankings.
 
 ```text
 9.00–10.00 = excellent / priority candidate
@@ -44,157 +45,163 @@ CLI `suggestion_score` is a baseline, not the final decision.
 
 ## Inputs to Consider
 
-Evaluate against:
-
 ```text
-commander_analysis.json
-archetype/detail
-category-counts recommended_range and need_score
+output/commander_analysis.json
+category-counts recommended_range / need_score / compression notes
 user feedback
-power level
-budget
+power level / bracket
+budget and unknown price status
 role need
 mana efficiency
-creature power/toughness (for combat, voltron, go_tall, go_wide, tribal, finisher, win_condition roles)
-color identity
-card type relevance
-curve needs
-anti-synergies
-combo policy
-tutor policy
-salt policy
+card type and subtype
+power/toughness for combat roles
+combo/explore context if used
+validation legality
 ```
 
 ---
 
 ## Role vs Synergy
 
-Role = card function.
+`role` = the job of the card.
 
-Synergy = card also supports the commander.
+`--synergy` = the card also connects to the commander.
 
-`--synergy` narrows after role matching. It never replaces role matching.
+Never use:
+
+```bash
+mtg suggest --commander "<commander>" --role synergy
+```
+
+Use:
+
+```bash
+mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --json-output
+```
+
+Rule:
+
+```text
+Role match first. Synergy second.
+```
+
+For example, `--role ramp --synergy` must still return real ramp.
+
+---
+
+## Type Filtering
+
+Use `--type` when the desired effect must be attached to a specific card type.
 
 Examples:
 
-```text
---role ramp = real ramp cards
---role ramp --synergy = real ramp cards that also connect to the commander
---role engine --synergy = engine cards that connect to the commander
+```bash
+mtg suggest --commander "<commander>" --role card_draw --type creature --json-output
+mtg suggest --commander "<commander>" --role ramp --type artifact --json-output
+mtg suggest --commander "<commander>" --role payoff --type creature --synergy --json-output
+mtg search --oracle "draw a card" --type creature --json-output
 ```
 
-Never use `--role synergy`.
+`--type` narrows results after role matching. It never bypasses role matching.
 
 ---
 
-## Power / Toughness
+## Role-Specific Rules
 
-Card data includes creature `power` and `toughness`. Use them as a secondary factor
-when ranking creatures for combat-relevant roles: `combat`, `voltron`, `go_tall`,
-`go_wide`, `tribal`, `finisher`, and `win_condition`. For `ramp`, `card_draw`,
-`removal`, and `protection`, P/T is usually irrelevant unless the card is a creature
-performing that role. Never let P/T override role fit or commander synergy.
+### Ramp
 
-Do not invent P/T when missing. Treat missing or non-numeric P/T (e.g. `*`) as
-unknown data.
-
----
-
-## Strict Role Rules
-
-If a role suggestion returns `matched_tags: []`, treat the card as suspicious and usually reject it.
-
-Ramp must be real acceleration:
+Valid ramp:
 
 ```text
 mana rocks
 mana dorks
 rituals
 Treasure makers
-land search
-put lands onto battlefield
+land search / put land onto battlefield
 extra land drops
 meaningful cost reducers
 ```
 
-Normal lands that only tap for mana are not ramp.
+Normal lands are not ramp.
 
-Card draw must actually draw, create card advantage, or filter cards.
+### Card Draw
 
----
+Must actually draw, generate card advantage, loot/filter, impulse-draw, or provide repeated access to cards.
 
-## Multi-Tag Coverage Rule
+Do not count unrelated cheap cards as card draw.
 
-One card can support multiple categories, but it still uses one physical slot.
+### Protection
 
-Do not count one card as fully satisfying too many needs.
+Protection prevents loss before it happens. Recursion recovers after loss. Do not treat recursion as protection unless the card also protects.
 
-Good:
+### Cheap
 
-```text
-Heroic Intervention = protection 1.00 + anti-boardwipe utility 0.50
-Skullclamp in tokens = draw 1.00 + token/sacrifice synergy 0.60
-```
-
-Bad:
-
-```text
-One card counts as full ramp + full draw + full removal + full protection.
-```
+Cheap means low mana cost **and** relevant to the plan. Not random low-cost filler.
 
 ---
 
-## Budget Rules
+## Power/Toughness Use
+
+Use creature P/T for:
+
+```text
+combat pressure
+voltron/go_tall viability
+tribal combat bodies
+blocker quality
+fragility/protection need
+finishers
+```
+
+Do not use P/T heavily for ramp, card draw, removal, or non-combat roles unless relevant.
+
+---
+
+## Budget Use
 
 Budget is a maximum, not a target.
 
-Do not upgrade cards just to spend more money.
-
-Unknown price is not free and not forbidden. Mark uncertainty.
-
-A card can be expensive only if it meaningfully improves the deck.
+Do not rank expensive cards higher only because they are expensive. Unknown price is unknown, not free.
 
 ---
 
-## Combo Data
+## Combo Context
 
-Combo data from `mtg combos` is optional context.
+`mtg combos` is optional context.
 
-If user wants combos, evaluate compact packages by power, salt, legality, budget, and theme.
+If the user wants combos, evaluate packages by:
 
-If user does not want combos, individual combo pieces may still be useful, but do not accidentally include full combo lines.
+```text
+power level
+bracket
+salt policy
+card count
+redundancy
+budget
+legality
+color identity
+theme fit
+```
+
+If the user does not want combos, avoid accidentally including full combo lines.
 
 ---
 
-## Ranking Output Shape
+## Output Shape
 
-Use a clear breakdown:
+Return JSON like:
 
 ```json
 {
-  "name": "Card Name",
-  "rank_score": 8.25,
-  "role": "payoff",
-  "keep": true,
-  "reasons": [
-    "Matches Vampire tribal payoff",
-    "Supports token combat plan",
-    "Efficient mana value"
-  ],
-  "warnings": []
+  "ranked_cards": [
+    {
+      "name": "Card Name",
+      "rank": 1,
+      "score": 8.75,
+      "role": "payoff",
+      "reasons": ["Strong role fit", "Matches commander token plan"],
+      "risks": []
+    }
+  ]
 }
 ```
-
-## Searching by effect + type
-
-When you need an effect on a specific card type, use `--type` on `search` /
-`search-tags`. It filters broad card type via `type_line` and combines with
-`type:<value>` tokens (which match subtypes).
-
-```bash
-mtg search "draw a card" --type creature --json-output
-mtg search-tags card_draw --type creature --json-output
-```
-
-Supported: artifact, creature, enchantment, instant, sorcery, planeswalker,
-land, battle (plurals ok); aliases spell, permanent, nonland.

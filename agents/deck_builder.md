@@ -578,3 +578,30 @@ Do not include `set_code`, `collector_number`, rarity, or printing-specific fiel
 - Do not create commander-specific templates.
 - Use the commander's engine and user preferences to decide package balance.
 - Preserve user constraints.
+
+---
+
+## Tool-contract notes
+
+### Command zone (validate / deck-fill-lands / deck-write)
+
+- Keep commander-zone cards OUT of `main_deck`. Use structured deck JSON:
+  `{ "commander": "...", "main_deck": [...] }`.
+- Run: `deck-write --commander "<C>" --structured` → `deck-fill-lands --commander "<C>"`
+  → `validate --commander "<C>"`. They agree on command-zone handling; structured
+  shape is preserved through fill-lands and validates without manual fixups.
+- Main deck = 99 (single) / 98 (partner); total incl. commander(s) = 100.
+- `commander_missing` no longer fires just because the commander isn't in `main_deck`.
+
+### suggest
+
+- Ramp must be real acceleration, never normal mana-tapping lands.
+- card_draw must be actual draw/card advantage/filtering.
+- Strict roles never return empty `matched_tags`; `--synergy` only narrows after
+  role match. Off-role results are a tool bug — do not include them.
+
+### category-counts
+
+- Plan from `recommended_range` / `uncompressed_target_count`. Compressed targets
+  are slot-pressure outputs, not hard locks. Heed `practical_floor_warnings` and
+  `fit_confidence` / `forced_archetype_warning` on forced low-fit archetypes.

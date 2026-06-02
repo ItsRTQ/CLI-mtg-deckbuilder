@@ -257,3 +257,17 @@ If unable to fix:
 - Preserve commander, archetype, detail, and user constraints.
 - Make minimal changes when possible.
 - Do not replace synergy cards with generic staples unless role/function requires it.
+
+---
+
+## Tool-contract notes
+
+- Commander-zone cards belong OUTSIDE `main_deck`. Prefer structured deck JSON
+  `{ "commander": "...", "main_deck": [...] }`. `validate` accepts the commander
+  from `--commander`/`--partner` or structured metadata and does NOT require it
+  inside `main_deck` — so `commander_missing` should not appear when a commander
+  is supplied. A commander left in a flat list is auto-treated as command-zone
+  metadata (reported in `command_zone_cards_removed_from_main_deck`).
+- `deck-fill-lands` preserves structured input and its output validates directly.
+  Target main deck = 99 (single) / 98 (partner).
+- Do not manually re-insert the commander into `main_deck` to satisfy validation.

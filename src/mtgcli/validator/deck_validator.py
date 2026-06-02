@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Set, Optional
 from mtgcli.cards.repository import CardRepository
+from mtgcli.deckbuilder.land_filler import remove_command_zone_cards_from_main_deck
 
 
 BASIC_LANDS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
@@ -14,19 +15,30 @@ def validate_commander_deck(
 ) -> Dict[str, Any]:
     """
     Validates a Commander deck.
-    Supports single commander (99-card main deck) and partner commanders (98-card main deck).
-    Both commanders must be present in deck_entries.
+
+    Commander-zone cards live OUTSIDE the main deck. The commander does not
+    need to appear inside ``deck_entries``; it is supplied via
+    ``commander_name`` / ``partner_name`` (resolved from CLI flags or
+    structured deck metadata by the caller).
+
+    Supports single commander (99-card main deck) and partner commanders
+    (98-card main deck). If a commander card is found inside the flat
+    ``deck_entries`` list, it is treated as command-zone metadata, removed from
+    the main-deck count, and reported in
+    ``command_zone_cards_removed_from_main_deck`` (with a warning).
     """
     errors = []
     warnings = []
     commander_slots = 2 if partner_name else 1
     expected_main_deck_size = 100 - commander_slots  # 99 or 98
 
+    commander_input_names = [commander_name] + ([partner_name] if partner_name else [])
+
     # 1. Hydrate commanders
     commanders = []
     commander_names_lower: Set[str] = set()
 
-    for cname in ([commander_name, partner_name] if partner_name else [commander_name]):
+    for cname in commander_input_names:
         card = repo.get_card_by_exact_name(cname)
         if not card:
             errors.append({
@@ -44,12 +56,16 @@ def validate_commander_deck(
             commanders.append(card)
             commander_names_lower.add(card["name"].lower())
 
+    commander_display_names = [c["name"] for c in commanders]
+
     if not commanders:
         return {
             "valid": False,
             "commander": commander_name,
+            "commanders": commander_display_names,
             "partner": partner_name,
             "commander_slots": commander_slots,
+            "command_zone_cards_removed_from_main_deck": [],
             "expected_main_deck_size": expected_main_deck_size,
             "actual_main_deck_size": 0,
             "total_cards_including_commanders": 0,
@@ -63,10 +79,23 @@ def validate_commander_deck(
     for c in commanders:
         combined_identity.update(c.get("color_identity", []))
 
-    # 2. Hydrate deck cards
-    deck_cards = []
-    commanders_found: Set[str] = set()
+    # 2. Strip any command-zone cards that leaked into the flat main-deck list.
+    deck_entries, removed_from_main = remove_command_zone_cards_from_main_deck(
+        deck_entries, commander_display_names
+    )
+    if removed_from_main:
+        warnings.append({
+            "type": "commander_in_main_deck",
+            "cards": removed_from_main,
+            "message": (
+                "Commander-zone card(s) found in the flat deck list; treated as "
+                "command-zone metadata and excluded from the main-deck count: "
+                f"{', '.join(removed_from_main)}."
+            ),
+        })
 
+    # 3. Hydrate main-deck cards (commanders already removed)
+    main_deck_cards = []
     for entry in deck_entries:
         name = entry.get("name")
         quantity = entry.get("quantity", 1)
@@ -84,30 +113,10 @@ def validate_commander_deck(
 
         card_data = dict(card_data)
         card_data["quantity"] = quantity
-        deck_cards.append(card_data)
+        main_deck_cards.append(card_data)
 
-        if card_data["name"].lower() in commander_names_lower:
-            commanders_found.add(card_data["name"].lower())
-
-    # Check all commanders are present in deck list
-    for cname_lower in commander_names_lower:
-        if cname_lower not in commanders_found:
-            display = next(
-                (c["name"] for c in commanders if c["name"].lower() == cname_lower),
-                cname_lower,
-            )
-            errors.append({
-                "type": "commander_missing",
-                "card": display,
-                "message": f"Commander '{display}' not found in the deck list.",
-            })
-
-    # 3. Separate commander cards from main deck cards
-    main_deck_cards = [c for c in deck_cards if c.get("name", "").lower() not in commander_names_lower]
     actual_main_deck_size = sum(c.get("quantity", 1) for c in main_deck_cards)
-    commander_cards_in_deck = [c for c in deck_cards if c.get("name", "").lower() in commander_names_lower]
-    actual_commander_count = len(commander_cards_in_deck)
-    total_cards = actual_main_deck_size + actual_commander_count
+    total_cards = actual_main_deck_size + len(commanders)
 
     if actual_main_deck_size != expected_main_deck_size:
         label = "partner" if partner_name else "single"
@@ -164,8 +173,10 @@ def validate_commander_deck(
     return {
         "valid": len(errors) == 0,
         "commander": commander_name,
+        "commanders": commander_display_names,
         "partner": partner_name,
         "commander_slots": commander_slots,
+        "command_zone_cards_removed_from_main_deck": removed_from_main,
         "expected_main_deck_size": expected_main_deck_size,
         "actual_main_deck_size": actual_main_deck_size,
         "total_cards_including_commanders": total_cards,

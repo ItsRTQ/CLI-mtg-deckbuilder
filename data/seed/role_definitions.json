@@ -35,6 +35,7 @@
     ]
   },
   "card_draw": {
+    "requires_tag_match": true,
     "tags": [
       "card_draw",
       "card_advantage",
@@ -48,6 +49,7 @@
     ]
   },
   "removal": {
+    "requires_tag_match": true,
     "tags": [
       "spot_removal",
       "creature_removal",
@@ -55,27 +57,32 @@
     ]
   },
   "board_wipe": {
+    "requires_tag_match": true,
     "tags": [
       "board_wipe"
     ]
   },
   "protection": {
+    "requires_tag_match": true,
     "tags": [
       "protection",
       "board_protection"
     ]
   },
   "graveyard_hate": {
+    "requires_tag_match": true,
     "tags": [
       "graveyard_hate"
     ]
   },
   "countermagic": {
+    "requires_tag_match": true,
     "tags": [
       "counterspell"
     ]
   },
   "enabler": {
+    "requires_tag_match": true,
     "tags": [
       "token_maker",
       "self_mill",
@@ -94,6 +101,7 @@
     ]
   },
   "payoff": {
+    "requires_tag_match": true,
     "tags": [
       "token_payoff",
       "death_trigger",
@@ -109,6 +117,7 @@
     ]
   },
   "engine": {
+    "requires_tag_match": true,
     "tags": [
       "engine",
       "repeatable_token_maker",

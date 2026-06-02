@@ -1,11 +1,12 @@
 import typer
 import json
+import sys
 from rich import print
 from typing import Optional, List
 from pathlib import Path
 from mtgcli.config import PROJECT_ROOT, RAW_CARDS_PATH, SQLITE_PATH, SEED_DATA_DIR
 from mtgcli.explore.client import build_explore_url, fetch_commander_page
-from mtgcli.explore.cleaner import extract_target_cards_from_html
+from mtgcli.explore.cleaner import extract_target_cards_from_html, sanitize_json_string
 from mtgcli.utils.temp_cleaner import clean_output_files
 from mtgcli.export.final_builds import (
     normalize_bracket, next_final_build_name, create_final_build_directory,
@@ -40,6 +41,16 @@ from mtgcli.combos.parser import parse_combos, filter_combos, USE_GUIDANCE
 from mtgcli.explore.slug import commander_to_slug
 
 app = typer.Typer(help="Local MTG Commander deckbuilding CLI.")
+
+
+def print_json(payload) -> None:
+    """Emit JSON to stdout WITHOUT rich formatting.
+
+    rich's ``print`` wraps long lines and can inject newlines into JSON string
+    values, producing invalid control characters that break strict
+    ``json.loads()``. Use this for all machine-readable JSON output.
+    """
+    sys.stdout.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
 
 @app.command()
@@ -82,7 +93,7 @@ def card(
 
     if card_data:
         if json_output:
-            print(json.dumps(card_data, indent=2))
+            print_json(card_data)
         else:
             print(f"[bold blue]{card_data['name']}[/bold blue] {card_data['mana_cost']}")
             print(f"[italic]{card_data['type_line']}[/italic]")
@@ -118,7 +129,7 @@ def search(
         return
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         print(f"[bold blue]Found {len(results)} cards:[/bold blue]")
         for card in results:
@@ -144,7 +155,7 @@ def search_tags(
         return
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         print(f"[bold blue]Found {len(results)} cards for tags {', '.join(tags)}:[/bold blue]")
         for card in results:
@@ -317,7 +328,7 @@ def suggest(
         json_results = []
         for card in final_results:
             json_results.append({k: card.get(k) for k in output_fields})
-        print(json.dumps(json_results, indent=2))
+        print_json(json_results)
     else:
         title = f"Suggestions for {commander} ({role})"
         if synergy:
@@ -391,9 +402,9 @@ def commander_analyze(
             print(f"[green]Analysis written to {output_path}[/green]")
 
     if json_output:
-        print(json.dumps(analysis, indent=2))
+        print_json(analysis)
     elif no_write:
-        print(json.dumps(analysis, indent=2))
+        print_json(analysis)
     else:
         print(f"[bold blue]Commander: {analysis['commander']}[/bold blue]")
         if analysis.get("partner"):
@@ -408,7 +419,7 @@ def commander_analyze(
 
 @app.command()
 def validate(
-    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    commander: Optional[str] = typer.Option(None, "--commander", help="Name of the commander (overrides deck metadata)"),
     partner: Optional[str] = typer.Option(None, "--partner", help="Name of the partner commander (for two-commander decks)"),
     deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output validation report as JSON")
@@ -423,14 +434,28 @@ def validate(
         raw = read_json(deck_path)
         normalized = normalize_deck_input(raw)
         deck_entries = normalized["main_deck"]
-        report = validate_commander_deck(commander, deck_entries, repo, partner_name=partner)
+
+        # Resolve commander(s): CLI flags override structured file metadata.
+        if commander:
+            resolved_commander = commander
+            resolved_partner = partner
+        else:
+            meta_commanders = normalized.get("commanders") or []
+            if not meta_commanders:
+                raise ValueError(
+                    "No commander provided. Use --commander or include commander metadata in the deck JSON."
+                )
+            resolved_commander = meta_commanders[0]
+            resolved_partner = partner or (meta_commanders[1] if len(meta_commanders) > 1 else None)
+
+        report = validate_commander_deck(resolved_commander, deck_entries, repo, partner_name=resolved_partner)
         
         # Save report
         report_path = Path("output/validation_report.json")
         write_json(report_path, report)
         
         if json_output:
-            print(json.dumps(report, indent=2))
+            print_json(report)
         else:
             if report["valid"]:
                 print("[bold green]Deck is VALID![/bold green]")
@@ -482,26 +507,26 @@ def deck_write(
         write_json(output_path, deck_data)
         total = sum(e.get("quantity", 1) for e in main_deck)
         if json_output:
-            print(json.dumps({
+            print_json({
                 "written": True,
                 "output": str(output_path),
                 "structured": True,
                 "commanders": commanders_list,
                 "entries": len(main_deck),
                 "total_cards": total,
-            }))
+            })
         else:
             print(f"[green]Wrote structured deck ({len(main_deck)} entries, {total} cards) to {output_path}[/green]")
     else:
         write_json(output_path, entries)
         total = sum(e.get("quantity", 1) for e in entries)
         if json_output:
-            print(json.dumps({
+            print_json({
                 "written": True,
                 "output": str(output_path),
                 "entries": len(entries),
                 "total_cards": total,
-            }))
+            })
         else:
             print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
 
@@ -558,7 +583,10 @@ def deck_fill_lands(
 
     # Load and normalize deck
     raw = read_json(deck_path)
-    deck_entries = normalize_deck_input(raw)["main_deck"]
+    normalized = normalize_deck_input(raw)
+    deck_entries = normalized["main_deck"]
+    was_structured = isinstance(raw, dict)
+    deck_metadata = normalized.get("metadata", {})
 
     # Remove commander/partner if they appear in the flat main deck list
     commanders_list = [commander] + ([partner] if partner else [])
@@ -568,7 +596,7 @@ def deck_fill_lands(
 
     if not result["filled"]:
         if json_output:
-            print(json.dumps({"filled": False, "error": result["error"]}))
+            print_json({"filled": False, "error": result["error"]})
         else:
             print(f"[red]{result['error']}[/red]")
         raise typer.Exit(code=1)
@@ -593,7 +621,7 @@ def deck_fill_lands(
         if removed_from_main:
             payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
         if json_output:
-            print(json.dumps(payload))
+            print_json(payload)
         else:
             if removed_from_main:
                 print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
@@ -604,9 +632,19 @@ def deck_fill_lands(
                 print(f"    - {qty} {name}")
         return
 
-    # Write updated deck
+    # Write updated deck — preserve structured shape (commander metadata) when
+    # the input was structured, so the output validates without manual fixups.
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(out_path, result["updated_deck"])
+    if was_structured:
+        deck_data: Any = dict(deck_metadata)
+        if partner:
+            deck_data["commanders"] = commanders_list
+        else:
+            deck_data["commander"] = commander
+        deck_data["main_deck"] = result["updated_deck"]
+        write_json(out_path, deck_data)
+    else:
+        write_json(out_path, result["updated_deck"])
 
     payload = {
         "deck": str(deck_path),
@@ -623,7 +661,7 @@ def deck_fill_lands(
         payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
 
     if json_output:
-        print(json.dumps(payload))
+        print_json(payload)
     else:
         if removed_from_main:
             print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
@@ -702,7 +740,7 @@ def suggest_lands(
     lands = suggest_basic_lands(colors, count)
 
     if json_output:
-        print(json.dumps(lands, indent=2))
+        print_json(lands)
     else:
         print(f"[bold blue]Land suggestions for {commander} ({''.join(colors)}):[/bold blue]")
         for land in lands:
@@ -744,7 +782,7 @@ def deck_check(
         report = check_deck_quality(deck_cards, theme=theme)
         
         if json_output:
-            print(json.dumps(report, indent=2))
+            print_json(report)
         else:
             print(f"[bold blue]Deck Quality Report for {commander}:[/bold blue]")
             if theme:
@@ -780,7 +818,7 @@ def themes(
     themes_list = list_themes()
 
     if json_output:
-        print(json.dumps(themes_list, indent=2))
+        print_json(themes_list)
     else:
         print("[bold blue]Available themes:[/bold blue]")
         for theme in themes_list:
@@ -800,7 +838,7 @@ def theme_info(
         raise typer.Exit(code=1)
 
     if json_output:
-        print(json.dumps(profile, indent=2))
+        print_json(profile)
     else:
         print(f"[bold blue]Theme: {theme}[/bold blue]")
         print(profile.get("description", ""))
@@ -848,7 +886,7 @@ def explore(
     def hydrate(names: List[str]) -> List[dict]:
         result = []
         for name in names:
-            entry: dict = {"name": name}
+            entry: dict = {"name": sanitize_json_string(name)}
             if repo:
                 card_data = repo.get_card_by_exact_name(name)
                 if card_data:
@@ -864,13 +902,13 @@ def explore(
 
     if json_output:
         output = {
-            "commander": commander,
-            "source_url": url,
+            "commander": sanitize_json_string(commander),
+            "source_url": sanitize_json_string(url),
             "high_synergy": hydrate(cards["high_synergy"]),
             "top_cards": hydrate(cards["top_cards"]),
-            "note": NOTE,
+            "note": sanitize_json_string(NOTE),
         }
-        print(json.dumps(output, indent=2))
+        print_json(output)
     else:
         print(f"[bold blue]Commander:[/bold blue] {commander}")
         print(f"[bold blue]Source:[/bold blue] {url}")
@@ -898,8 +936,8 @@ def temp_clean(
     if not output_dir.exists():
         msg = f"Output directory '{output_dir}' does not exist."
         if json_output:
-            print(json.dumps({"error": msg, "mode": "full" if full else "normal", "dry_run": dry_run,
-                              "deleted_count": 0, "matched_count": 0, "preserved_files": [], "files": []}))
+            print_json({"error": msg, "mode": "full" if full else "normal", "dry_run": dry_run,
+                        "deleted_count": 0, "matched_count": 0, "preserved_files": [], "files": []})
         else:
             print(f"[yellow]{msg}[/yellow]")
         return
@@ -919,7 +957,7 @@ def temp_clean(
     report = clean_output_files(output_dir=output_dir, full=full, dry_run=dry_run)
 
     if json_output:
-        print(json.dumps(report, indent=2))
+        print_json(report)
         return
 
     mode_label = "full clean" if full else "temp files"
@@ -976,7 +1014,7 @@ def final_build(
         msg = f"Deck file not found: {deck_path}"
         if json_output:
             _fail_payload["errors"] = [{"message": msg}]
-            print(json.dumps(_fail_payload))
+            print_json(_fail_payload)
         else:
             print(f"[red]{msg}[/red]")
         raise typer.Exit(code=1)
@@ -989,7 +1027,7 @@ def final_build(
     if not report["valid"]:
         if json_output:
             _fail_payload["errors"] = report.get("errors", [])
-            print(json.dumps(_fail_payload))
+            print_json(_fail_payload)
         else:
             print("[bold red]Validation failed. Final build was not saved.[/bold red]")
             for err in report.get("errors", [])[:5]:
@@ -1022,7 +1060,7 @@ def final_build(
     version = build_name.rsplit("-", 1)[-1]
 
     if json_output:
-        print(json.dumps({
+        print_json({
             "validated": True,
             "saved": True,
             "build_name": build_name,
@@ -1033,7 +1071,7 @@ def final_build(
             "theme": theme,
             "bracket": resolved_bracket,
             "version": version,
-        }))
+        })
     else:
         print("[bold green]Deck validated successfully.[/bold green]")
         print(f"Final build folder created: [bold]{build_dir}[/bold]")
@@ -1069,7 +1107,7 @@ def price(
     }
 
     if json_output:
-        print(json.dumps(result, indent=2))
+        print_json(result)
     else:
         print(f"[bold blue]{result['name']}[/bold blue]")
         if result["usd_price"] is not None:
@@ -1105,7 +1143,7 @@ def cards(
             results.append({"name": name, "found": False})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             if r.get("found"):
@@ -1150,7 +1188,7 @@ def cards_batch(
             results.append({"name": name, "found": False, "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             found_str = "" if r.get("found") else " [red](not found)[/red]"
@@ -1186,7 +1224,7 @@ def prices(
             results.append({"name": name, "found": False, "usd_price": None, "price_status": "not_found"})
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             if not r.get("found"):
@@ -1245,7 +1283,7 @@ def prices_batch(
             })
 
     if json_output:
-        print(json.dumps(results, indent=2))
+        print_json(results)
     else:
         for r in results:
             qty = r.get("quantity", 1)
@@ -1299,7 +1337,7 @@ def budget(
         )
 
     if json_output:
-        print(json.dumps(summary, indent=2))
+        print_json(summary)
     else:
         conf_color = "green" if summary["budget_confidence"] == "complete" else "yellow"
         print(f"[bold blue]Budget Summary[/bold blue]")
@@ -1353,7 +1391,7 @@ def category_counts(
     )
 
     if json_output:
-        print(json.dumps(result, indent=2))
+        print_json(result)
     else:
         print(format_human_readable(result))
 

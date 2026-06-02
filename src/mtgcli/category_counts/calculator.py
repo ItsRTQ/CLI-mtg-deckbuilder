@@ -19,6 +19,7 @@ from .models import (
     PHILOSOPHY_ALIASES,
     POWER_LEVEL_DELTAS,
     POWER_TIERS,
+    PRACTICAL_FLOORS,
     score_to_priority,
 )
 from .profiles import (
@@ -210,34 +211,67 @@ def _compress_slots(
 ) -> tuple:
     """
     Reduce category targets (following COMPRESSION_ORDER) until they fit in
-    nonland_slots. Returns (compressed_targets, compression_needed, notes).
+    nonland_slots.
+
+    Compression happens in two phases:
+      1. Reduce down to the *practical* floor (max of protected_floor and the
+         PRACTICAL_FLOORS entry) — the level a normal deck should not drop below.
+      2. If still over budget, reduce further down to the hard protected_floor,
+         emitting a warning for every category pushed below its practical floor
+         instead of silently producing a misleading count.
+
+    Returns (compressed_targets, compression_needed, notes, floor_warnings).
     """
     profiles = get_profiles()
     total = sum(targets.values())
     if total <= nonland_slots:
-        return dict(targets), False, []
+        return dict(targets), False, [], []
 
     working = dict(targets)
     notes = [
         "Requested category targets exceeded available nonland slots.",
+        "Compressed targets are slot-pressure outputs, not hard deckbuilding rules.",
     ]
+    floor_warnings: List[str] = []
 
-    while sum(working.values()) > nonland_slots:
-        reduced = False
-        for cat in COMPRESSION_ORDER:
-            if cat not in working:
-                continue
-            floor = profiles[cat]["protected_floor"]
-            if working[cat] > floor:
-                working[cat] -= 1
-                notes.append(f"Reduced {CATEGORY_DISPLAY_NAMES.get(cat, cat)} by 1.")
-                reduced = True
+    def _floor(cat: str, allow_practical: bool) -> int:
+        protected = profiles[cat]["protected_floor"]
+        if allow_practical:
+            return max(protected, PRACTICAL_FLOORS.get(cat, protected))
+        return protected
+
+    for allow_practical in (True, False):
+        while sum(working.values()) > nonland_slots:
+            reduced = False
+            for cat in COMPRESSION_ORDER:
+                if cat not in working:
+                    continue
+                floor = _floor(cat, allow_practical)
+                if working[cat] > floor:
+                    working[cat] -= 1
+                    notes.append(f"Reduced {CATEGORY_DISPLAY_NAMES.get(cat, cat)} by 1.")
+                    reduced = True
+                    practical = PRACTICAL_FLOORS.get(cat)
+                    if (
+                        not allow_practical
+                        and practical is not None
+                        and working[cat] < practical
+                    ):
+                        warning = (
+                            f"{CATEGORY_DISPLAY_NAMES.get(cat, cat)} compressed below "
+                            f"its practical floor of {practical} (now {working[cat]}) "
+                            f"due to severe slot pressure — review manually."
+                        )
+                        floor_warnings.append(warning)
+                        notes.append(warning)
+                    break
+            if not reduced:
+                notes.append("Could not compress further without breaching protected floors.")
                 break
-        if not reduced:
-            notes.append("Could not compress further without breaching protected floors.")
+        if sum(working.values()) <= nonland_slots:
             break
 
-    return working, True, notes
+    return working, True, notes, floor_warnings
 
 
 # ─── Commander lookup ─────────────────────────────────────────────────────────
@@ -382,13 +416,24 @@ def calculate_category_counts(
         fit_score = max(fit_score, partner_fit)
 
     forced_warning = None
+    forced_archetype_notes: List[str] = []
     if fit_score < 4.0:
+        fit_confidence = "low"
         penalty = round(10.0 - fit_score, 1)
         forced_warning = (
             f"This commander has a low fit score ({fit_score:.1f}/10) for '{archetype}'. "
             f"The deck can still be built this way, but category counts are adjusted for "
             f"the forced-archetype penalty ({penalty} point gap)."
         )
+        forced_archetype_notes = [
+            f"Forced low-fit archetype: '{archetype}' scores only {fit_score:.1f}/10 for this commander.",
+            "This is not a natural plan — apply extra deckbuilding judgment.",
+            "Consider alternate archetypes (see commander-analyze) before committing.",
+        ]
+    elif fit_score < 6.5:
+        fit_confidence = "medium"
+    else:
+        fit_confidence = "high"
 
     # ── Land count and nonland slots ───────────────────────────────────────
     eff_avg_mv = projected_avg_mv
@@ -443,32 +488,53 @@ def calculate_category_counts(
             "recommended_range": f"{min_c}-{max_c}",
             "min_count": min_c,
             "max_count": max_c,
+            "uncompressed_target_count": target_c,
+            "compressed_target_count": target_c,
+            "effective_target_count": target_c,
+            "compression_applied": False,
             "target_count": target_c,
             "priority": priority,
             "notes": notes,
         })
 
     # ── Slot compression ──────────────────────────────────────────────────
-    compressed_targets, compression_needed, compression_notes = _compress_slots(
+    compressed_targets, compression_needed, compression_notes, floor_warnings = _compress_slots(
         initial_targets, nonland_slots
     )
 
     total_requested_before = sum(initial_targets.values())
 
-    # Update recommendation target_counts if compression changed them.
+    # Surface compressed vs uncompressed targets on every recommendation so the
+    # agent can plan from uncompressed targets / ranges and treat compressed
+    # counts as slot-pressure outputs, not hard locks.
     for rec in recommendations:
         cat = rec["category"]
-        if cat in compressed_targets and compressed_targets[cat] != initial_targets.get(cat):
-            rec["target_count"] = compressed_targets[cat]
+        uncompressed = initial_targets.get(cat, rec["uncompressed_target_count"])
+        compressed = compressed_targets.get(cat, uncompressed)
+        rec["compressed_target_count"] = compressed
+        rec["effective_target_count"] = compressed
+        rec["target_count"] = compressed
+        if compressed != uncompressed:
+            rec["compression_applied"] = True
             rec["notes"].append(
-                f"Target compressed from {initial_targets[cat]} to {compressed_targets[cat]} due to slot pressure."
+                f"Compressed from {uncompressed} to {compressed} due to slot pressure."
             )
+            rec["notes"].append("Do not treat compressed target as a hard minimum.")
+            practical = PRACTICAL_FLOORS.get(cat)
+            if practical is not None and compressed < practical:
+                rec["notes"].append(
+                    f"Below practical floor of {practical} — review manually."
+                )
 
     slot_budget = {
         "total_requested_physical_slots_before_compression": total_requested_before,
         "available_nonland_slots": nonland_slots,
         "compression_needed": compression_needed,
-        "compression_notes": compression_notes,
+        "compression_notes": compression_notes + [
+            "Compressed targets are not hard deckbuilding rules.",
+            "Use recommended ranges and deckbuilding judgment when forced archetype fit is low.",
+        ] if compression_needed else compression_notes,
+        "practical_floor_warnings": floor_warnings,
     }
 
     commander_label = commander_name
@@ -481,7 +547,9 @@ def calculate_category_counts(
         "library_slots": library_slots,
         "chosen_archetype": archetype,
         "archetype_fit_score": round(fit_score, 2),
+        "fit_confidence": fit_confidence,
         "forced_archetype_warning": forced_warning,
+        "forced_archetype_notes": forced_archetype_notes,
         "power_level": resolved_power,
         "power_tier": _power_tier_label(resolved_power),
         "deckbuilding_philosophy": _philosophy_display(philosophy_key),

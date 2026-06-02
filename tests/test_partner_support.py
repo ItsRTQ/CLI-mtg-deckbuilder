@@ -157,16 +157,25 @@ def test_validator_partner_deck_99_cards_fails_size():
     assert any(e["type"] == "invalid_deck_size" for e in result["errors"])
 
 
-def test_validator_partner_missing_second_commander():
+def test_validator_partners_not_required_in_main_deck():
+    """Partners supplied via CLI/metadata need not appear inside main_deck."""
     cards = {
         "Commander A": _make_card("Commander A", color_identity=["W"]),
         "Commander B": _make_card("Commander B", color_identity=["G"]),
     }
+    filler = {
+        f"Card {i}": _make_card(f"Card {i}", can_be_commander=False, color_identity=[])
+        for i in range(98)
+    }
+    cards.update(filler)
     repo = _make_repo(cards)
-    # Commander B not in deck list
-    deck = [{"name": "Commander A", "quantity": 1}]
+    # Neither commander appears in the main deck — preferred structured shape.
+    deck = [{"name": n, "quantity": 1} for n in filler.keys()]
     result = validate_commander_deck("Commander A", deck, repo, partner_name="Commander B")
-    assert any(e["type"] == "commander_missing" for e in result["errors"])
+    assert not any(e["type"] == "commander_missing" for e in result["errors"])
+    assert result["expected_main_deck_size"] == 98
+    assert result["actual_main_deck_size"] == 98
+    assert result["valid"] is True
 
 
 def test_validator_partner_color_identity_enforcement():

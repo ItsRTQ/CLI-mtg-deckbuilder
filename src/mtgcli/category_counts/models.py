@@ -100,6 +100,17 @@ COMPRESSION_ORDER = [
     "archetype_core",
 ]
 
+# Practical minimum floors: categories that should almost never hit 0 in a
+# normal Commander deck. Compression tries to respect these before dropping to
+# the hard protected_floor; if it must breach one, a warning is emitted rather
+# than silently producing a misleading 0.
+PRACTICAL_FLOORS = {
+    "targeted_removal": 2,
+    "draw": 3,
+    "normal_ramp": 5,
+    "win_conditions": 1,
+}
+
 # Priority labels derived from need_score.
 def score_to_priority(score: float) -> str:
     if score >= 8.0:

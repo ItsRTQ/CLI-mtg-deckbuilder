@@ -885,3 +885,66 @@ Include:
 - win conditions
 - weaknesses/warnings
 - optional build feedback, only if the build had meaningful friction
+
+---
+
+## Command-zone, suggest, category-counts & explore notes
+
+These reflect tool-contract fixes. Treat violations as tool bugs, not your error.
+
+### validate / deck-fill-lands / deck-write (command-zone alignment)
+
+Commander-zone cards must NOT live inside `main_deck`. Prefer structured deck JSON:
+
+```json
+{ "commander": "...", "main_deck": [ ... ] }
+```
+
+Use:
+
+```bash
+mtg deck-write   --commander "<Commander>" --structured ...
+mtg deck-fill-lands --commander "<Commander>" ...
+mtg validate     --commander "<Commander>" ...
+```
+
+- These three agree on command-zone handling. A structured deck flows
+  write → fill-lands → validate with no manual fixups.
+- `deck-fill-lands` preserves structured input (keeps the `commander`/`commanders`
+  keys; lands go into `main_deck`).
+- `validate` does NOT require the commander inside `main_deck`. It accepts the
+  commander from `--commander`/`--partner` or from structured `commander`/`commanders`
+  metadata (CLI flags win). A commander found in a flat list is treated as
+  command-zone metadata, removed from the main-deck count, and reported in
+  `command_zone_cards_removed_from_main_deck` (warning, not error).
+- Main deck size: 99 (single) / 98 (partner). Total incl. commander(s) = 100.
+- No more `commander_missing` just because the commander is absent from `main_deck`.
+
+### suggest (role filtering)
+
+If `suggest` returns lands under `ramp`, or unrelated cards under `card_draw`,
+treat it as a tool bug.
+
+- Ramp = real acceleration (mana rocks/dorks, rituals, Treasure, land search,
+  extra land drops, meaningful cost reducers). Normal lands that only tap for
+  mana are NOT ramp.
+- card_draw = actual draw / card advantage / filtering only.
+- Strict roles (`ramp`, `card_draw`, `removal`, `protection`, `engine`,
+  `enabler`, `payoff`, etc.) never return cards with empty `matched_tags`.
+- `--synergy` narrows AFTER role match; it never bypasses role matching.
+
+### category-counts (compression transparency)
+
+- Plan from `recommended_range` and `uncompressed_target_count`.
+- `compressed_target_count` / `target_count` are slot-pressure outputs, NOT hard
+  deckbuilding rules. Each compressed category is flagged `compression_applied`.
+- `slot_budget.practical_floor_warnings` flags any category pushed below a
+  practical floor (e.g. removal < 2) — review manually instead of trusting a 0.
+- Forced low-fit archetypes set `fit_confidence: "low"`, a
+  `forced_archetype_warning`, and `forced_archetype_notes`. Consider alternate
+  archetypes before committing.
+
+### explore
+
+`explore --json-output` is strict-JSON parseable (no raw control characters).
+If `json.loads()` needs `strict=False`, report it as a tool bug.

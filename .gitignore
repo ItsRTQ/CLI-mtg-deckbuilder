@@ -17,3 +17,5 @@ final-builds/*
 !final-builds/.gitkeep
 
 .claude
+.agents
+.codex

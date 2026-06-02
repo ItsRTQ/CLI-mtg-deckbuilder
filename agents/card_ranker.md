@@ -315,3 +315,16 @@ avoid
 - Penalize off-plan cards.
 - Prefer cards with both role value and engine value.
 - Keep reasons short and practical.
+
+---
+
+## Tool-contract notes
+
+- `suggest` candidates are pre-filtered by role: ramp = real acceleration (not
+  normal lands), card_draw = real card advantage. Strict roles never carry empty
+  `matched_tags`. If you see off-role candidates, treat it as a tool bug and drop them.
+- Use `matched_tags` / `reason_hint` to judge role fit; `--synergy` only narrows
+  results after role matching, never replacing it.
+- From `category-counts`, rank against `recommended_range` and
+  `uncompressed_target_count`; compressed targets are slot-pressure outputs, not
+  hard minimums.

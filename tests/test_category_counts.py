@@ -721,6 +721,97 @@ class TestSlotCompression:
             )
 
 
+# ─── Compression transparency & forced-archetype output ───────────────────────
+
+class TestCompressionTransparency:
+    def test_recommendations_expose_uncompressed_and_compressed(self):
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA, power_level=9
+        )
+        for rec in result["category_recommendations"]:
+            for field in (
+                "uncompressed_target_count",
+                "compressed_target_count",
+                "effective_target_count",
+                "compression_applied",
+            ):
+                assert field in rec, f"{rec['category']} missing {field}"
+            assert rec["effective_target_count"] == rec["compressed_target_count"]
+            assert rec["target_count"] == rec["compressed_target_count"]
+
+    def test_compression_notes_say_not_hard_rules(self):
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA, power_level=10
+        )
+        sb = result["slot_budget"]
+        assert sb["compression_needed"] is True
+        joined = " ".join(sb["compression_notes"]).lower()
+        assert "not hard deckbuilding rules" in joined
+
+    def test_compressed_categories_flagged(self):
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA, power_level=10
+        )
+        for rec in result["category_recommendations"]:
+            if rec["compressed_target_count"] != rec["uncompressed_target_count"]:
+                assert rec["compression_applied"] is True
+
+    def test_practical_floor_breach_is_warned_not_silent(self):
+        """If a category drops below its practical floor, a warning must exist."""
+        from mtgcli.category_counts.models import PRACTICAL_FLOORS
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA, power_level=10
+        )
+        warnings = result["slot_budget"]["practical_floor_warnings"]
+        for rec in result["category_recommendations"]:
+            floor = PRACTICAL_FLOORS.get(rec["category"])
+            if floor is not None and rec["compressed_target_count"] < floor:
+                assert warnings, "practical floor breached without warning"
+                assert any(
+                    "review manually" in n for n in rec["notes"]
+                )
+
+    def test_win_conditions_never_compressed_below_protected_floor(self):
+        from mtgcli.category_counts.profiles import get_profiles
+        floor = get_profiles()["win_conditions"]["protected_floor"]
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA, power_level=10
+        )
+        wins = _get_category(result, "win_conditions")
+        assert wins["target_count"] >= floor >= 1
+
+    def test_slot_budget_has_practical_floor_warnings_field(self):
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA
+        )
+        assert "practical_floor_warnings" in result["slot_budget"]
+
+
+class TestForcedArchetypeOutput:
+    def test_low_fit_has_low_confidence_and_warning(self):
+        vanilla = _make_card(oracle="", type_line="Legendary Creature — Human", color_identity=["W"])
+        result = calculate_category_counts(
+            "Vanilla", "spellslinger", commander_card_data=vanilla, power_level=6
+        )
+        assert result["fit_confidence"] == "low"
+        assert result["forced_archetype_warning"] is not None
+        assert result["forced_archetype_notes"]
+        assert any("alternate archetypes" in n.lower() for n in result["forced_archetype_notes"])
+
+    def test_good_fit_has_high_confidence_and_no_forced_notes(self):
+        result = calculate_category_counts(
+            "Teysa", "aristocrats", commander_card_data=TEYSA, power_level=6
+        )
+        assert result["fit_confidence"] in ("medium", "high")
+        assert result["forced_archetype_notes"] == []
+
+    def test_fit_confidence_present(self):
+        result = calculate_category_counts(
+            "Test", "aristocrats", commander_card_data=TEYSA
+        )
+        assert "fit_confidence" in result
+
+
 # ─── Human-readable output smoke test ────────────────────────────────────────
 
 class TestHumanOutput:

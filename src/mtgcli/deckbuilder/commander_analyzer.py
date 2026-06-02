@@ -18,6 +18,63 @@ from mtgcli.category_counts.scoring import (
 )
 
 
+# ─── Power / toughness helpers ────────────────────────────────────────────────
+
+def parse_numeric_pt(value: Any) -> Optional[float]:
+    """Safely parse a power/toughness value to float; None if non-numeric (e.g. '*')."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _combat_profile(
+    is_creature: bool,
+    power: Optional[str],
+    toughness: Optional[str],
+    engine_patterns: List[str],
+) -> Dict[str, Any]:
+    """Derive light combat signals from creature P/T. Original strings stay in output.
+
+    Numeric P/T is used only for heuristics; non-numeric values (e.g. '*') are
+    treated as unknown and produce no numeric signals.
+    """
+    p = parse_numeric_pt(power)
+    t = parse_numeric_pt(toughness)
+    has_combat_trigger = (
+        "combat_damage_engine" in engine_patterns
+        or "attack_trigger_engine" in engine_patterns
+    )
+
+    signals: List[str] = []
+    combat_pressure = 0.0
+    fragility = 0.0
+    evasion_need = 0.0
+
+    if is_creature:
+        if p is not None and p >= 4:
+            combat_pressure += 1.0
+            signals.append("high_power")
+        if t is not None and t <= 3:
+            fragility += 1.0
+            signals.append("fragile")
+        elif t is not None and t >= 6:
+            signals.append("durable")
+        if has_combat_trigger and p is not None and p <= 2:
+            evasion_need += 1.0
+            signals.append("needs_evasion_to_connect")
+
+    return {
+        "is_creature_commander": is_creature,
+        "numeric_power": p,
+        "numeric_toughness": t,
+        "combat_pressure": round(combat_pressure, 2),
+        "fragility": round(fragility, 2),
+        "evasion_need": round(evasion_need, 2),
+        "signals": signals,
+    }
+
+
 # ─── Type line parsing ────────────────────────────────────────────────────────
 
 _ALL_SUPERTYPES = {"legendary", "basic", "snow", "world", "elite", "ongoing"}
@@ -338,6 +395,7 @@ def _compute_role_pressures(
     rewards: Dict[str, float],
     engine_patterns: List[str],
     best_archetype: str,
+    combat: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, str]:
     ramp = max(0.0, requires.get("normal_ramp", 2.0) - provides.get("normal_ramp", 0.0) * 0.5)
     prot = max(0.0, requires.get("protection", 2.0) - provides.get("protection", 0.0) * 0.5)
@@ -356,6 +414,11 @@ def _compute_role_pressures(
         prot += 2.0
     if "mana_engine" in engine_patterns:
         ramp -= 1.0
+
+    # Combat-stat pressure: fragile commanders need more protection; combat-damage
+    # commanders that hit weakly need evasion/pump to connect. Small nudge only.
+    if combat:
+        prot += combat.get("fragility", 0.0) + combat.get("evasion_need", 0.0)
 
     board_wipes = best_archetype in ("control", "tokens", "aristocrats", "go_wide_aggro")
     counters = best_archetype == "control"
@@ -686,8 +749,12 @@ def analyze_commander(
         "multiplayer_scaling": multiplayer_scaling,
     }
 
+    combat_profile = _combat_profile(
+        card_identity["is_creature"], power, toughness, engine_patterns
+    )
+
     role_pressures = _compute_role_pressures(
-        provides, requires, rewards, engine_patterns, best_archetype
+        provides, requires, rewards, engine_patterns, best_archetype, combat_profile
     )
     wanted = _build_wanted_patterns(engine_patterns, text_signals, subtypes)
     avoid = _build_avoid_patterns(engine_patterns)
@@ -730,6 +797,7 @@ def analyze_commander(
         "archetype_fit": archetype_fits,
         "best_archetype": best_archetype,
         "role_pressures": role_pressures,
+        "combat_profile": combat_profile,
         "commander_scores": commander_scores,
         "provides": {k: round(v, 2) for k, v in provides.items()},
         "requires": {k: round(v, 2) for k, v in requires.items()},

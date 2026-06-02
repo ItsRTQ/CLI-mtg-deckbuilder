@@ -51,12 +51,21 @@ anti-synergy tags
 engine profile
 archetype fit
 role pressures
+combat profile (power/toughness)
 commander scores
 provides / requires / rewards
 wanted card patterns
 avoid card patterns
 build direction options
 ```
+
+The local card database preserves creature `power` and `toughness` from Scryfall.
+Use them when evaluating combat roles, Voltron viability, aggro pressure, commander
+fragility, blocker quality, and creature-based win conditions. The analysis exposes a
+`combat_profile` with numeric P/T and signals (high power, fragility, evasion need).
+
+Do not invent power/toughness when missing. Treat missing or non-numeric P/T (e.g.
+`*`) as unknown data and report it if relevant.
 
 ---
 

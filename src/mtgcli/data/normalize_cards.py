@@ -10,6 +10,38 @@ def parse_price(value: Any) -> Optional[float]:
         return None
 
 
+def normalize_pt(value: Any) -> Optional[str]:
+    """Normalizes a power/toughness value, preserving the original Scryfall string.
+
+    P/T can be non-numeric ('*', '1+*', '?', '∞'), so never convert to a number.
+    Returns None for missing or empty values.
+    """
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value if value else None
+
+
+def get_power_toughness(card: Dict[str, Any]) -> tuple:
+    """Returns (power, toughness) preferring top-level values, falling back to faces.
+
+    Top-level Scryfall values win when present. For multi-face cards that only
+    store P/T per face, use the first face that has any P/T data.
+    """
+    power = normalize_pt(card.get("power"))
+    toughness = normalize_pt(card.get("toughness"))
+    if power is not None or toughness is not None:
+        return power, toughness
+
+    for face in card.get("card_faces", []) or []:
+        fp = normalize_pt(face.get("power"))
+        ft = normalize_pt(face.get("toughness"))
+        if fp is not None or ft is not None:
+            return fp, ft
+
+    return None, None
+
+
 def get_oracle_text(card: Dict[str, Any]) -> str:
     """Extracts oracle text, handling multi-faced cards."""
     if "oracle_text" in card:
@@ -68,6 +100,7 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """Transforms a raw Scryfall card dict into our internal format."""
     raw_oracle_id = card.get("oracle_id")
     name = card.get("name", "")
+    power, toughness = get_power_toughness(card)
     return {
         "oracle_id": raw_oracle_id if raw_oracle_id else f"name:{name.lower()}",
         "name": name,
@@ -75,6 +108,8 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         "mana_value": card.get("cmc", 0),
         "type_line": get_type_line(card),
         "oracle_text": get_oracle_text(card),
+        "power": power,
+        "toughness": toughness,
         "colors": card.get("colors", []),
         "color_identity": card.get("color_identity", []),
         "commander_legal": card.get("legalities", {}).get("commander") == "legal",

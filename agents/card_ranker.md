@@ -55,6 +55,7 @@ power level
 budget
 role need
 mana efficiency
+creature power/toughness (for combat, voltron, go_tall, go_wide, tribal, finisher, win_condition roles)
 color identity
 card type relevance
 curve needs
@@ -83,6 +84,19 @@ Examples:
 ```
 
 Never use `--role synergy`.
+
+---
+
+## Power / Toughness
+
+Card data includes creature `power` and `toughness`. Use them as a secondary factor
+when ranking creatures for combat-relevant roles: `combat`, `voltron`, `go_tall`,
+`go_wide`, `tribal`, `finisher`, and `win_condition`. For `ramp`, `card_draw`,
+`removal`, and `protection`, P/T is usually irrelevant unless the card is a creature
+performing that role. Never let P/T override role fit or commander synergy.
+
+Do not invent P/T when missing. Treat missing or non-numeric P/T (e.g. `*`) as
+unknown data.
 
 ---
 

@@ -102,6 +102,42 @@ def _is_land(card: Dict[str, Any]) -> bool:
     return "land" in (card.get("type_line") or "").lower()
 
 
+# Roles where a creature's power/toughness is a legitimate scoring input.
+_COMBAT_RELEVANT_ROLES = frozenset({
+    "win_condition", "win_conditions", "finisher", "combat",
+    "voltron", "go_tall", "go_wide", "tribal", "cheap",
+})
+
+
+def _parse_numeric_pt(value: Any) -> Optional[float]:
+    """Parse P/T to float; None for non-numeric values like '*'."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _combat_stats_bonus(card: Dict[str, Any], role: str) -> tuple:
+    """Small score nudge from creature P/T for combat-relevant roles only.
+
+    Returns (bonus, reason or None). Secondary factor — never dominates role fit.
+    """
+    if role not in _COMBAT_RELEVANT_ROLES:
+        return 0, None
+    if "creature" not in (card.get("type_line") or "").lower():
+        return 0, None
+
+    power = _parse_numeric_pt(card.get("power"))
+    if power is None:
+        return 0, None
+
+    if power >= 5:
+        return 1, "High power for combat role"
+    if power >= 3:
+        return 1, "Solid power for combat role"
+    return 0, None
+
+
 def _match_sub_tags(
     card_text: str,
     sub_tags: List[str],
@@ -217,6 +253,12 @@ def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = Non
     elif role in ["removal", "card_draw", "protection"] and mana_value <= 3:
         score += 2
         reasons.append("Efficient mana value for role")
+
+    # 3b. Combat stats bonus (creatures in combat-relevant roles only)
+    combat_bonus, combat_reason = _combat_stats_bonus(card, role)
+    if combat_bonus:
+        score += combat_bonus
+        reasons.append(combat_reason)
 
     # 4. Commander legality bonus (+1)
     if is_commander_legal:

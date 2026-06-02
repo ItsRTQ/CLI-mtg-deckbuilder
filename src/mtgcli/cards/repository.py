@@ -18,6 +18,11 @@ def row_to_card(row: sqlite3.Row) -> Dict[str, Any]:
     card["can_be_commander"] = bool(card["can_be_commander"])
     card["digital"] = bool(card["digital"])
 
+    # Guarantee P/T keys exist even on databases built before the schema added
+    # them. Values stay null until the user rebuilds local data.
+    card.setdefault("power", None)
+    card.setdefault("toughness", None)
+
     return card
 
 

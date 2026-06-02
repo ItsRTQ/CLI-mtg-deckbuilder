@@ -69,6 +69,9 @@ validation status
 final build path if available
 ```
 
+When the commander is a creature, include its power/toughness in the summary if
+available (e.g. `Power/Toughness: 4/4`). Omit when missing; do not invent it.
+
 ---
 
 ## Package Breakdown

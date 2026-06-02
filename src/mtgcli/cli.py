@@ -53,6 +53,11 @@ def print_json(payload) -> None:
     sys.stdout.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
 
+def has_power_toughness(card: dict) -> bool:
+    """True if the card has any power/toughness data to display."""
+    return bool(card.get("power") or card.get("toughness"))
+
+
 @app.command()
 def status():
     """Check the project status and paths."""
@@ -97,6 +102,10 @@ def card(
         else:
             print(f"[bold blue]{card_data['name']}[/bold blue] {card_data['mana_cost']}")
             print(f"[italic]{card_data['type_line']}[/italic]")
+            if has_power_toughness(card_data):
+                p = card_data.get("power") or "?"
+                t = card_data.get("toughness") or "?"
+                print(f"Power/Toughness: {p}/{t}")
             print("-" * 20)
             print(card_data["oracle_text"])
             if card_data["usd_price"]:
@@ -322,6 +331,7 @@ def suggest(
         # Define output fields for clean JSON
         output_fields = [
             "name", "mana_cost", "mana_value", "type_line", "oracle_text",
+            "power", "toughness",
             "colors", "color_identity", "commander_legal", "can_be_commander",
             "usd_price", "suggestion_score", "matched_tags", "reason_hint"
         ]

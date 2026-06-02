@@ -404,6 +404,12 @@ Card draw means actual draw, card advantage, or filtering. Do not accept unrelat
 
 `--synergy` narrows or boosts after role matching. It never replaces role matching.
 
+Card and suggestion JSON include creature `power` and `toughness` (text, since values
+can be non-numeric like `*`; `null` for non-creatures). They are a secondary factor for
+combat-relevant roles (`combat`, `voltron`, `go_tall`, `go_wide`, `tribal`, `finisher`,
+`win_condition`) and for blocker quality. They never override role fit. Treat missing or
+non-numeric P/T as unknown; do not invent values.
+
 ---
 
 ## 9. Budget Rules

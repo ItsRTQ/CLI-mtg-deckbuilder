@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS cards (
     mana_value REAL,
     type_line TEXT,
     oracle_text TEXT,
+    power TEXT,
+    toughness TEXT,
     colors TEXT,
     color_identity TEXT,
     commander_legal INTEGER,
@@ -44,11 +46,12 @@ CREATE TABLE IF NOT EXISTS cards (
 _INSERT_SQL = """
 INSERT OR REPLACE INTO cards (
     oracle_id, name, mana_cost, mana_value, type_line, oracle_text,
+    power, toughness,
     colors, color_identity, commander_legal, can_be_commander,
     usd_price, usd_foil_price, usd_etched_price, eur_price, eur_foil_price, tix_price,
     price_status, price_source,
     layout, games, digital, finishes
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -60,6 +63,8 @@ def _to_row(norm: Dict[str, Any]) -> tuple:
         float(norm["mana_value"]),
         norm["type_line"],
         norm["oracle_text"],
+        norm["power"],
+        norm["toughness"],
         json.dumps(norm["colors"]),
         json.dumps(norm["color_identity"]),
         1 if norm["commander_legal"] else 0,

@@ -219,7 +219,26 @@ mtg card "Sol Ring"
 Look up a card as JSON:
 
 ```bash
-mtg card "Sol Ring" --json-output
+mtg card "Edgar Markov" --json-output
+```
+
+Card data includes creature `power` and `toughness` (stored as text, since values
+can be non-numeric like `*` or `1+*`; `null` for non-creatures):
+
+```json
+{
+  "name": "Edgar Markov",
+  "mana_cost": "{3}{R}{W}{B}",
+  "mana_value": 6.0,
+  "type_line": "Legendary Creature — Vampire Knight",
+  "oracle_text": "...",
+  "power": "4",
+  "toughness": "4",
+  "colors": ["B", "R", "W"],
+  "color_identity": ["B", "R", "W"],
+  "commander_legal": true,
+  "can_be_commander": true
+}
 ```
 
 Search Commander-legal cards:

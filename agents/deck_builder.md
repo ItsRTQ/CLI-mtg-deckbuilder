@@ -99,6 +99,11 @@ mtg suggest --commander "<commander>" --role cheap --synergy --analysis output/c
 
 Never use `--role synergy`.
 
+Suggestion and card-lookup JSON include creature `power` and `toughness`. Use them
+when choosing creatures for combat, voltron, go-tall/go-wide, tribal, finisher, and
+win-condition slots, and to gauge blocker quality. Treat missing or non-numeric P/T
+(e.g. `*`) as unknown; do not invent values.
+
 ---
 
 ## Ramp and Draw Guardrails

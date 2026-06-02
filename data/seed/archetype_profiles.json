@@ -614,5 +614,637 @@
       "too few poison sources"
     ],
     "engine_notes": "The first poison counter matters; proliferate is weak if the deck cannot reliably apply poison."
+  },
+  "aristocrats": {
+    "description": "Sacrifices creatures and tokens for recurring value through death triggers, drain, or card advantage.",
+    "primary_goal": "Build a sacrifice loop using outlets, fodder, and payoffs to drain opponents or generate overwhelming value.",
+    "packages": {
+      "sacrifice_outlets": {
+        "min": 5,
+        "ideal": 9
+      },
+      "death_payoffs": {
+        "min": 8,
+        "ideal": 14
+      },
+      "fodder": {
+        "min": 8,
+        "ideal": 14
+      },
+      "recursion": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "whenever a creature dies",
+      "sacrifice a creature",
+      "each opponent loses",
+      "creature token",
+      "when this creature dies"
+    ],
+    "avoid_patterns": [
+      "large combat creatures with no synergy",
+      "high curve with no sacrifice payoff"
+    ],
+    "engine_notes": "Sacrifice outlets that are free or have low activation cost score higher than paid outlets."
+  },
+  "combo": {
+    "description": "Assembles two or more cards that produce an infinite loop, overwhelming value, or an immediate win.",
+    "primary_goal": "Find and protect the combo pieces and win before opponents can interact.",
+    "packages": {
+      "combo_pieces": {
+        "min": 4,
+        "ideal": 8
+      },
+      "tutors": {
+        "min": 4,
+        "ideal": 8
+      },
+      "protection": {
+        "min": 5,
+        "ideal": 9
+      },
+      "card_advantage": {
+        "min": 8,
+        "ideal": 12
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 9
+      },
+      "ramp": {
+        "min": 9,
+        "ideal": 12
+      }
+    },
+    "preferred_card_patterns": [
+      "untap",
+      "copy",
+      "sacrifice",
+      "return",
+      "add mana",
+      "search your library"
+    ],
+    "avoid_patterns": [
+      "slow battlecruiser with no combo synergy",
+      "win conditions that do not combo"
+    ],
+    "engine_notes": "Combo pieces that are independently useful score higher than dedicated combo enablers with no standalone value."
+  },
+  "stompy": {
+    "description": "Plays large efficient creatures and wins through combat pressure and raw power.",
+    "primary_goal": "Deploy threats faster than opponents can answer them and close with combat damage.",
+    "packages": {
+      "big_threats": {
+        "min": 12,
+        "ideal": 18
+      },
+      "ramp": {
+        "min": 12,
+        "ideal": 16
+      },
+      "card_advantage": {
+        "min": 7,
+        "ideal": 11
+      },
+      "combat_enablers": {
+        "min": 5,
+        "ideal": 9
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "mana value 5 or greater",
+      "trample",
+      "haste",
+      "enters the battlefield",
+      "add mana"
+    ],
+    "avoid_patterns": [
+      "low-power cheap cards with no ramp synergy",
+      "combo focus unless commander supports it"
+    ],
+    "engine_notes": "Ramp that specifically helps deploy the largest threats scores highest."
+  },
+  "graveyard_value": {
+    "description": "Uses the graveyard as a persistent resource for card advantage, recursion, and value generation.",
+    "primary_goal": "Fill the graveyard deliberately and convert it into ongoing card advantage and repeated value.",
+    "packages": {
+      "graveyard_fill": {
+        "min": 7,
+        "ideal": 12
+      },
+      "recursion": {
+        "min": 6,
+        "ideal": 10
+      },
+      "value_permanents": {
+        "min": 8,
+        "ideal": 14
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "protection": {
+        "min": 2,
+        "ideal": 5
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "from your graveyard",
+      "mill",
+      "discard",
+      "enters the battlefield",
+      "when this dies"
+    ],
+    "avoid_patterns": [
+      "broad exile graveyard effects unless asymmetrical",
+      "low creature count with heavy graveyard reliance"
+    ],
+    "engine_notes": "Cards that self-sacrifice and recur generate more value than one-shot recursion spells."
+  },
+  "artifacts": {
+    "description": "Uses artifacts as the primary engine for ramp, payoffs, recursion, and combo.",
+    "primary_goal": "Build a density of artifacts and convert them into advantage through payoffs, sacrifice loops, or combo.",
+    "packages": {
+      "artifact_density": {
+        "min": 15,
+        "ideal": 22
+      },
+      "artifact_payoffs": {
+        "min": 6,
+        "ideal": 12
+      },
+      "artifact_recursion": {
+        "min": 3,
+        "ideal": 7
+      },
+      "ramp": {
+        "min": 9,
+        "ideal": 13
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "Artifact",
+      "whenever an artifact",
+      "artifacts you control",
+      "sacrifice an artifact",
+      "return target artifact"
+    ],
+    "avoid_patterns": [
+      "off-artifact creatures unless they have artifact synergy",
+      "spells with no artifact interaction"
+    ],
+    "engine_notes": "Mana rocks that also have payoff potential score higher than purely passive rocks."
+  },
+  "enchantress": {
+    "description": "Casts many enchantments and draws cards or generates value when enchantments enter or are cast.",
+    "primary_goal": "Maintain hand advantage through enchantress draw triggers and build an overwhelming board.",
+    "packages": {
+      "enchantment_density": {
+        "min": 15,
+        "ideal": 22
+      },
+      "enchantress_draw": {
+        "min": 4,
+        "ideal": 8
+      },
+      "enchantment_payoffs": {
+        "min": 5,
+        "ideal": 9
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "protection": {
+        "min": 3,
+        "ideal": 6
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "Enchantment",
+      "whenever an enchantment enters",
+      "whenever you cast an enchantment",
+      "constellation",
+      "enchantments you control"
+    ],
+    "avoid_patterns": [
+      "artifacts without enchantment synergy",
+      "high creature count with no enchantment payoff"
+    ],
+    "engine_notes": "Enchantments that also provide protection or evasion score higher in enchantress builds."
+  },
+  "equipment": {
+    "description": "Equips key creatures with equipment to scale them up, protect them, and win through combat.",
+    "primary_goal": "Build a toolbox of equipment to create the right threat for any situation.",
+    "packages": {
+      "equipment_density": {
+        "min": 12,
+        "ideal": 18
+      },
+      "equipment_tutors": {
+        "min": 2,
+        "ideal": 5
+      },
+      "equipped_threats": {
+        "min": 5,
+        "ideal": 9
+      },
+      "protection": {
+        "min": 4,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "Equipment",
+      "equipped creature",
+      "equip",
+      "attach",
+      "whenever equipped creature"
+    ],
+    "avoid_patterns": [
+      "auras unless commander specifically cares",
+      "too many unequipped creatures"
+    ],
+    "engine_notes": "Equipment that provides both offense and protection scores higher than pure offense."
+  },
+  "auras": {
+    "description": "Enchants creatures with auras to make them big threats, protect them, or generate value.",
+    "primary_goal": "Build one or more large threats using auras, protect them, and win through combat.",
+    "packages": {
+      "aura_density": {
+        "min": 12,
+        "ideal": 18
+      },
+      "aura_tutors": {
+        "min": 2,
+        "ideal": 5
+      },
+      "enchanted_threats": {
+        "min": 5,
+        "ideal": 9
+      },
+      "protection": {
+        "min": 5,
+        "ideal": 9
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 7
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "Aura",
+      "enchant creature",
+      "enchanted creature",
+      "hexproof",
+      "indestructible"
+    ],
+    "avoid_patterns": [
+      "auras without protection against removal",
+      "pure equipment unless commander cares"
+    ],
+    "engine_notes": "Auras that provide hexproof or indestructible as part of their effect score very high."
+  },
+  "lands": {
+    "description": "Uses lands-matter effects, high land count, and land-based engines to win.",
+    "primary_goal": "Play many lands, generate value from every land drop, and close with land-powered finishers.",
+    "packages": {
+      "land_ramp": {
+        "min": 10,
+        "ideal": 16
+      },
+      "extra_land_drops": {
+        "min": 5,
+        "ideal": 9
+      },
+      "land_payoffs": {
+        "min": 7,
+        "ideal": 12
+      },
+      "land_recursion": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 7
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "landfall",
+      "whenever a land enters",
+      "search your library for a land",
+      "play an additional land",
+      "for each land you control"
+    ],
+    "avoid_patterns": [
+      "low land count",
+      "non-land ramp with no land synergy"
+    ],
+    "engine_notes": "Land count minimum should be 38. Extra land drops are more important than pure ramp."
+  },
+  "landfall": {
+    "description": "Triggers landfall abilities by playing many lands, often multiple times per turn.",
+    "primary_goal": "Maximize land drops to trigger landfall effects, build a board, and close with landfall payoffs.",
+    "packages": {
+      "land_ramp": {
+        "min": 10,
+        "ideal": 16
+      },
+      "extra_land_drops": {
+        "min": 5,
+        "ideal": 9
+      },
+      "landfall_payoffs": {
+        "min": 8,
+        "ideal": 14
+      },
+      "land_recursion": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 4,
+        "ideal": 7
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "landfall",
+      "whenever a land enters",
+      "search your library for a land",
+      "play an additional land",
+      "put a land card"
+    ],
+    "avoid_patterns": [
+      "low land count",
+      "non-land ramp in landfall slots"
+    ],
+    "engine_notes": "Land count minimum should be 38. Landfall cards that create tokens or draw cards score higher."
+  },
+  "lifegain": {
+    "description": "Gains life repeatedly and converts it into cards, counters, tokens, drain, or alternate wins.",
+    "primary_goal": "Use life gain as a resource to fuel payoffs and outlast or drain opponents.",
+    "packages": {
+      "lifegain_sources": {
+        "min": 8,
+        "ideal": 14
+      },
+      "lifegain_payoffs": {
+        "min": 6,
+        "ideal": 12
+      },
+      "life_total_advantage": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "protection": {
+        "min": 2,
+        "ideal": 5
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "you gain",
+      "lifelink",
+      "whenever you gain life",
+      "if you gained life",
+      "your life total"
+    ],
+    "avoid_patterns": [
+      "drain effects without lifegain payoffs",
+      "pure aggro with no lifegain synergy"
+    ],
+    "engine_notes": "Repeatable lifegain sources score higher than one-shot life gain."
+  },
+  "blink": {
+    "description": "Repeatedly exiles and returns permanents to reuse ETB effects, reset permanents, or loop value.",
+    "primary_goal": "Blink value permanents repeatedly to generate overwhelming advantage.",
+    "packages": {
+      "etb_value": {
+        "min": 10,
+        "ideal": 18
+      },
+      "blink_enablers": {
+        "min": 5,
+        "ideal": 9
+      },
+      "etb_multipliers": {
+        "min": 1,
+        "ideal": 4
+      },
+      "protection": {
+        "min": 3,
+        "ideal": 7
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "enters the battlefield",
+      "when this enters",
+      "exile target",
+      "return it to the battlefield",
+      "flicker",
+      "triggered ability"
+    ],
+    "avoid_patterns": [
+      "creatures with no ETB value",
+      "heavy artifact focus without ETB synergy"
+    ],
+    "engine_notes": "ETB cards that produce immediate value (draw, removal, tokens) score higher than purely passive ETBs."
+  },
+  "go_wide_aggro": {
+    "description": "Creates many small creatures and wins through combat with mass buffs, tokens, and go-wide pressure.",
+    "primary_goal": "Build a wide board quickly and convert numbers into lethal damage.",
+    "packages": {
+      "token_makers": {
+        "min": 10,
+        "ideal": 16
+      },
+      "mass_buffs": {
+        "min": 4,
+        "ideal": 8
+      },
+      "combat_enablers": {
+        "min": 4,
+        "ideal": 8
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "protection": {
+        "min": 2,
+        "ideal": 5
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "creature token",
+      "creatures you control get",
+      "haste",
+      "trample",
+      "additional combat"
+    ],
+    "avoid_patterns": [
+      "single large creature focus",
+      "heavy control package unless commander supports it"
+    ],
+    "engine_notes": "Haste enablers and mass pump effects score highest in go-wide builds."
+  },
+  "go_tall_aggro": {
+    "description": "Scales one or a few large creatures through buffs, counters, or auras and wins through combat damage.",
+    "primary_goal": "Make one or two key threats extremely large and connect them for lethal damage.",
+    "packages": {
+      "threat_scaling": {
+        "min": 10,
+        "ideal": 16
+      },
+      "evasion": {
+        "min": 5,
+        "ideal": 9
+      },
+      "protection": {
+        "min": 5,
+        "ideal": 9
+      },
+      "card_advantage": {
+        "min": 6,
+        "ideal": 10
+      },
+      "interaction": {
+        "min": 5,
+        "ideal": 8
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "gets +",
+      "+1/+1 counter",
+      "equipped creature gets",
+      "can't be blocked",
+      "double strike"
+    ],
+    "avoid_patterns": [
+      "go-wide token approach",
+      "low threat density"
+    ],
+    "engine_notes": "Evasion and protection for the main threat score very high."
+  },
+  "value_engine": {
+    "description": "Generates ongoing card advantage and value to outlast and outresource opponents.",
+    "primary_goal": "Build self-sustaining value loops that generate more resources than opponents can answer.",
+    "packages": {
+      "value_engines": {
+        "min": 8,
+        "ideal": 14
+      },
+      "card_advantage": {
+        "min": 10,
+        "ideal": 14
+      },
+      "ramp": {
+        "min": 9,
+        "ideal": 12
+      },
+      "interaction": {
+        "min": 7,
+        "ideal": 11
+      },
+      "protection": {
+        "min": 3,
+        "ideal": 7
+      },
+      "finishers": {
+        "min": 2,
+        "ideal": 5
+      }
+    },
+    "preferred_card_patterns": [
+      "whenever you",
+      "at the beginning of each",
+      "draw a card",
+      "enters the battlefield",
+      "create a token"
+    ],
+    "avoid_patterns": [
+      "all-in combo with no resilience",
+      "win conditions that require overcommitting"
+    ],
+    "engine_notes": "Engines that produce both cards and board presence score highest."
   }
 }

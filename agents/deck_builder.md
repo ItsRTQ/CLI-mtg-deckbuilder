@@ -1,415 +1,211 @@
 # Deck Builder
 
-Your job is to create a legal 100-card Commander deck from:
+Purpose: build the deck using CLI data, user preferences, category-count guidance, commander analysis, and card ranking.
 
-- commander data
-- user feedback
-- archetype/detail detection
-- constraints
-- ranked card candidates
-- CLI search results
-
-You must only use cards provided by the CLI or explicitly provided by the user and verified through the CLI.
-
-Return JSON when building plans or deck category output.
+Do not invent cards. Do not create helper scripts.
 
 ---
 
-## Required Deck Size
+## Build Sequence
 
-Single commander:
-
-```text
-1 commander
-99 main deck cards
-100 total
-```
-
-Partner commanders (two commanders with the Partner keyword):
-
-```text
-2 commanders
-98 main deck cards
-100 total
-```
-
-Both commanders appear exactly once.
-
-Non-basic cards must be singleton.
-
-Basic lands may have quantity greater than 1.
-
-Color identity for partner decks is the combined color identity of both commanders.
+1. Read `BUILDER.md`.
+2. Collect user preferences with `agents/user-feedback.md` if needed.
+3. Run commander lookup and `commander-analyze`.
+4. Detect archetype/detail/constraints.
+5. Run `category-counts` with commander analysis.
+6. Plan package ranges from `recommended_range` and `need_score`.
+7. Search/suggest candidates by role and package.
+8. Rank candidates.
+9. Build the nonland shell.
+10. Write `output/decklist.txt`.
+11. Convert using `deck-write --structured`.
+12. Fill basics with `deck-fill-lands`.
+13. Validate.
+14. Fix errors.
+15. Run deck-check.
+16. Export and final-build only after validation passes.
+17. Write `output/deck_explanation.md`.
 
 ---
 
-## Main Principle
+## Command Setup
 
-Build a deck around an engine, not a template.
+Analyze commander:
 
-Do not fill with generic synergy.
+```bash
+mtg commander-analyze --commander "<commander>" --output output/commander_analysis.json --json-output
+```
 
-Every nonland card should have a reason:
+Partner:
 
-```text
-required role
-engine enabler
-engine payoff
-repeatable engine
-finisher/win condition
-protection/resilience
-user-requested card
-meta answer
+```bash
+mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
+```
+
+Plan categories:
+
+```bash
+mtg category-counts \
+  --commander "<commander>" \
+  --archetype "<archetype>" \
+  --power-level <number> \
+  --philosophy "<philosophy>" \
+  --analysis output/commander_analysis.json \
+  --json-output
 ```
 
 ---
 
-## Build Inputs
+## Package Planning
 
-Use:
+Use category-counts as soft guidance, not exact locks.
+
+Plan from:
 
 ```text
-Commander + Archetype + Detail + Constraints + User Feedback + Ranked Candidates
+recommended_range
+uncompressed_target_count
+need_score
+slot_budget warnings
+user constraints
+commander_analysis role_pressures
 ```
 
-User constraints override defaults unless they make the deck illegal or impossible.
+If `compressed_target_count` pushes critical categories too low, use judgment and report it in Build Feedback.
+
+Never let a forced low-fit archetype hide basic deck needs like ramp, draw, removal, or win conditions.
 
 ---
 
-## Generic Deck Structure
+## Candidate Search
 
-Do not use fixed counts blindly.
+Use normal role suggestions for staples/structural pieces:
 
-Start with these flexible ranges:
-
-```text
-Commander: 1
-Lands: calculated after nonlands
-Ramp: 9 minimum
-Card draw/card advantage: 8–12 typical
-Removal/interaction: 5–15 total
-Board wipes: 1 default, 3 max unless deck wants them
-Protection/resilience: 0–5, higher if commander-dependent
-Win conditions: 1–5
-Strategy/package cards: remaining slots
+```bash
+mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
+mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
+mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
+mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
 ```
+
+Use synergy suggestions for commander-aligned packages:
+
+```bash
+mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander>" --role enabler --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander>" --role payoff --synergy --analysis output/commander_analysis.json --limit 40 --json-output
+mtg suggest --commander "<commander>" --role cheap --synergy --analysis output/commander_analysis.json --limit 30 --json-output
+```
+
+Never use `--role synergy`.
 
 ---
 
-## Land Calculation
+## Ramp and Draw Guardrails
 
-Build nonlands first, then calculate lands.
+Ramp suggestions must be real acceleration. Normal lands are not ramp.
 
-Default formula:
+Card draw suggestions must be actual draw/card advantage/filtering.
 
-```text
-base lands = 32
-+1 per commander color, max +3
-+ curve adjustment:
-  avg nonland mana value 0.0–2.6 = +0
-  avg nonland mana value 2.7–3.3 = +1
-  avg nonland mana value 3.4+ = +2
-```
-
-Landfall/landsmatter:
-
-```text
-38 minimum
-42 maximum
-```
-
-If user gives exact land count, obey it.
-
-If not enough nonbasic land candidates exist, fill with basics.
-
-Basic mapping:
-
-```text
-W = Plains
-U = Island
-B = Swamp
-R = Mountain
-G = Forest
-Colorless = Wastes
-```
-
-Distribute basics based on color identity and color intensity if available.
+If suggest returns lands under ramp or unrelated cards under card_draw, manually filter and report the tool issue in Build Feedback.
 
 ---
 
-## Ramp Rules
+## Deck File Creation
 
-Minimum ramp is 9 unless user explicitly requests less.
-
-Prefer ramp that fits the deck:
+Write a plain list to:
 
 ```text
-rocks = generally useful
-land ramp = green/landfall/landsmatter
-mana dorks = creature-friendly decks
-treasure = artifact/token/sacrifice decks
-rituals = explosive/combo/spell decks, especially when color supports them
-cost reduction = spell-heavy or expensive commander decks
+output/decklist.txt
 ```
 
-Staples like Sol Ring and Arcane Signet are acceptable unless user/budget/theme says otherwise.
+Then create structured JSON:
+
+```bash
+mtg deck-write \
+  --input output/decklist.txt \
+  --output output/deck.json \
+  --commander "<commander>" \
+  --structured \
+  --force
+```
+
+Partner:
+
+```bash
+mtg deck-write \
+  --input output/decklist.txt \
+  --output output/deck.json \
+  --commander "<commander A>" \
+  --partner "<commander B>" \
+  --structured \
+  --force
+```
+
+Commander-zone cards should not be inside `main_deck`.
 
 ---
 
-## Draw and Search Rules
+## Land Filling
 
-Tutors are search, not draw.
+After the nonland shell:
 
-Card advantage can include:
+```bash
+mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
+```
+
+Partner:
+
+```bash
+mtg deck-fill-lands --deck output/deck.json --commander "<commander A>" --partner "<commander B>" --output output/deck.json --force
+```
+
+Single commander target: 99 main deck cards.
+
+Partner target: 98 main deck cards.
+
+For landfall/landsmatter, prefer 38–42 lands unless the user asks for exact count.
+
+---
+
+## Validation
+
+```bash
+mtg validate --commander "<commander>" --deck output/deck.json --json-output
+```
+
+Do not finalize until valid.
+
+If validation fails, use `agents/deck_fixer.md`.
+
+---
+
+## Optional Context
+
+Explore:
+
+```bash
+mtg explore --commander "<commander>" --json-output
+```
+
+Combos:
+
+```bash
+mtg combos --commander "<commander>" --output output/commander_combos.json --json-output
+```
+
+Use these as signals, not mandatory includes.
+
+---
+
+## Build Feedback
+
+Include only if useful. Examples:
 
 ```text
-repeatable draw
-burst draw
-impulse draw
-loot/rummage when graveyard/discard matters
-ETB draw when blink/recursion matters
-combat draw when attack/combat matters
-tutors/search as separate package
+suggest returned off-role cards
+validation/fill-lands conflict
+category-counts compressed critical categories too far
+explore JSON was invalid
+combo data was missing or noisy
 ```
-
-Low curve or spell-heavy decks need more draw/card flow.
-
----
-
-## Removal Rules
-
-Total removal/interactions should usually be 5–15.
-
-Prefer removal that fits the engine when possible:
-
-```text
-permanent removal for recursion/blink decks
-instant removal for reactive/control decks
-sacrifice/removal overlap for aristocrats-style decks
-combat-based removal only if the deck can attack reliably
-counterspells mainly in blue/control/spellslinger/high power decks
-```
-
-Do not overload removal if it crowds out the deck's core engine.
-
----
-
-## Protection Rules
-
-Increase protection when:
-
-```text
-commander is critical
-commander must attack/connect
-commander is a combo piece
-commander enables the entire engine
-board is vulnerable to wipes
-```
-
-Protection can be:
-
-```text
-hexproof
-indestructible
-blink
-counterspell
-equipment
-recursion
-phase out
-sacrifice protection
-board protection
-```
-
-Choose based on deck mechanics.
-
----
-
-## Package-Based Strategy Construction
-
-Break strategy cards into:
-
-```text
-enablers
-payoffs
-engines
-finishers
-support
-```
-
-### Enablers
-
-Cards that make the plan work.
-
-### Payoffs
-
-Cards that reward the plan.
-
-### Engines
-
-Repeatable value sources.
-
-### Finishers
-
-Cards or combinations that close the game.
-
-### Support
-
-Cards that protect, smooth, search, recur, or stabilize the plan.
-
-Every strategy package should connect to the commander's engine.
-
----
-
-## Win Condition Rules
-
-Include 1–5 win paths.
-
-Win paths can be:
-
-```text
-massive combat
-commander damage
-aristocrats drain
-mill
-combo
-control/stax lock
-value overwhelm
-big threats
-alternate win condition
-```
-
-High Power may include 1–2 incidental infinite combos.
-
-Do not make casual/optimized casual decks combo-focused unless user requests it.
-
----
-
-## Staples vs Theme
-
-Staples are allowed when they:
-
-```text
-fill a required role
-increase deck function
-fit budget/power level
-are not forbidden by user
-```
-
-Prefer synergistic role-fillers over generic staples when power level and budget allow.
-
-Do not avoid auto-includes only because they are staples unless user requests a more thematic build.
-
----
-
-## Build Process
-
-1. Add commander (or both commanders for partner decks).
-2. Apply user feedback and constraints.
-3. Build role targets from power level, commander dependency, curve, and engine.
-4. Select strategy packages first.
-5. Select ramp package.
-6. Select draw/card advantage/search.
-7. Select removal/interaction.
-8. Select protection/resilience.
-9. Select win conditions.
-10. Build preliminary nonland main deck (67 cards for single commander, 66 for partner).
-11. Calculate lands.
-12. Add nonbasic lands and mana fixing.
-13. Cut or add nonlands to reach target size (99 for single, 98 for partner).
-14. Write `output/decklist.txt` in plain text format (one card per line, `1 Card Name`).
-15. Convert: `mtg deck-write --input output/decklist.txt --output output/deck.json --force`
-16. Fill remaining basics: `mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force`
-17. Validate with CLI.
-18. Fix with `deck_fixer.md` if invalid.
-19. Run deck-check if available.
-20. Fix major coherence issues.
-21. Export only after validation passes.
-
-Do not create helper Python scripts to generate `output/deck.json`. Use `deck-write` and `deck-fill-lands` instead.
-
----
-
-## Cutting Rules
-
-When over 100 cards, cut in this order:
-
-1. illegal cards
-2. off-color cards
-3. duplicate non-basic cards
-4. cards violating user constraints
-5. lowest-ranked off-plan cards
-6. redundant expensive cards
-7. weak single-role filler
-8. excess cards in overfilled packages
-
-Avoid cutting below:
-
-```text
-user exact counts
-minimum ramp
-minimum lands
-minimum interaction
-critical enabler count
-```
-
----
-
-## Output Format
-
-When producing a deck plan, return JSON:
-
-```json
-{
-  "commander": "Commander Name",
-  "archetype": "primary_archetype",
-  "detail": "detail/subtheme",
-  "power_level": "optimized_casual",
-  "budget": null,
-  "deck_size": 100,
-  "land_count_method": "calculated",
-  "categories": {
-    "commander": [],
-    "lands": [],
-    "ramp": [],
-    "card_draw": [],
-    "search": [],
-    "removal": [],
-    "board_wipes": [],
-    "protection": [],
-    "enablers": [],
-    "payoffs": [],
-    "engines": [],
-    "finishers": [],
-    "support": [],
-    "win_conditions": []
-  },
-  "counts": {
-    "commander": 1,
-    "main_deck": 99,
-    "total": 100
-  },
-  "assumptions": [],
-  "notes": "Short build direction."
-}
-```
-
-Final `output/deck.json` should be a flat list:
-
-```json
-[
-  { "quantity": 1, "name": "Card Name" }
-]
-```
-
-Do not include `set_code`, `collector_number`, rarity, or printing-specific fields in the deck list.
-
----
-
-## Rules
-
-- Do not claim success until validation passes.
-- Do not export before validation passes.
-- Do not use unverified cards.
-- Do not create commander-specific templates.
-- Use the commander's engine and user preferences to decide package balance.
-- Preserve user constraints.

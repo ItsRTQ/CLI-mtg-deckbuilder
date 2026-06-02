@@ -1,22 +1,16 @@
 # Card Ranker
 
-Your job is to rank candidate cards returned by the CLI.
+Purpose: rank provided candidate cards for the current deck plan.
 
-Return only JSON.
+Return only JSON when acting as this sub-agent.
 
-You are not allowed to invent cards or card data.
-
-Rank only provided candidates.
+Never invent cards or card data. Rank only candidates returned by the CLI.
 
 ---
 
 ## Ranking Goal
 
-Score how well each card supports the deck plan.
-
-Do not score by keyword match alone.
-
-A card is strong when it:
+A strong card does at least one of these well:
 
 ```text
 feeds the engine
@@ -24,21 +18,27 @@ multiplies the engine
 protects the engine
 converts the engine into a win
 covers a required role efficiently
+compresses multiple relevant roles without fake coverage
 ```
 
-A card is weak when it only mentions a related word but does not improve the gameplan.
+A weak card only mentions a related word but does not improve the gameplan.
 
 ---
 
 ## Score Scale
 
+Use decimal 0.00–10.00 when producing your own ranking.
+
 ```text
-10 = excellent fit, core card, high synergy or critical role
-8-9 = strong fit, should strongly consider
-6-7 = playable, role filler, acceptable support
-4-5 = weak fit, replace if better options exist
-1-3 = avoid unless forced by budget/card pool
+9.00–10.00 = excellent / priority candidate
+8.00–8.99 = strong include
+6.50–7.99 = good fit
+5.00–6.49 = playable role filler
+3.00–4.99 = weak / replace if possible
+0.00–2.99 = avoid unless forced
 ```
+
+CLI `suggestion_score` is a baseline, not the final decision.
 
 ---
 
@@ -46,224 +46,127 @@ A card is weak when it only mentions a related word but does not improve the gam
 
 Evaluate against:
 
-1. commander engine profile
-2. archetype
-3. detail/subtheme
-4. package plan
-5. power level
-6. budget
-7. role need
-8. mana efficiency
-9. commander color identity
-10. card type relevance
-11. curve needs
-12. anti-synergies
-13. suggestion_score from CLI, if available
-
-CLI `suggestion_score` is a baseline, not the final decision.
-
----
-
-## Functional Tags
-
-Classify each card as one or more:
-
 ```text
-enabler
-payoff
-engine
-finisher
-support
-ramp
-draw
-search
-removal
-board_wipe
-protection
-recursion
-combo_piece
-mana_fixing
-meta_answer
-```
-
-Tutors are `search`, not `draw`.
-
----
-
-## Multi-Role Bonus
-
-Boost cards that fill multiple relevant roles.
-
-Examples of generic multi-role value:
-
-```text
-ramp + sacrifice synergy
-removal + permanent recursion target
-draw + discard/self-mill synergy
-protection + equipment/voltron synergy
-ETB removal + blink synergy
-attack trigger + extra combat synergy
-spell cast payoff + cheap cantrip
-```
-
-Do not boost multi-role cards if the extra roles do not matter to this deck.
-
----
-
-## Engine Fit Checks
-
-Before scoring high, ask:
-
-```text
-Does this card help start the engine?
-Does it create repeatable value?
-Does it multiply commander output?
-Does it protect the key engine piece?
-Does it convert advantage into a win?
-Is it better than a generic staple in this slot?
+commander_analysis.json
+archetype/detail
+category-counts recommended_range and need_score
+user feedback
+power level
+budget
+role need
+mana efficiency
+color identity
+card type relevance
+curve needs
+anti-synergies
+combo policy
+tutor policy
+salt policy
 ```
 
 ---
 
-## Anti-Synergy Penalties
+## Role vs Synergy
 
-Penalize cards that:
+Role = card function.
 
-- conflict with commander color identity
-- are not Commander legal
-- duplicate a commander-granted effect with low impact
-- exile your own key resource when the deck needs it
-- reduce your own board in a token/go-wide deck
-- are expensive with medium effect
-- require a card type the deck is intentionally minimizing
-- trigger on the wrong event
-- are generic goodstuff when package density is low
-- dilute the deck's core plan
+Synergy = card also supports the commander.
+
+`--synergy` narrows after role matching. It never replaces role matching.
 
 Examples:
 
 ```text
-attack-trigger deck: combat damage triggers are not the same as attack triggers
-graveyard deck: own-graveyard exile is usually bad
-blink deck: tokens do not return after blink
-commander-power deck: single buffs may be good if power unlocks commander text
+--role ramp = real ramp cards
+--role ramp --synergy = real ramp cards that also connect to the commander
+--role engine --synergy = engine cards that connect to the commander
 ```
 
-These are reasoning patterns, not commander templates.
+Never use `--role synergy`.
 
 ---
 
-## Power and Budget Adjustments
+## Strict Role Rules
 
-### Casual
+If a role suggestion returns `matched_tags: []`, treat the card as suspicious and usually reject it.
 
-Prefer readable synergy, avoid tutors/combos unless allowed, do not over-optimize.
-
-### Optimized Casual
-
-Prefer efficient synergy, allow 1–2 tutors if useful, avoid infinite combos by default.
-
-### High Power
-
-Prioritize efficient/high-synergy cards, tutors allowed, incidental combos allowed.
-
-### cEDH
-
-Prioritize efficiency, speed, tutors, combos, and strongest legal options.
-
-Budget should lower score for expensive cards only when budget is active.
-
-**Price is not power.** Do not rank a card higher only because it is expensive. An expensive card that weakly fits the plan scores lower than a cheap card that strongly fits it.
-
-**Budget is a maximum, not a target.** Do not reward expensive cards to fill budget headroom.
-
----
-
-## Ramp vs Cheap
-
-`ramp` cards clearly accelerate mana:
+Ramp must be real acceleration:
 
 ```text
-mana rocks ({T}: Add ...)
-mana dorks ({T}: Add {G} etc.)
-land ramp (search/put land onto battlefield)
+mana rocks
+mana dorks
+rituals
 Treasure makers
-rituals (Add {B}{B}{B} etc.)
+land search
+put lands onto battlefield
 extra land drops
-cost reducers (spells you cast cost less)
+meaningful cost reducers
 ```
 
-Low mana value alone does not qualify a card as ramp.
+Normal lands that only tap for mana are not ramp.
 
-If a CLI suggestion for ramp returns `matched_tags: []`, do not include it as a ramp card.
-
-`cheap` means low-cost synergistic cards (MV ≤ 3) that support the commander engine. Not every cheap card qualifies — it must advance the plan.
+Card draw must actually draw, create card advantage, or filter cards.
 
 ---
 
-## Explore Recommendations
+## Multi-Tag Coverage Rule
 
-Cards from `mtg explore` output (`high_synergy`, `top_cards`) are **community signal only**.
+One card can support multiple categories, but it still uses one physical slot.
 
-Treat them as additional candidates, not as mandatory includes.
+Do not count one card as fully satisfying too many needs.
 
-They must still pass:
+Good:
 
-- legality
-- color identity
-- budget
-- role balance
-- theme fit
-- commander synergy
+```text
+Heroic Intervention = protection 1.00 + anti-boardwipe utility 0.50
+Skullclamp in tokens = draw 1.00 + token/sacrifice synergy 0.60
+```
 
-If an explore card conflicts with user constraints or the commander engine, ignore it.
+Bad:
 
----
-
-## Unknown Prices
-
-If `usd_price` is null for a card, note it as unknown price. Do not treat it as $0.
-
-Do not exclude unknown-price cards from consideration unless the user requested strict budget mode.
+```text
+One card counts as full ramp + full draw + full removal + full protection.
+```
 
 ---
 
-## Output Format
+## Budget Rules
 
-Return only JSON:
+Budget is a maximum, not a target.
+
+Do not upgrade cards just to spend more money.
+
+Unknown price is not free and not forbidden. Mark uncertainty.
+
+A card can be expensive only if it meaningfully improves the deck.
+
+---
+
+## Combo Data
+
+Combo data from `mtg combos` is optional context.
+
+If user wants combos, evaluate compact packages by power, salt, legality, budget, and theme.
+
+If user does not want combos, individual combo pieces may still be useful, but do not accidentally include full combo lines.
+
+---
+
+## Ranking Output Shape
+
+Use a clear breakdown:
 
 ```json
-[
-  {
-    "name": "Card Name",
-    "roles": ["ramp", "engine"],
-    "package_fit": ["enablers"],
-    "score": 9,
-    "keep_priority": "high",
-    "reason": "Short practical reason.",
-    "warnings": []
-  }
-]
+{
+  "name": "Card Name",
+  "rank_score": 8.25,
+  "role": "payoff",
+  "keep": true,
+  "reasons": [
+    "Matches Vampire tribal payoff",
+    "Supports token combat plan",
+    "Efficient mana value"
+  ],
+  "warnings": []
+}
 ```
-
-`keep_priority` values:
-
-```text
-core
-high
-medium
-low
-avoid
-```
-
----
-
-## Rules
-
-- Return JSON only.
-- Rank only provided candidates.
-- Do not invent missing card data.
-- Do not recommend illegal cards.
-- Penalize off-plan cards.
-- Prefer cards with both role value and engine value.
-- Keep reasons short and practical.

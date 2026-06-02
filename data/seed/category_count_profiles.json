@@ -1,0 +1,155 @@
+{
+  "normal_ramp": {
+    "display_name": "Normal Ramp",
+    "score_0_target": 5,
+    "score_5_target": 8,
+    "score_10_target": 13,
+    "soft_cap": 14,
+    "hard_cap": 16,
+    "protected_floor": 5
+  },
+  "big_ramp": {
+    "display_name": "Big Ramp / Mana Amplifiers",
+    "score_0_target": 0,
+    "score_5_target": 1,
+    "score_10_target": 4,
+    "soft_cap": 5,
+    "hard_cap": 6,
+    "protected_floor": 0
+  },
+  "draw": {
+    "display_name": "Card Draw / Advantage",
+    "score_0_target": 3,
+    "score_5_target": 8,
+    "score_10_target": 15,
+    "soft_cap": 16,
+    "hard_cap": 20,
+    "protected_floor": 3
+  },
+  "card_selection": {
+    "display_name": "Card Selection / Filtering",
+    "score_0_target": 0,
+    "score_5_target": 4,
+    "score_10_target": 10,
+    "soft_cap": 12,
+    "hard_cap": 16,
+    "protected_floor": 0
+  },
+  "tutors": {
+    "display_name": "Tutors / Tutor Effects",
+    "score_0_target": 0,
+    "score_5_target": 2,
+    "score_10_target": 8,
+    "soft_cap": 8,
+    "hard_cap": 12,
+    "protected_floor": 0
+  },
+  "targeted_removal": {
+    "display_name": "Targeted Removal",
+    "score_0_target": 0,
+    "score_5_target": 4,
+    "score_10_target": 9,
+    "soft_cap": 10,
+    "hard_cap": 14,
+    "protected_floor": 0
+  },
+  "board_wipes": {
+    "display_name": "Board Wipes",
+    "score_0_target": 0,
+    "score_5_target": 2,
+    "score_10_target": 5,
+    "soft_cap": 5,
+    "hard_cap": 7,
+    "protected_floor": 0
+  },
+  "counterspells": {
+    "display_name": "Counterspells / Stack Interaction",
+    "score_0_target": 0,
+    "score_5_target": 3,
+    "score_10_target": 10,
+    "soft_cap": 10,
+    "hard_cap": 14,
+    "protected_floor": 0
+  },
+  "protection": {
+    "display_name": "Protection",
+    "score_0_target": 0,
+    "score_5_target": 4,
+    "score_10_target": 10,
+    "soft_cap": 10,
+    "hard_cap": 14,
+    "protected_floor": 0
+  },
+  "recursion": {
+    "display_name": "Recursion",
+    "score_0_target": 0,
+    "score_5_target": 3,
+    "score_10_target": 8,
+    "soft_cap": 8,
+    "hard_cap": 12,
+    "protected_floor": 0
+  },
+  "graveyard_hate": {
+    "display_name": "Graveyard Hate",
+    "score_0_target": 0,
+    "score_5_target": 1,
+    "score_10_target": 4,
+    "soft_cap": 4,
+    "hard_cap": 6,
+    "protected_floor": 0
+  },
+  "win_conditions": {
+    "display_name": "Win Conditions / Finishers",
+    "score_0_target": 1,
+    "score_5_target": 3,
+    "score_10_target": 6,
+    "soft_cap": 6,
+    "hard_cap": 10,
+    "protected_floor": 1
+  },
+  "archetype_core": {
+    "display_name": "Archetype Core Cards",
+    "score_0_target": 4,
+    "score_5_target": 12,
+    "score_10_target": 26,
+    "soft_cap": 30,
+    "hard_cap": 36,
+    "protected_floor": 4
+  },
+  "synergy_enablers": {
+    "display_name": "Synergy Enablers",
+    "score_0_target": 2,
+    "score_5_target": 8,
+    "score_10_target": 18,
+    "soft_cap": 20,
+    "hard_cap": 26,
+    "protected_floor": 2
+  },
+  "synergy_payoffs": {
+    "display_name": "Synergy Payoffs",
+    "score_0_target": 2,
+    "score_5_target": 7,
+    "score_10_target": 16,
+    "soft_cap": 18,
+    "hard_cap": 24,
+    "protected_floor": 2
+  },
+  "redundancy": {
+    "display_name": "Redundancy Pieces",
+    "score_0_target": 0,
+    "score_5_target": 3,
+    "score_10_target": 9,
+    "soft_cap": 10,
+    "hard_cap": 14,
+    "protected_floor": 0
+  },
+  "utility": {
+    "display_name": "Utility / Flex Slots",
+    "score_0_target": 0,
+    "score_5_target": 3,
+    "score_10_target": 8,
+    "soft_cap": 8,
+    "hard_cap": 12,
+    "protected_floor": 0
+  }
+}

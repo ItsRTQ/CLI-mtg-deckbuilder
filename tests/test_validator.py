@@ -84,7 +84,9 @@ def test_valid_deck_output_shape():
     assert result["actual_main_deck_size"] == 99
     assert result["total_cards_including_commanders"] == 100
     assert result["errors"] == []
-    assert result["warnings"] == []
+    # Legacy flat list includes the commander → treated as command-zone metadata.
+    assert result["command_zone_cards_removed_from_main_deck"] == ["Brago, King Eternal"]
+    assert any(w["type"] == "commander_in_main_deck" for w in result["warnings"])
 
 
 # --- Card existence ---
@@ -141,16 +143,20 @@ def test_commander_not_eligible_fails():
     assert any(e["type"] == "invalid_commander" for e in result["errors"])
 
 
-def test_commander_missing_from_deck_entries_fails():
+def test_commander_absent_from_main_deck_is_valid():
+    """Structured style: commander supplied separately, not inside main_deck."""
     cmd = make_commander("Brago, King Eternal", ["W", "U"])
     db = {cmd["name"]: cmd}
     db.update(_colorless_cards(99))
-    # Commander NOT in entries
+    # Commander NOT in entries — this is the preferred structured shape.
     entries = [make_entry(n) for n in list(_colorless_cards(99).keys())]
     repo = make_repo(db)
     result = validate_commander_deck("Brago, King Eternal", entries, repo)
-    assert result["valid"] is False
-    assert any(e["type"] == "commander_missing" for e in result["errors"])
+    assert result["valid"] is True
+    assert not any(e["type"] == "commander_missing" for e in result["errors"])
+    assert result["command_zone_cards_removed_from_main_deck"] == []
+    assert result["actual_main_deck_size"] == 99
+    assert result["total_cards_including_commanders"] == 100
 
 
 # --- Commander legality ---

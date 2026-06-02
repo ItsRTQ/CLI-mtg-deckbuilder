@@ -1,273 +1,153 @@
 # Deck Fixer
 
-Your job is to fix invalid or incoherent Commander decks using validator errors, deck-check warnings, user constraints, and the deck plan.
+Purpose: repair a deck after validation, deck-check, budget, or coherence issues.
 
-The validator is the source of truth for legality.
-
-Deck-check is the source of truth for structure/coherence when available.
-
-Return only JSON.
+Fix using CLI data. Do not invent cards. Do not create helper scripts.
 
 ---
 
-## Fixing Priority Order
+## Fix Priority
 
-Fix in this order:
-
-1. cards not found in database (`card_not_found` errors) — treat as hallucination or misspelling, replace with a verified real card
-2. illegal cards (`not_commander_legal`)
-3. cards outside color identity (`color_identity_violation`)
-4. banned cards
-5. duplicate non-basic cards (`singleton_violation`)
-6. incorrect commander (`commander_not_found`, `invalid_commander`, `commander_missing`)
-7. incorrect deck size (`invalid_deck_size`)
-8. user constraint violations
-9. too few lands
-10. too little ramp
-11. too little draw/card advantage
-12. too little interaction/removal
-13. too little protection for commander-dependent decks
-14. missing win conditions
-15. package imbalance
-16. off-plan filler
-17. budget/power-level mismatch
-
-Do not fix cosmetic issues before legality and structure.
-
-### card_not_found Rule
-
-If validation returns `card_not_found` for a card:
-
-- The card name is hallucinated, misspelled, or does not exist in the local database.
-- Do not keep it. Do not assume it is real.
-- Search the CLI for the intended card by effect or name fragment.
-- Replace with a verified card that fills the same role.
-- Never skip `card_not_found` errors. They must be resolved before final-build.
-
-### Budget Overage Rule
-
-Budget is a maximum constraint, not a target.
-
-Do not cut synergy cards just because the deck is under budget.
-
-Only apply budget fixes when `known_price_total > budget_limit * 1.10` (default 10% overage).
-
-When fixing over-budget decks:
-
-1. Replace expensive low-synergy cards first.
-2. Replace expensive staples that are not essential to the engine.
-3. Preserve commander engine pieces.
-4. Preserve key synergy cards.
-5. Preserve required role balance.
-6. Do not degrade the deck into incoherence just to meet the budget.
-
-If the deck is under budget, do not add expensive cards to fill the gap. Optional upgrades may be suggested separately.
+1. Validation errors.
+2. Illegal cards or color identity violations.
+3. Wrong deck size.
+4. Singleton violations.
+5. Missing commander metadata.
+6. Missing package essentials.
+7. Budget above allowed limit.
+8. Coherence problems.
+9. Nice-to-have improvements.
 
 ---
 
-## Category-Count Reference
+## Validation Fixes
 
-When fixing structural issues (too little ramp, draw, removal, etc.), you may re-run:
+Run:
 
 ```bash
-mtg category-counts --commander "<commander>" --archetype <archetype> --power-level <n> --json-output
+mtg validate --commander "<commander>" --deck output/deck.json --json-output
 ```
 
-Use `need_score` to prioritize which structural categories matter most for this specific commander/archetype.
+Partner:
 
-Categories with `need_score >= 6.5` are High or Critical — fix those first.
+```bash
+mtg validate --commander "<commander A>" --partner "<commander B>" --deck output/deck.json --json-output
+```
 
-Categories with `need_score < 3.0` are Low or Negligible — fixing them is optional.
+Fix common errors:
+
+| Error | Meaning | Fix |
+|---|---|---|
+| `card_not_found` | hallucinated/misspelled card | replace with real card |
+| `not_commander_legal` | illegal in Commander | swap card |
+| `color_identity_violation` | outside color identity | swap card |
+| `invalid_deck_size` | wrong count | add/cut cards |
+| `singleton_violation` | duplicate non-basic | remove duplicates |
+| `commander_missing` | missing commander metadata | provide `--commander` or structured metadata |
+
+Do not put commander inside `main_deck` just to appease validation. Structured metadata is preferred.
 
 ---
 
-## Replacement Rules
+## Command-Zone Fixes
 
-Replace like-for-like when possible:
+Preferred deck JSON:
 
-```text
-ramp -> ramp
-draw -> draw
-search -> search
-spot removal -> spot removal
-board wipe -> board wipe
-protection -> protection
-enabler -> enabler
-payoff -> payoff
-engine -> engine
-finisher -> finisher
-support -> support
-land -> land
+```json
+{
+  "commander": "Commander Name",
+  "main_deck": []
+}
 ```
 
-Prefer replacements that also support the commander's engine.
+If a flat list contains the commander, validation should treat it as command-zone metadata. If not, fix with structured `deck-write`.
 
-Use basic lands only as a last resort or when fixing land count/mana base.
+Use:
+
+```bash
+mtg deck-write --input output/decklist.txt --output output/deck.json --commander "<commander>" --structured --force
+mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
+mtg validate --commander "<commander>" --deck output/deck.json --json-output
+```
 
 ---
 
 ## Deck Size Fixes
 
-If deck has more than 100 cards:
-
-1. cut illegal/off-color/duplicate cards first
-2. cut user-forbidden cards
-3. cut lowest-ranked off-plan cards
-4. cut redundant expensive medium-impact cards
-5. cut weakest cards from overfilled packages
-6. avoid cutting lands below calculated/user target
-7. avoid cutting ramp below 9 unless user requested less
-
-If deck has fewer than 100 cards:
-
-1. add missing role cards
-2. add missing package cards
-3. add protection if commander-dependent
-4. add interaction if too low
-5. add basics if still short
-
----
-
-## Structural Fix Guidelines
-
-### Lands
-
-Respect exact land constraints.
-
-If no exact count exists, use the land formula from `deck_builder.md`.
-
-Do not cut lands below 32 unless user specifically requested it and deck curve supports it.
-
-### Ramp
-
-Minimum ramp is 9 by default.
-
-If ramp is below 9, add ramp before adding more strategy cards.
-
-Ramp cards must accelerate mana: mana rocks, mana dorks, rituals, Treasure makers, land search, extra land drops, or cost reducers. Basic lands and tapped utility lands are **not** ramp — do not count them toward the ramp total or add them to the ramp package.
-
-### Draw
-
-Tutors do not count as draw.
-
-If deck has many low-cost cards or casts many spells, increase draw/card flow.
-
-### Removal
-
-Default removal/interaction range is 5–15.
-
-If too high, cut lowest-synergy removal.
-
-If too low, add flexible interaction.
-
-### Protection
-
-Increase protection when commander dependency is high or critical.
-
-Protection is more urgent than extra payoff cards when the deck fails without commander.
-
----
-
-## Package Fix Guidelines
-
-Fix package imbalance based on engine needs:
+Single commander:
 
 ```text
-not enough enablers -> add enablers before payoffs
-not enough payoffs -> add payoffs after engine has enough fuel
-not enough engines -> add repeatable value
-not enough finishers -> add clear win conditions
-too much filler -> replace with package cards
+99 main deck + 1 commander = 100
 ```
 
-Do not use commander-specific templates. Use the engine profile.
+Partner:
 
----
-
-## Power/Budget Fixes
-
-### Casual
-
-Remove unnecessary tutors, fast mana, and infinite combos unless user allowed them.
-
-### Optimized Casual
-
-Allow 1–2 tutors if useful, avoid infinite combos by default, keep strong synergy.
-
-### High Power
-
-Allow tutors, efficient cards, and 1–2 incidental combos.
-
-### cEDH
-
-Prioritize strongest legal options and combo consistency.
-
-If budget is active, replace expensive cards with cheaper same-role options when available.
-
-If budget is too low, get close and note limitation. Do not stop.
-
----
-
-## Output Format
-
-Return only JSON:
-
-```json
-{
-  "fixed": true,
-  "validation_status": "needs_revalidate",
-  "changes": {
-    "removed": [
-      {
-        "name": "Card Removed",
-        "reason": "Why it was removed."
-      }
-    ],
-    "added": [
-      {
-        "name": "Card Added",
-        "reason": "Why it was added."
-      }
-    ],
-    "count_adjustments": []
-  },
-  "remaining_issues": [],
-  "next_action": "validate_again"
-}
+```text
+98 main deck + 2 commanders = 100
 ```
 
-If unable to fix:
+Use `deck-fill-lands` for missing basics. Do not manually script land math.
 
-```json
-{
-  "fixed": false,
-  "reason": "Explain blocker.",
-  "needed_input_or_candidates": [],
-  "next_action": "search_more_candidates"
-}
+---
+
+## Suggest Fixes
+
+If replacing cards, use valid role suggestions.
+
+```bash
+mtg suggest --commander "<commander>" --role removal --limit 20 --json-output
+mtg suggest --commander "<commander>" --role protection --limit 20 --json-output
+mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --limit 20 --json-output
 ```
 
----
+Never use `--role synergy`.
 
-## Rules
-
-- Return JSON only.
-- Do not argue with validator errors.
-- Do not claim fixed until validation passes.
-- Preserve commander, archetype, detail, and user constraints.
-- Make minimal changes when possible.
-- Do not replace synergy cards with generic staples unless role/function requires it.
+Reject off-role results manually if they appear.
 
 ---
 
-## Tool-contract notes
+## Budget Fixes
 
-- Commander-zone cards belong OUTSIDE `main_deck`. Prefer structured deck JSON
-  `{ "commander": "...", "main_deck": [...] }`. `validate` accepts the commander
-  from `--commander`/`--partner` or structured metadata and does NOT require it
-  inside `main_deck` — so `commander_missing` should not appear when a commander
-  is supplied. A commander left in a flat list is auto-treated as command-zone
-  metadata (reported in `command_zone_cards_removed_from_main_deck`).
-- `deck-fill-lands` preserves structured input and its output validates directly.
-  Target main deck = 99 (single) / 98 (partner).
-- Do not manually re-insert the commander into `main_deck` to satisfy validation.
+Budget is a maximum, not a target.
+
+Only reduce cost when above the allowed limit or user asks.
+
+Default overage allowance: 10%.
+
+Unknown-price cards are allowed by default but must be reported.
+
+When cutting for budget:
+
+1. Cut expensive low-synergy cards first.
+2. Preserve core engine pieces.
+3. Preserve required role balance.
+4. Do not make the deck incoherent just to save money.
+
+---
+
+## Category-Counts Fixes
+
+Use category-counts to identify missing or overfilled categories, but do not obey compressed targets blindly.
+
+Prefer:
+
+```text
+recommended_range
+uncompressed_target_count
+need_score
+```
+
+If compression pushes removal or win conditions too low, use judgment and report it.
+
+---
+
+## Final Check
+
+After fixes:
+
+```bash
+mtg validate --commander "<commander>" --deck output/deck.json --json-output
+mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
+```
+
+Only then export/final-build.

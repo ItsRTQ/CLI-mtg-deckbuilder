@@ -1,322 +1,147 @@
 # Commander Analyzer
 
-Your job is to analyze the commander using only the card object returned by the CLI.
+Purpose: turn commander data into a tactical map for the build.
 
-Do not use memory as the source of truth.
+Use the CLI. Do not rely on model memory for card text.
 
-Do not invent card text, rules, legality, or card functions.
+---
 
-## CLI-backed analysis (preferred)
+## Required Command
 
-Before running agent analysis, always run the CLI command to generate a structured analysis artifact:
+Single commander:
+
+```bash
+mtg commander-analyze --commander "<commander>" --output output/commander_analysis.json --json-output
+```
+
+Partner commanders:
+
+```bash
+mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
+```
+
+With context:
 
 ```bash
 mtg commander-analyze \
-  --commander "<Commander Name>" \
+  --commander "<commander>" \
+  --archetype "<archetype>" \
+  --theme "<theme>" \
+  --power-level <number> \
+  --philosophy "<philosophy>" \
+  --meta "<meta>" \
   --output output/commander_analysis.json \
   --json-output
 ```
 
-For partner commanders:
-
-```bash
-mtg commander-analyze \
-  --commander "<Commander A>" \
-  --partner "<Commander B>" \
-  --output output/commander_analysis.json \
-  --json-output
-```
-
-With optional context:
-
-```bash
-mtg commander-analyze \
-  --commander "<Commander Name>" \
-  --archetype blink \
-  --power-level 7 \
-  --philosophy balanced \
-  --output output/commander_analysis.json \
-  --json-output
-```
-
-This writes `output/commander_analysis.json` — the shared tactical map for:
-- `mtg suggest --synergy --analysis output/commander_analysis.json`
-- `mtg category-counts --analysis output/commander_analysis.json`
-- Agent card ranking and deck planning
-
-Read the analysis JSON and use it as the basis for agent decisions. Do not override it without reason. If the analysis is missing or incomplete for the commander's strategy, supplement with your own judgment and note what was added.
-
 ---
 
-## Purpose
+## What to Extract
 
-Identify what the commander actually asks the deck to do.
-
-Do not force the commander into a narrow template.
-
-Do not choose an archetype only because it is popular.
-
-Infer strategy from:
-
-- Oracle text
-- type line
-- color identity
-- power/toughness, when relevant
-- legal commander status
-- card type and subtypes
-- trigger conditions
-- resource zones
-- card type restrictions
-- payoff text
-
----
-
-## Partner Commander Support
-
-If two commanders are provided (partner deck):
-
-1. Analyze each commander separately first.
-2. Then identify shared or complementary patterns:
-   - shared trigger conditions
-   - complementary resources (e.g., one generates, one cashes in)
-   - combined color identity
-   - shared card type preferences
-   - overlapping archetypes or orthogonal archetypes that coexist
-3. Determine which commander is primary vs support, or if they share equal priority.
-4. Combined color identity = union of both commanders' color identity.
-5. Deck size for partner decks: 2 commanders + 98 main deck cards = 100 total.
-
----
-
-## Required Analysis Steps
-
-### 1. Validate Commander Eligibility
-
-Confirm from CLI data:
-
-- card exists
-- Commander legal
-- can be commander
-- color identity
-
-For partner decks, confirm both commanders. Verify each individually.
-
-If invalid, stop and return JSON explaining why.
-
-### 2. Extract Text Signals
-
-Break the commander text into signals.
-
-Look for:
+Use `output/commander_analysis.json` to understand:
 
 ```text
-trigger condition: whenever/when/at/if
-zone: battlefield, graveyard, exile, hand, library, command zone
-resource: mana, cards, life, tokens, counters, combat, sacrifice, spells
-card type preference: creatures, artifacts, enchantments, instants, sorceries, lands, permanents
-scaling axis: power, toughness, number of creatures, card types, life total, mana value
-restriction: once each turn, only your turn, nonland, noncreature, permanent, attacking, combat damage
-payoff: draw, ramp, drain, damage, tokens, recursion, copy, cast free, extra combat, removal
-```
-
-### 3. Identify Engine
-
-Describe the commander's engine generically:
-
-```text
-Input -> Engine action -> Output -> Win conversion
-```
-
-Examples of engine types:
-
-```text
-attack_trigger_engine
-combat_damage_engine
-death_trigger_engine
-sacrifice_engine
-spell_cast_engine
-graveyard_recursion_engine
-permanent_recursion_engine
-etb_blink_engine
-token_engine
-counter_engine
-lifegain_engine
-artifact_engine
-enchantment_engine
-land_engine
-tribal_engine
-power_scaling_engine
-resource_denial_engine
-political_resource_engine
-```
-
-Use one primary pattern and optional secondary patterns.
-
-Do not include commander-specific templates.
-
-### 4. Identify Wants and Avoids
-
-Wanted cards are cards that:
-
-- feed the engine
-- multiply the engine
-- protect the engine
-- convert the engine into wins
-- cover required deck roles while supporting the engine
-
-Avoid cards that:
-
-- conflict with the engine
-- dilute required card-type density
-- duplicate what the commander already gives with low impact
-- remove the deck's own key resources
-- are expensive with medium impact
-- are generic goodstuff when synergy is needed
-
-### 5. Estimate Commander Dependency
-
-Classify how much the deck depends on the commander:
-
-```text
-low
-medium
-high
-critical
-```
-
-Increase protection recommendations if commander dependency is high/critical.
-
-Dependency signals that increase score:
-- Commander triggers on "whenever" (reactive, ongoing engine)
-- Commander text contains "triggers an additional time" (high value multiplier)
-- Commander requires a specific event every turn to generate value
-- Deck clearly fails if commander is removed more than once
-
-Threat signals that draw attention/removal:
-- Mass card draw (draw 3+ cards)
-- Gives free mana generation
-- Wins on its own if left uncontested
-- Goes infinite with common cards
-
-Mana value pressure signals:
-- MV ≥ 4 means the deck needs to support replaying an expensive commander
-- MV ≥ 6 creates significant pressure on ramp requirements
-
-These signals inform category-count recommendations but are also useful for package planning.
-
-### 6. Identify User-Facing Build Choices
-
-If the commander supports multiple valid build directions, output them as options for `user-feedback.md`.
-
-Do not decide all paths silently when user preference would matter.
-
----
-
-## Broad Archetypes
-
-Use these broad labels:
-
-```text
-aristocrats
-artifacts
-auras
-battlecruiser
-blink
-combo
-control
-enchantress
-equipment
-go_tall_aggro
-go_wide_aggro
-graveyard_value
-group_hug
-group_slug
-infect
-landfall
-lands
-lifegain
-mill
-pillowfort
-reanimator
-spellslinger
-stax
-stompy
-theft
-tokens
-tribal
-value_engine
-voltron
-```
-
-Archetypes are labels, not rigid deck templates.
-
----
-
-## Output Format
-
-Return only JSON:
-
-```json
-{
-  "commander": "Card Name",
-  "partner": null,
-  "is_valid_commander": true,
-  "color_identity": ["W", "U"],
-  "combined_color_identity": ["W", "U"],
-  "commander_slots": 1,
-  "oracle_text_summary": "Short factual summary based only on CLI card data.",
-  "text_signals": {
-    "trigger_conditions": [],
-    "resource_zones": [],
-    "preferred_card_types": [],
-    "scaling_axes": [],
-    "restrictions": [],
-    "payoffs": []
-  },
-  "engine_profile": {
-    "primary_pattern": "generic_engine_name",
-    "secondary_patterns": [],
-    "input": "What the deck needs to provide.",
-    "engine_action": "What commander does.",
-    "output": "What advantage is created.",
-    "win_conversion": "How that advantage can become a win."
-  },
-  "likely_archetypes": [],
-  "best_archetype": "",
-  "details": [],
-  "build_direction_options": [
-    {
-      "label": "Short option name",
-      "description": "What this direction emphasizes.",
-      "recommended_when": "When user would prefer this."
-    }
-  ],
-  "commander_dependency": "medium",
-  "wanted_functions": ["enablers", "payoffs", "engines", "finishers", "support"],
-  "wanted_card_patterns": [],
-  "avoid_card_patterns": [],
-  "anti_synergies": [],
-  "recommended_role_pressure": {
-    "lands": "normal",
-    "ramp": "normal",
-    "card_draw": "normal",
-    "removal": "normal",
-    "board_wipes": "normal",
-    "protection": "normal",
-    "strategy_cards": "high",
-    "win_conditions": "normal"
-  },
-  "notes": "Brief reasoning."
-}
+color_identity
+commander_slots / library_slots
+card types and subtypes
+text signals
+commander tags
+synergy tags
+anti-synergy tags
+engine profile
+archetype fit
+role pressures
+commander scores
+provides / requires / rewards
+wanted card patterns
+avoid card patterns
+build direction options
 ```
 
 ---
 
-## Rules
+## Analysis Questions
 
-- Return JSON only.
-- Do not invent card data.
-- Do not claim commander validity unless CLI data supports it.
-- Prefer engine logic over popularity.
-- Keep build directions generic and derived from text.
-- Avoid hardcoded commander templates.
+Answer these before building:
+
+```text
+What does the commander provide?
+What does the commander require?
+What does the commander reward?
+Is the commander the engine, payoff, wincon, or support piece?
+How commander-dependent is the deck?
+How likely is the commander to be removed on sight?
+Does the commander need ramp, protection, evasion, recursion, or redundancy?
+What card types, subtypes, zones, events, and resources matter?
+What archetypes naturally fit?
+What archetypes are forced/low-fit?
+```
+
+---
+
+## Type and Subtype Rules
+
+Type tags are signals, not automatic archetypes.
+
+Example:
+
+```text
+Vampire subtype -> possible tribal_vampire signal
+Artifact commander -> possible artifact_engine signal
+Planeswalker commander -> planeswalker_commander signal
+```
+
+Do not force tribal just because a commander has a creature subtype.
+
+---
+
+## Provides / Requires / Rewards
+
+Keep these separate:
+
+```text
+provides = commander directly supplies the effect
+requires = commander needs support to function
+rewards = commander makes more of that effect/card type better
+```
+
+Examples:
+
+```text
+Commander draws cards -> provides card_draw
+Commander must attack/connect -> requires protection/evasion
+Commander creates tokens -> provides tokens and may reward token payoffs
+Commander rewards creatures dying -> rewards sacrifice/death_trigger packages
+Commander costs 6+ -> requires ramp and protection
+```
+
+---
+
+## Partner Commanders
+
+For partner decks:
+
+```text
+combine color identity
+analyze each commander separately
+then analyze overlap and complementarity
+build one unified plan
+main deck size is 98
+```
+
+---
+
+## How Other Agents Use It
+
+`commander_analysis.json` should guide:
+
+```text
+category-counts
+suggest --synergy
+card ranking
+package planning
+deck fixing
+deck explanation
+```
+
+If the analysis looks wrong or weak, do not blindly follow it. Note the issue in Build Feedback.

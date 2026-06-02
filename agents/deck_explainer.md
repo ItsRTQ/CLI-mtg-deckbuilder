@@ -1,14 +1,6 @@
 # Deck Explainer
 
-Your job is to explain the final validated Commander deck in a practical way.
-
-Only explain after validation passes.
-
-Do not invent card rulings, combos, or unsupported claims.
-
----
-
-## Save Target
+Purpose: explain the finalized deck clearly after validation passes.
 
 Write the explanation to:
 
@@ -16,285 +8,173 @@ Write the explanation to:
 output/deck_explanation.md
 ```
 
-When calling `mtg final-build`, pass it:
-
-```bash
-mtg final-build \
-  --deck output/deck.json \
-  --commander "<commander>" \
-  --theme "<theme>" \
-  --bracket T3 \
-  --explanation output/deck_explanation.md
-```
+Do not claim the deck is complete unless validation passed.
 
 ---
 
-## Required Sections
-
-Use this structure:
-
-```md
-# Deck Summary
-
-## Commander
-
-## Power Level and Budget
-
-## Archetype and Detail
-
-## Build Preferences (if Detailed build mode was used)
-
-## Validation
-
-## Package Breakdown
-
-## Gameplan
-
-## Main Synergies
-
-## Win Conditions
-
-## Weaknesses
-
-## How to Pilot
-
-## Upgrade Ideas
-
-## Moxfield Export
-
-## Build Feedback (optional)
-```
-
----
-
-## Section Rules
-
-### Commander
-
-Explain what the commander wants to do based on its verified card text.
-
-Focus on the engine:
-
-```text
-input -> engine action -> output -> win conversion
-```
-
-### Power Level and Budget
-
-State selected or assumed power level and budget.
-
-Mention assumptions clearly.
-
-If budget was active, report:
-
-- `known_price_total` from `mtg budget` output
-- `budget_confidence`: complete (all cards priced) or partial (some prices unknown)
-- `budget_status`: under_budget / within_overage / over_budget
-- List unknown-price cards if any
-
-Do not claim exact budget compliance when `budget_confidence = "partial"`. Do not treat unknown prices as $0.
-
-### Archetype and Detail
-
-Explain:
-
-- broad archetype
-- specific detail/subtheme
-- why this direction fits the commander/user request
-
-### Build Preferences (if Detailed build mode was used)
-
-Only include this section if Detailed build mode was active and at least one preference was collected.
-
-Format:
-
-```text
-Build Preferences:
-- Mode: Detailed build
-- Playstyle: <value or omit if not asked>
-- Speed: <value or omit if not asked>
-- Theme commitment: <value or omit if not asked>
-- Interaction: <value or omit if not asked>
-- Win style: <value or omit if not asked>
-- Staples policy: <value or omit if not asked>
-- Table friendliness: <value or omit if not asked>
-```
-
-Skip this section entirely in Quick build mode.
-
-### Validation
-
-Use only:
-
-```text
-Validation passed.
-```
-
-or:
-
-```text
-Validation failed. Do not use this deck yet.
-```
-
-Do not say legal unless validator passed.
-
-### Package Breakdown
-
-Explain functional packages, not every card.
+## Required Inputs
 
 Use:
 
 ```text
-Enablers:
-Payoffs:
-Engines:
-Finishers:
-Support:
-Ramp:
-Draw/Search:
-Removal:
-Protection:
+output/deck.json
+output/deck.enriched.json if available
+output/commander_analysis.json
+output/commander_combos.json if used
+category-counts output if available
+validation report
+deck-check report
+budget report if budget exists
+user feedback preferences
 ```
 
-Tutors/search should not be described as draw.
+---
 
-### Gameplan
+## Explanation Structure
 
-Explain by turns/stages:
+Use this order:
 
 ```text
-Early game:
-Mid game:
-Late game:
+# Deck Explanation: <Commander> - <Theme>
+
+## Summary
+## Build Preferences
+## Commander Gameplan
+## Package Breakdown
+## Ramp / Mana Plan
+## Card Advantage Plan
+## Interaction and Protection
+## Win Conditions
+## Combo Notes, if relevant
+## Budget Status, if relevant
+## Validation Status
+## Weaknesses
+## Upgrade / Downgrade Ideas, optional
+## Build Feedback, optional
 ```
 
-### Main Synergies
+---
 
-Explain synergy patterns, not random card lists.
+## Summary
 
-Good explanations identify why the pieces work together.
+Include:
 
-### Win Conditions
+```text
+commander / partner
+archetype
+detail/theme
+power bracket
+budget assumption
+validation status
+final build path if available
+```
 
-Clearly list each win path.
+---
+
+## Package Breakdown
+
+Explain package choices using category-counts and commander analysis.
+
+Mention where the deck follows or intentionally deviates from `recommended_range`.
+
+Do not pretend compressed category-count targets are hard rules.
+
+---
+
+## Win Conditions
+
+List realistic win paths.
 
 Examples:
 
 ```text
-massive combat
+combat damage
+token swarm
 commander damage
 aristocrats drain
-mill
-combo
-control/stax lock
-value overwhelm
-big threats
-alternate win condition
+combo finish
+value engine into attrition
+big mana finisher
 ```
 
-If the deck has incidental combos, say they are backup wins and not the whole plan.
+If combos are included, explain:
 
-### Weaknesses
+```text
+combo cards
+what the combo produces
+bracket/power relevance
+why it fits user combo policy
+```
 
-Be honest.
+If combos are not included but combo data was checked, say combo data was treated as context only.
 
-Mention things like:
+---
+
+## Budget Status
+
+If budget applies, include:
+
+```text
+budget limit
+known price total
+budget status
+unknown-price cards
+budget confidence
+```
+
+Do not claim exact budget compliance if unknown-price cards remain.
+
+Budget is a maximum, not a target.
+
+---
+
+## Validation Status
+
+State whether validation passed.
+
+Mention:
+
+```text
+main deck count
+commander-zone count
+total cards including commanders
+color identity
+Commander legality
+singleton rule
+```
+
+Do not say final if validation failed.
+
+---
+
+## Weaknesses
+
+Be honest. Examples:
 
 ```text
 commander dependency
 weak to board wipes
-graveyard hate
-artifact/enchantment hate
-slow starts
-lack of flyers/reach
-weak to exile removal
-budget mana base limitations
+weak to graveyard hate
+slow mana base
+limited card draw
+combo vulnerability
+budget substitutions
+unknown prices
 ```
 
-### How to Pilot
+---
 
-Give practical advice:
+## Build Feedback
 
-- what hands to keep
-- what to develop early
-- when to cast commander
-- what to protect
-- when to go for win
-
-Keep it concise.
-
-### Upgrade Ideas
-
-Do not invent cards.
-
-If suggesting specific cards, verify through CLI first.
-
-If not verified, suggest upgrade categories instead:
-
-```text
-better mana base
-more efficient interaction
-stronger tutors
-more protection
-higher-impact finishers
-```
-
-### Moxfield Export
-
-Point to:
-
-```text
-output/deck.moxfield.txt
-```
-
-Also note the final build folder if `mtg final-build` was run:
-
-```text
-final-builds/<build-name>/
-  <build-name>.txt
-  <build-name>.explanation.md
-```
-
-### Build Feedback (optional)
-
-Include this section only if the build had meaningful friction that would help improve future builds.
-
-Skip this section if the build went smoothly.
+Optional. Include only if useful.
 
 Good feedback is specific and actionable:
 
 ```text
 Build Feedback:
-- Search friction: ramp suggestions returned cards with empty matched_tags.
-- Pricing: 4 cards had unknown USD price; budget_confidence is partial.
-- Missing CLI feature: deck-check did not count custom enchantment-based ramp.
-- category-counts: archetype_core target was 26 but nonland slots were 63,
-  causing extreme compression that reduced recursion to 0. Agent overrode to 4.
+- Search friction: `suggest --role ramp` returned lands, so ramp needed manual filtering.
+- Category-count friction: forced low-fit archetype compressed removal below practical floor.
+- Validation friction: structured command-zone handling needed review.
 ```
 
-Do not use Build Feedback as a complaint. It should explain what specific tool behavior or data gap affected the build.
-
-Category-counts feedback worth reporting:
-- Extreme slot compression that forced a category below functional minimum.
-- Archetype fit score below 4.0 (forced archetype).
-- `need_score` disagreed significantly with actual deck needs for the specific commander.
-
----
-
-## Tone
-
-Be clear and practical.
-
-Do not overhype.
-
-Do not claim the deck is stronger than it is.
-
----
-
-## Rules
-
-- Explain only after validation passes.
-- Do not invent cards or combos.
-- Do not explain cards not in the deck.
-- Mention deck-check warnings honestly.
-- Make the explanation useful for piloting.
+Skip this section if the build went smoothly.

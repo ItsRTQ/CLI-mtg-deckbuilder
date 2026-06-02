@@ -3,7 +3,13 @@ import json
 from typing import List, Dict, Any, Optional
 from mtgcli.config import SQLITE_PATH, SEED_DATA_DIR
 from mtgcli.cards.repository import row_to_card
-from mtgcli.cards.query_parser import parse_search_query, build_search_conditions
+from mtgcli.cards.query_parser import (
+    parse_search_query,
+    build_search_conditions,
+    check_query_conflicts,
+    merge_parsed,
+    empty_parsed,
+)
 
 
 # Broad card types matched against type_line via LOWER(type_line) LIKE.
@@ -125,14 +131,27 @@ def search_commander_legal_cards(
     query: Optional[str] = None,
     colors: Optional[str] = None,
     limit: int = 50,
-    type_filter: Optional[str] = None
+    type_filter: Optional[str] = None,
+    extra_filters: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
     Searches for commander-legal cards with optional text and color identity filters.
     `type_filter` is a broad card-type filter (see normalize_type_filter).
+    `extra_filters` is a parsed-query dict (see query_parser.empty_parsed) holding
+    structured filters supplied via repeatable CLI options; it is AND-merged with
+    the query string.
     """
     if not SQLITE_PATH.exists():
         return []
+
+    # Parse the query string and AND-merge any CLI-supplied structured filters.
+    # Validate before touching the DB so conflicting filters (e.g. mv>=5 mv<=2)
+    # surface as a clean error, not silent [].
+    parsed = parse_search_query(query) if query else None
+    if extra_filters:
+        parsed = merge_parsed(parsed or empty_parsed(), extra_filters)
+    if parsed is not None:
+        check_query_conflicts(parsed)
 
     conn = sqlite3.connect(str(SQLITE_PATH))
     conn.row_factory = sqlite3.Row
@@ -143,8 +162,7 @@ def search_commander_legal_cards(
     params = []
 
     # Structured token search — supports type:, oracle:, name:, mv: filters
-    if query:
-        parsed = parse_search_query(query)
+    if parsed is not None:
         conditions, cond_params = build_search_conditions(parsed)
         for cond in conditions:
             sql += f" AND {cond}"

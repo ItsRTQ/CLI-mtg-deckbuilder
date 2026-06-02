@@ -1,5 +1,67 @@
 import re
+import shlex
 from typing import Dict, Any, List, Tuple, Optional
+
+
+class QueryConflictError(ValueError):
+    """Raised when a search query contains mutually exclusive filters."""
+
+
+def _tokenize(query: str) -> List[str]:
+    """
+    Splits a query into tokens, honoring quoted phrases so that
+    `oracle:"draw a card"` becomes a single `oracle:draw a card` token.
+    Falls back to plain whitespace splitting on unbalanced quotes.
+    """
+    try:
+        return shlex.split(query)
+    except ValueError:
+        return query.split()
+
+
+def empty_parsed() -> Dict[str, Any]:
+    """Returns a fresh parsed-query dict with no filters set."""
+    return {
+        "free_text": [],
+        "type_terms": [],
+        "oracle_terms": [],
+        "name_terms": [],
+        "mana_value_eq": None,
+        "mana_value_lte": None,
+        "mana_value_gte": None,
+    }
+
+
+def merge_parsed(base: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merges two parsed-query dicts with AND semantics.
+
+    List fields are concatenated. Mana-value bounds are combined to the most
+    restrictive: smallest lte, largest gte. Equality must agree if set twice.
+    """
+    merged = empty_parsed()
+    for key in ("free_text", "type_terms", "oracle_terms", "name_terms"):
+        merged[key] = list(base.get(key, [])) + list(extra.get(key, []))
+
+    def _pick(field, combine):
+        a, b = base.get(field), extra.get(field)
+        if a is None:
+            return b
+        if b is None:
+            return a
+        return combine(a, b)
+
+    merged["mana_value_lte"] = _pick("mana_value_lte", min)
+    merged["mana_value_gte"] = _pick("mana_value_gte", max)
+
+    eq_a, eq_b = base.get("mana_value_eq"), extra.get("mana_value_eq")
+    if eq_a is not None and eq_b is not None and eq_a != eq_b:
+        raise QueryConflictError(
+            f"Conflicting mana value filters: mv:{eq_a:g} and mv:{eq_b:g}."
+        )
+    merged["mana_value_eq"] = eq_a if eq_a is not None else eq_b
+
+    return merged
 
 
 def parse_search_query(query: str) -> Dict[str, Any]:
@@ -18,17 +80,9 @@ def parse_search_query(query: str) -> Dict[str, Any]:
     Unrecognized tokens are treated as free-text (match name/type/oracle).
     Multiple tokens of the same kind are AND'd together.
     """
-    result: Dict[str, Any] = {
-        "free_text": [],
-        "type_terms": [],
-        "oracle_terms": [],
-        "name_terms": [],
-        "mana_value_eq": None,
-        "mana_value_lte": None,
-        "mana_value_gte": None,
-    }
+    result: Dict[str, Any] = empty_parsed()
 
-    for raw_token in query.split():
+    for raw_token in _tokenize(query):
         token = raw_token.strip()
         if not token:
             continue
@@ -108,6 +162,31 @@ def build_search_conditions(
         params.append(parsed["mana_value_gte"])
 
     return conditions, params
+
+
+def check_query_conflicts(parsed: Dict[str, Any]) -> None:
+    """
+    Raises QueryConflictError if the parsed query has impossible filters,
+    e.g. an empty mana-value range like `mv>=5 mv<=2`.
+    """
+    lte = parsed.get("mana_value_lte")
+    gte = parsed.get("mana_value_gte")
+    if lte is not None and gte is not None and gte > lte:
+        raise QueryConflictError(
+            f"Conflicting mana value filters: mv>={gte:g} and mv<={lte:g} "
+            f"can never both be true."
+        )
+
+    eq = parsed.get("mana_value_eq")
+    if eq is not None:
+        if lte is not None and eq > lte:
+            raise QueryConflictError(
+                f"Conflicting mana value filters: mv:{eq:g} and mv<={lte:g}."
+            )
+        if gte is not None and eq < gte:
+            raise QueryConflictError(
+                f"Conflicting mana value filters: mv:{eq:g} and mv>={gte:g}."
+            )
 
 
 def is_plain_query(query: str) -> bool:

@@ -176,6 +176,20 @@ mv>=<number>
 
 Do not assume full Scryfall syntax.
 
+To avoid shell quoting, prefer repeatable filter options (all AND-matched, and
+they combine with any query string and with `--type`):
+
+```bash
+mtg search --oracle "can't be blocked" --oracle target --oracle creature
+mtg search --oracle "draw a card" --type creature
+mtg search --card-type vampire --type creature
+mtg search --name Ajani --card-type planeswalker
+mtg search --mv-lte 3 --oracle draw --oracle card --type creature
+```
+
+Options: `--oracle`/`--text`, `--name`, `--card-type`/`--subtype` (repeatable),
+`--mv`, `--mv-lte`, `--mv-gte`.
+
 #### Broad type filter: `--type`
 
 Use `--type` when you want an effect attached to a specific card type:

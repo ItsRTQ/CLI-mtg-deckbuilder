@@ -1,4 +1,12 @@
-from mtgcli.cards.query_parser import parse_search_query, build_search_conditions, is_plain_query
+import pytest
+
+from mtgcli.cards.query_parser import (
+    parse_search_query,
+    build_search_conditions,
+    is_plain_query,
+    check_query_conflicts,
+    QueryConflictError,
+)
 
 
 # --- parse_search_query ---
@@ -74,6 +82,61 @@ def test_unknown_token_treated_as_free_text():
     assert "color:red" in result["free_text"]
 
 
+# --- multiple / quoted structured tokens ---
+
+def test_single_oracle_term():
+    assert parse_search_query("oracle:draw")["oracle_terms"] == ["draw"]
+
+def test_quoted_oracle_phrase_preserves_spaces():
+    result = parse_search_query('oracle:"draw a card"')
+    assert result["oracle_terms"] == ["draw a card"]
+
+def test_multiple_oracle_terms_with_quotes_and_apostrophe():
+    result = parse_search_query('''oracle:"can't be blocked" oracle:target oracle:creature''')
+    assert result["oracle_terms"] == ["can't be blocked", "target", "creature"]
+
+def test_text_alias_repeated_maps_to_oracle():
+    result = parse_search_query("text:draw text:card")
+    assert result["oracle_terms"] == ["draw", "card"]
+    assert result["free_text"] == []
+
+def test_repeated_type_terms():
+    result = parse_search_query("type:vampire type:creature")
+    assert result["type_terms"] == ["vampire", "creature"]
+
+def test_name_and_type_terms():
+    result = parse_search_query("name:Ajani type:planeswalker")
+    assert result["name_terms"] == ["ajani"]
+    assert result["type_terms"] == ["planeswalker"]
+
+def test_both_mana_filters_and_oracle():
+    result = parse_search_query("mv>=2 mv<=4 oracle:draw")
+    assert result["mana_value_gte"] == 2.0
+    assert result["mana_value_lte"] == 4.0
+    assert result["oracle_terms"] == ["draw"]
+
+def test_quoted_type_phrase():
+    result = parse_search_query('type:"artifact creature"')
+    assert result["type_terms"] == ["artifact creature"]
+
+
+# --- check_query_conflicts ---
+
+def test_conflict_impossible_range_raises():
+    parsed = parse_search_query("mv<=2 mv>=5")
+    with pytest.raises(QueryConflictError):
+        check_query_conflicts(parsed)
+
+def test_valid_range_no_conflict():
+    parsed = parse_search_query("mv>=2 mv<=4 oracle:draw")
+    check_query_conflicts(parsed)  # should not raise
+
+def test_conflict_eq_outside_range_raises():
+    parsed = parse_search_query("mv:5 mv<=2")
+    with pytest.raises(QueryConflictError):
+        check_query_conflicts(parsed)
+
+
 # --- build_search_conditions ---
 
 def test_type_condition_uses_type_line():
@@ -118,6 +181,24 @@ def test_multiple_conditions_are_separate():
     parsed = parse_search_query("type:creature oracle:draw")
     conditions, params = build_search_conditions(parsed)
     assert len(conditions) == 2
+
+def test_multiple_oracle_terms_and_semantics():
+    parsed = parse_search_query('''oracle:"can't be blocked" oracle:target oracle:creature''')
+    conditions, params = build_search_conditions(parsed)
+    # one condition per oracle term, all AND'd
+    oracle_conds = [c for c in conditions if "oracle_text" in c]
+    assert len(oracle_conds) == 3
+    assert "%can't be blocked%" in params
+    assert "%target%" in params
+    assert "%creature%" in params
+
+def test_params_are_parameterized_not_inlined():
+    # values must travel as params (via ? placeholders), never inlined into SQL
+    parsed = parse_search_query("oracle:dropcards")
+    conditions, params = build_search_conditions(parsed)
+    assert all("?" in c for c in conditions)
+    assert all("dropcards" not in c for c in conditions)
+    assert "%dropcards%" in params
 
 def test_empty_query_produces_no_conditions():
     parsed = parse_search_query("")

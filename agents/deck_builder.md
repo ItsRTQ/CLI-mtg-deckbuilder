@@ -99,6 +99,28 @@ mtg suggest --commander "<commander>" --role cheap --synergy --analysis output/c
 
 Never use `--role synergy`.
 
+Add `--type <type>` to narrow a role to a specific card type (applied AFTER
+role match — it never bypasses the role filter):
+
+```bash
+mtg suggest --commander "<commander>" --role card_draw --type creature --json-output
+mtg suggest --commander "<commander>" --role ramp --type artifact --json-output
+mtg suggest --commander "<commander>" --role payoff --type creature --synergy --json-output
+```
+
+`--type` is also on `search` / `search-tags` for effect-on-type lookups:
+
+```bash
+mtg search "draw a card" --type creature --json-output
+mtg search "destroy target" --type instant --json-output
+mtg search-tags card_draw --type creature --json-output
+```
+
+`--type` filters broad card type via `type_line`. It does not replace the
+`type:<value>` query token; both can be combined. Supported: artifact,
+creature, enchantment, instant, sorcery, planeswalker, land, battle (plurals
+ok); aliases spell, permanent, nonland.
+
 Suggestion and card-lookup JSON include creature `power` and `toughness`. Use them
 when choosing creatures for combat, voltron, go-tall/go-wide, tribal, finisher, and
 win-condition slots, and to gauge blocker quality. Treat missing or non-numeric P/T

@@ -184,3 +184,17 @@ Use a clear breakdown:
   "warnings": []
 }
 ```
+
+## Searching by effect + type
+
+When you need an effect on a specific card type, use `--type` on `search` /
+`search-tags`. It filters broad card type via `type_line` and combines with
+`type:<value>` tokens (which match subtypes).
+
+```bash
+mtg search "draw a card" --type creature --json-output
+mtg search-tags card_draw --type creature --json-output
+```
+
+Supported: artifact, creature, enchantment, instant, sorcery, planeswalker,
+land, battle (plurals ok); aliases spell, permanent, nonland.

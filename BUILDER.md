@@ -176,6 +176,44 @@ mv>=<number>
 
 Do not assume full Scryfall syntax.
 
+#### Broad type filter: `--type`
+
+Use `--type` when you want an effect attached to a specific card type:
+card draw on creatures, ramp on artifacts, removal on instants, sacrifice
+outlets on creatures/artifacts.
+
+```bash
+mtg search "draw a card" --type creature --json-output
+mtg search "Add" --type artifact --json-output
+mtg search "destroy target" --type instant --json-output
+mtg search "return target" --type sorcery --json-output
+mtg search "landfall" --type enchantment --json-output
+```
+
+`--type` filters the broad card type via `type_line` (case-insensitive,
+substring). It does NOT replace the `type:<value>` query token — they combine.
+`type:<value>` matches any word in the type line (often a subtype like
+`vampire`); `--type` is an explicit broad-type filter. Combined:
+
+```bash
+mtg search "type:vampire" --type creature --json-output
+# type_line contains Vampire AND contains Creature
+```
+
+Supported types: `artifact, creature, enchantment, instant, sorcery,
+planeswalker, land, battle` (plurals accepted).
+Aliases: `spell` (instant/sorcery), `permanent`, `nonland`.
+
+`--type` is also available on `search-tags` and `suggest`:
+
+```bash
+mtg search-tags card_draw --type creature --json-output
+mtg suggest --commander "<commander>" --role card_draw --type creature --json-output
+```
+
+On `suggest`, `--type` is applied AFTER role match — it never bypasses the
+role filter (e.g. `--role ramp --type land` still requires a land-ramp tag).
+
 ### Phase D — Suggest by role
 
 Role = the card's functional job.

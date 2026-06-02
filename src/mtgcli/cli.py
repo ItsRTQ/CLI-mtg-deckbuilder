@@ -17,7 +17,14 @@ from mtgcli.config import FINAL_BUILDS_DIR
 from mtgcli.data.download_cards import download_default_cards
 from mtgcli.data.build_sqlite import build_sqlite_database
 from mtgcli.cards.repository import CardRepository
-from mtgcli.cards.search import search_commander_legal_cards, search_by_tags
+from mtgcli.cards.search import (
+    search_commander_legal_cards,
+    search_by_tags,
+    normalize_type_filter,
+    card_matches_type,
+    supported_types_message,
+    UnknownTypeFilterError,
+)
 from mtgcli.utils.json_io import read_json, write_json
 from mtgcli.export.moxfield import export_deck_to_moxfield
 from mtgcli.validator.deck_validator import validate_commander_deck
@@ -123,6 +130,7 @@ def card(
 def search(
     query: str,
     colors: Optional[str] = typer.Option(None, "--colors", help="Filter by color identity (e.g. RG)"),
+    type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by broad card type via type_line (e.g. creature, artifact, instant)"),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
@@ -131,7 +139,15 @@ def search(
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
 
-    results = search_commander_legal_cards(query=query, colors=colors, limit=limit)
+    if type_filter is not None:
+        try:
+            normalize_type_filter(type_filter)
+        except UnknownTypeFilterError:
+            print(f"[red]Unknown type filter: {type_filter}.[/red]")
+            print(f"[yellow]{supported_types_message()}[/yellow]")
+            raise typer.Exit(code=1)
+
+    results = search_commander_legal_cards(query=query, colors=colors, limit=limit, type_filter=type_filter)
 
     if not results:
         print(f"[yellow]No cards found matching '{query}'[/yellow]")
@@ -149,6 +165,7 @@ def search(
 def search_tags(
     tags: List[str],
     colors: Optional[str] = typer.Option(None, "--colors", help="Filter by color identity (e.g. RG)"),
+    type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by broad card type via type_line (e.g. creature, artifact, instant)"),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
@@ -157,7 +174,15 @@ def search_tags(
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
 
-    results = search_by_tags(tags=tags, colors=colors, limit=limit)
+    if type_filter is not None:
+        try:
+            normalize_type_filter(type_filter)
+        except UnknownTypeFilterError:
+            print(f"[red]Unknown type filter: {type_filter}.[/red]")
+            print(f"[yellow]{supported_types_message()}[/yellow]")
+            raise typer.Exit(code=1)
+
+    results = search_by_tags(tags=tags, colors=colors, limit=limit, type_filter=type_filter)
 
     if not results:
         print(f"[yellow]No cards found matching tags: {', '.join(tags)}[/yellow]")
@@ -178,6 +203,7 @@ def suggest(
     synergy: bool = typer.Option(False, "--synergy", help="Narrow results to cards that also connect with the commander's strategy (applied after role match)"),
     analysis: Optional[Path] = typer.Option(None, "--analysis", help="Path to commander_analysis.json; improves --synergy matching (default: output/commander_analysis.json)"),
     theme: Optional[str] = typer.Option(None, "--theme", help="Optional deck theme, e.g. goblins, equipment, modified_creatures"),
+    type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by broad card type via type_line, applied after role match (e.g. creature, artifact)"),
     package: Optional[str] = typer.Option(None, "--package", help="Optional theme package, e.g. modified_enablers"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
     exclude_deck: Optional[Path] = typer.Option(None, "--exclude", help="Deck JSON file with cards to exclude"),
@@ -189,6 +215,14 @@ def suggest(
     if not SQLITE_PATH.exists():
         print("[red]Database not found. Please run 'init-data' first.[/red]")
         raise typer.Exit(code=1)
+
+    if type_filter is not None:
+        try:
+            normalize_type_filter(type_filter)
+        except UnknownTypeFilterError:
+            print(f"[red]Unknown type filter: {type_filter}.[/red]")
+            print(f"[yellow]{supported_types_message()}[/yellow]")
+            raise typer.Exit(code=1)
 
     repo = CardRepository(str(SQLITE_PATH))
     commander_card = repo.get_card_by_exact_name(commander)
@@ -253,6 +287,8 @@ def suggest(
                 continue
             if card["name"] in exclude_names:
                 continue
+            if type_filter is not None and not card_matches_type(card, type_filter):
+                continue
             filtered_results.append(card)
         results = filtered_results
 
@@ -282,7 +318,8 @@ def suggest(
             max_price=max_price,
             max_mana_value=role_max_mv,
             exclude_names=list(exclude_names),
-            dedupe=dedupe
+            dedupe=dedupe,
+            type_filter=type_filter
         )
 
         if not results:

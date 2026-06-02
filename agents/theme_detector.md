@@ -196,3 +196,16 @@ How do we protect the engine?
 How do we convert the engine into a win?
 How do we cover normal deck needs while staying on-plan?
 ```
+
+## Type-scoped effect lookups
+
+To check how an effect is distributed across card types, add `--type` to
+`search` (filters broad type via `type_line`; combines with `type:<value>`):
+
+```bash
+mtg search "landfall" --type enchantment --json-output
+mtg search "type:vampire" --type creature --json-output
+```
+
+Supported: artifact, creature, enchantment, instant, sorcery, planeswalker,
+land, battle (plurals ok); aliases spell, permanent, nonland.

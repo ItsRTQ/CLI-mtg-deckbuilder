@@ -6,6 +6,8 @@ from mtgcli.config import SEED_DATA_DIR
 
 _DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
 
+_RAMP_LAND_ALLOWED_TAGS = frozenset({"land_ramp", "extra_land_drop", "land_recursion"})
+
 _SYNERGY_MECHANICS = [
     "sacrifice", "proliferate", "convoke", "delve", "explore", "adapt", "mutate",
     "foretell", "learn", "boast", "channel", "connive", "cultivate", "disturb",
@@ -96,6 +98,10 @@ def _load_role_config(role: str) -> Dict[str, Any]:
         return json.load(f).get(role, {})
 
 
+def _is_land(card: Dict[str, Any]) -> bool:
+    return "land" in (card.get("type_line") or "").lower()
+
+
 def _match_sub_tags(
     card_text: str,
     sub_tags: List[str],
@@ -138,6 +144,11 @@ def score_suggestion(card: Dict[str, Any], role: str, theme: Optional[str] = Non
     # 1. Sub-tag matching — tracks tag names, not phrases
     if role_sub_tags:
         matched_tags = _match_sub_tags(card_text, role_sub_tags, tag_definitions)
+
+    # Lands must not match mana-producing ramp tags (mana_rock, mana_dork, etc.)
+    # Only land-specific ramp tags are valid for land cards.
+    if role == "ramp" and _is_land(card):
+        matched_tags = [t for t in matched_tags if t in _RAMP_LAND_ALLOWED_TAGS]
 
     if matched_tags:
         score += 3

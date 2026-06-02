@@ -31,7 +31,7 @@ from mtgcli.deckbuilder.theme_profiles import list_themes, list_packages, get_th
 from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
 from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
-from mtgcli.deckbuilder.land_filler import fill_deck_with_lands
+from mtgcli.deckbuilder.land_filler import fill_deck_with_lands, remove_command_zone_cards_from_main_deck
 from mtgcli.utils.deck_io import normalize_deck_input
 from mtgcli.utils.decklist_parser import parse_decklist_text
 from mtgcli.category_counts import calculate_category_counts, format_human_readable
@@ -452,6 +452,9 @@ def validate(
 def deck_write(
     input_path: Path = typer.Option(..., "--input", help="Path to plain text decklist file"),
     output_path: Path = typer.Option(Path("output/deck.json"), "--output", help="Output JSON path"),
+    commander: Optional[str] = typer.Option(None, "--commander", help="Commander name (used with --structured)"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander name (used with --structured)"),
+    structured: bool = typer.Option(False, "--structured", help="Write structured JSON with commander/main_deck keys"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing output file"),
     json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
 ):
@@ -468,18 +471,39 @@ def deck_write(
     entries = parse_decklist_text(text)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(output_path, entries)
 
-    if json_output:
-        print(json.dumps({
-            "written": True,
-            "output": str(output_path),
-            "entries": len(entries),
-            "total_cards": sum(e.get("quantity", 1) for e in entries),
-        }))
+    if structured and commander:
+        commanders_list = [commander] + ([partner] if partner else [])
+        main_deck, _ = remove_command_zone_cards_from_main_deck(entries, commanders_list)
+        if partner:
+            deck_data: Any = {"commanders": commanders_list, "main_deck": main_deck}
+        else:
+            deck_data = {"commander": commander, "main_deck": main_deck}
+        write_json(output_path, deck_data)
+        total = sum(e.get("quantity", 1) for e in main_deck)
+        if json_output:
+            print(json.dumps({
+                "written": True,
+                "output": str(output_path),
+                "structured": True,
+                "commanders": commanders_list,
+                "entries": len(main_deck),
+                "total_cards": total,
+            }))
+        else:
+            print(f"[green]Wrote structured deck ({len(main_deck)} entries, {total} cards) to {output_path}[/green]")
     else:
+        write_json(output_path, entries)
         total = sum(e.get("quantity", 1) for e in entries)
-        print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
+        if json_output:
+            print(json.dumps({
+                "written": True,
+                "output": str(output_path),
+                "entries": len(entries),
+                "total_cards": total,
+            }))
+        else:
+            print(f"[green]Wrote {len(entries)} entries ({total} cards) to {output_path}[/green]")
 
 
 @app.command()
@@ -536,6 +560,10 @@ def deck_fill_lands(
     raw = read_json(deck_path)
     deck_entries = normalize_deck_input(raw)["main_deck"]
 
+    # Remove commander/partner if they appear in the flat main deck list
+    commanders_list = [commander] + ([partner] if partner else [])
+    deck_entries, removed_from_main = remove_command_zone_cards_from_main_deck(deck_entries, commanders_list)
+
     result = fill_deck_with_lands(deck_entries, color_identity, target)
 
     if not result["filled"]:
@@ -562,9 +590,13 @@ def deck_fill_lands(
             "written": False,
             "dry_run": True,
         }
+        if removed_from_main:
+            payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
         if json_output:
             print(json.dumps(payload))
         else:
+            if removed_from_main:
+                print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
             print(f"[bold blue]Dry run — no files written[/bold blue]")
             print(f"  Deck: {current} / {target} main deck cards")
             print(f"  Would add {remaining} basic land(s):")
@@ -587,10 +619,14 @@ def deck_fill_lands(
         "lands_added": lands_added,
         "written": True,
     }
+    if removed_from_main:
+        payload["command_zone_cards_removed_from_main_deck"] = removed_from_main
 
     if json_output:
         print(json.dumps(payload))
     else:
+        if removed_from_main:
+            print(f"[yellow]Removed commander from main deck count before filling lands: {', '.join(removed_from_main)}[/yellow]")
         if remaining == 0:
             note = result.get("note", "")
             print(f"[green]{note or 'Deck is already at target size.'}[/green]")

@@ -249,3 +249,70 @@ def test_reason_hint_not_empty_for_valid_ramp():
     result = score_suggestion(card, "ramp")
     assert result["reason_hint"] not in ("", "Generic match")
     assert "Efficient mana value" in result["reason_hint"]
+
+
+# --- ramp must not return lands ---
+
+def _land(name, oracle_text=""):
+    return _card(name=name, type_line="Basic Land — Forest", oracle_text=oracle_text)
+
+
+def test_ramp_forest_not_mana_rock():
+    card = _land("Forest", oracle_text="({T}: Add {G}.)")
+    result = score_suggestion(card, "ramp")
+    assert "mana_rock" not in result["matched_tags"]
+    assert "mana_dork" not in result["matched_tags"]
+
+
+def test_ramp_island_not_mana_rock():
+    card = _land("Island", oracle_text="({T}: Add {U}.)")
+    result = score_suggestion(card, "ramp")
+    assert result["score"] == 0
+    assert result["matched_tags"] == []
+
+
+def test_ramp_command_tower_not_ramp():
+    card = _card(
+        name="Command Tower",
+        type_line="Land",
+        oracle_text="{T}: Add one mana of any color in your commander's color identity.",
+    )
+    result = score_suggestion(card, "ramp")
+    assert result["score"] == 0
+    assert "mana_rock" not in result["matched_tags"]
+
+
+def test_ramp_arcane_sanctum_not_ramp():
+    card = _card(
+        name="Arcane Sanctum",
+        type_line="Land",
+        oracle_text="Arcane Sanctum enters the battlefield tapped. {T}: Add {W}, {U}, or {B}.",
+    )
+    result = score_suggestion(card, "ramp")
+    assert result["score"] == 0
+
+
+def test_ramp_evolving_wilds_not_ramp():
+    card = _card(
+        name="Evolving Wilds",
+        type_line="Land",
+        oracle_text="{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+    )
+    result = score_suggestion(card, "ramp")
+    # land_ramp tag matches "search your library for a basic land" → this IS valid land ramp
+    # but the card itself is a land; land_ramp IS in the allowed set
+    assert "mana_rock" not in result["matched_tags"]
+    assert "mana_dork" not in result["matched_tags"]
+
+
+def test_ramp_cultivate_not_a_land():
+    """Cultivate is a sorcery; land_ramp should still match it normally."""
+    card = _card(
+        name="Cultivate",
+        type_line="Sorcery",
+        oracle_text="Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+        mana_value=3,
+    )
+    result = score_suggestion(card, "ramp")
+    assert result["score"] > 0
+    assert "land_ramp" in result["matched_tags"]

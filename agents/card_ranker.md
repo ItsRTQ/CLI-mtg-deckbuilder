@@ -197,6 +197,8 @@ Low mana value alone does not qualify a card as ramp.
 
 If a CLI suggestion for ramp returns `matched_tags: []`, do not include it as a ramp card.
 
+Normal lands that only tap for mana are **not** ramp. Do not treat basic lands, tapped dual lands, or utility lands (Command Tower, Arcane Sanctum, Evolving Wilds) as ramp cards — they belong in the land package only.
+
 `cheap` means low-cost synergistic cards (MV ≤ 3) that support the commander engine. Not every cheap card qualifies — it must advance the plan.
 
 ---

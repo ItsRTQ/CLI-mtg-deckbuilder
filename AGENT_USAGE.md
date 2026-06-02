@@ -52,11 +52,13 @@ What wins the game?
 
 If the user request is missing important preferences, use `agents/user-feedback.md`.
 
+The 4-question user-feedback flow is the default before deckbuilding. It must be asked unless the initial user prompt explicitly defers preference collection, such as asking for `Agent choice`, `quick build`, `use defaults`, or `no questions`.
+
 Ask only useful multiple-choice questions.
 
 Always include `Agent choice`.
 
-Default maximum: 4 questions before deckbuilding.
+Default requirement: ask 4 questions before deckbuilding.
 
 The 4th question always asks **Quick build vs Detailed build**:
 
@@ -82,7 +84,7 @@ mana base quality
 
 **Detailed build:** ask additional targeted questions (playstyle, speed, theme commitment, ramp preference, interaction, win style, staples, table friendliness, budget flexibility); may also ask small clarifying questions during the build when a real decision point appears.
 
-If the user does not answer, choose a reasonable option and continue.
+If the user does not answer after the questions are asked, choose reasonable options and continue.
 
 ---
 
@@ -116,8 +118,9 @@ mtg suggest --commander "<commander>" --role engine --synergy --analysis output/
 mtg suggest --commander "<commander>" --role enabler --synergy --analysis output/commander_analysis.json --limit 40 --json-output
 mtg suggest --commander "<commander>" --role payoff --synergy --analysis output/commander_analysis.json --limit 40 --json-output
 mtg suggest-lands --commander "<commander>" --count <count> --json-output
-# Deck file creation
-mtg deck-write --input output/decklist.txt --output output/deck.json --force
+# Deck file creation — use --structured to separate commander from main_deck
+mtg deck-write --input output/decklist.txt --output output/deck.json --commander "<commander>" --structured --force
+mtg deck-write --input output/decklist.txt --output output/deck.json --force   # flat list fallback
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
 mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --dry-run --json-output
 # category-counts: pass --analysis for richer commander scoring
@@ -267,18 +270,74 @@ Sol Ring        (quantity defaults to 1)
 ## Lands        (section header — skipped)
 ```
 
+### deck-write structured output
+
+Preferred workflow for any deck containing a commander:
+
+```bash
+mtg deck-write \
+  --input output/decklist.txt \
+  --output output/deck.json \
+  --commander "Edgar Markov" \
+  --structured \
+  --force
+```
+
+This writes `{commander, main_deck}` JSON, removing the commander from `main_deck` automatically.
+For partner decks, use both `--commander` and `--partner`:
+
+```bash
+mtg deck-write \
+  --input output/decklist.txt \
+  --output output/deck.json \
+  --commander "Tymna the Weaver" \
+  --partner "Thrasios, Triton Hero" \
+  --structured \
+  --force
+```
+
 ### deck-fill-lands behavior
 
 - Fills remaining slots with basic lands based on commander color identity.
 - Does NOT remove cards. If deck is over target, returns an error instead.
+- **Automatically removes commander/partner from the main deck count** if they appear in a flat deck list.
+  - Reports removed entries in output: `command_zone_cards_removed_from_main_deck`.
+  - This prevents the deck from being shorted by 1 land when the commander is included in a flat list.
 - Dry-run mode: `--dry-run` shows what would be added without writing.
 - Target defaults to 99 (single commander) or 98 (partner commanders).
 - For a deck with an exact target size, no lands are added.
+- **Do not count the commander as part of the main deck.** Always pass `--commander` so the tool can exclude it.
 
 ```bash
 mtg deck-fill-lands --deck output/deck.json --commander "Be'lakor, the Dark Master" --dry-run --json-output
 mtg deck-fill-lands --deck output/deck.json --commander "Be'lakor, the Dark Master" --output output/deck.json --force
 ```
+
+---
+
+## Ramp Suggestions
+
+`mtg suggest --role ramp` returns real ramp cards only. It does **not** return basic lands or normal tapped lands.
+
+A ramp card must accelerate mana beyond a normal land drop:
+
+```text
+mana rocks       (Sol Ring, Arcane Signet, Signets, Talismans)
+mana dorks       (Llanowar Elves, Birds of Paradise)
+rituals          (Dark Ritual, Jeska's Will)
+Treasure makers  (Dockside Extortionist, Tireless Provisioner)
+land search      (Cultivate, Kodama's Reach, Farseek, Nature's Lore)
+extra land drops (Exploration, Burgeoning)
+cost reducers    (Ruby Medallion, Helm of Awakening)
+```
+
+Normal lands are **not** ramp even if they tap for mana:
+
+```text
+NOT ramp: Plains, Island, Forest, Command Tower, Arcane Sanctum, Evolving Wilds
+```
+
+If `mtg suggest --role ramp` returns basic lands or tapped utility lands, treat it as a tool issue — do not include those cards in the ramp package.
 
 ---
 

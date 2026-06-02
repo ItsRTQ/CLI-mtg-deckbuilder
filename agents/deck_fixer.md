@@ -144,6 +144,8 @@ Minimum ramp is 9 by default.
 
 If ramp is below 9, add ramp before adding more strategy cards.
 
+Ramp cards must accelerate mana: mana rocks, mana dorks, rituals, Treasure makers, land search, extra land drops, or cost reducers. Basic lands and tapped utility lands are **not** ramp — do not count them toward the ramp total or add them to the ramp package.
+
 ### Draw
 
 Tutors do not count as draw.

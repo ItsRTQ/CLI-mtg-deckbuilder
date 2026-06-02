@@ -468,8 +468,12 @@ If category-counts produces poor recommendations (slot pressure too extreme, wro
 12. Add nonbasic lands and mana fixing.
 13. Cut or add nonlands to reach target size (99 for single, 98 for partner).
 14. Write `output/decklist.txt` in plain text format (one card per line, `1 Card Name`).
-15. Convert: `mtg deck-write --input output/decklist.txt --output output/deck.json --force`
+15. Convert using structured output (removes commander from main_deck automatically):
+    `mtg deck-write --input output/decklist.txt --output output/deck.json --commander "<commander>" --structured --force`
+    For partner decks: add `--partner "<partner>"`.
 16. Fill remaining basics: `mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force`
+    - deck-fill-lands automatically removes the commander from the main deck count if it appears in a flat list.
+    - Do NOT count the commander as part of the 99 (or 98 for partner) main deck cards.
 17. Validate with CLI.
 18. Fix with `deck_fixer.md` if invalid.
 19. Run deck-check if available.
@@ -477,6 +481,16 @@ If category-counts produces poor recommendations (slot pressure too extreme, wro
 21. Export only after validation passes.
 
 Do not create helper Python scripts to generate `output/deck.json`. Use `deck-write` and `deck-fill-lands` instead.
+
+### Ramp package rule
+
+Ramp cards must accelerate mana. Normal lands are **not** ramp.
+
+If `mtg suggest --role ramp` returns basic lands or tapped utility lands, discard those results — do not include them in the ramp package.
+
+Valid ramp: mana rocks, mana dorks, rituals, Treasure makers, land search (Cultivate/Kodama's Reach), extra land drops, meaningful cost reducers.
+
+Not ramp: Plains, Island, Command Tower, Arcane Sanctum, Evolving Wilds, or any land that only taps for mana.
 
 ---
 

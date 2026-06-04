@@ -48,6 +48,22 @@ f) Agent choice
 
 Budget is a maximum, not a target. Default overage allowance is 10%.
 
+### Budget Tolerance (ask when a budget is given)
+
+```text
+How strict is the budget?
+
+A. Hard budget — do not go over the stated amount.
+B. Soft budget — up to 10% over is okay if the deck meaningfully improves.
+C. Value-based overage — going over is okay only for major upgrades that strongly improve the deck.
+D. Budget is flexible — optimize the deck first, keep price reasonable.
+E. Agent choice.
+```
+
+Maps to modes: A=hard_budget, B=soft_budget, C=value_based_overage, D=no_budget_pressure, E=agent_choice.
+
+If limited to 4 core questions, ask this only when budget matters or in Detailed Build mode.
+
 ---
 
 ## Core Question 3: Build Direction / Policy

@@ -105,6 +105,11 @@ user requested stricter spending
 
 Do not cut key synergy just because the deck is under budget.
 
+A deck under budget is valid and does not need a "fix." If it is meaningfully
+under budget (especially T1/T2), defer to the Budget Upgrade Review (BUILDER.md
+Section 11) instead of forcing spending. Never auto-apply over-budget upgrades
+without user approval, and respect the user's budget tolerance mode.
+
 ---
 
 ## Category Count Fixes

@@ -147,6 +147,30 @@ confidence
 
 Do not claim exact compliance if unknown prices remain.
 
+### Budget Upgrade Review (include if it happened)
+
+```text
+## Budget Upgrade Review
+
+Initial valid deck cost: ~$<x>
+Budget: $<y>
+Budget tolerance: <mode>
+Budget utilization: <pct>%
+Unused budget: ~$<z>
+
+User decision:
+- <what was applied>
+
+Considered but not applied:
+- <Card> would push the deck to ~$<total>, over budget by ~$<delta>.
+  Reason: <value>, but user chose <mode>.
+
+Final estimated cost: ~$<final>
+```
+
+If the user accepted an over-budget card, record the swap, new total, amount over
+budget, and the reason accepted (major improvement to engine / win condition).
+
 ---
 
 ## Validation Status

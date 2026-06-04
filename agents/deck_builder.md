@@ -23,8 +23,10 @@ Do not invent cards. Do not create helper scripts.
 13. Validate.
 14. Fix errors.
 15. Run deck-check and budget checks.
-16. Write `output/deck_explanation.md`.
-17. Final-build only after validation passes.
+16. If under budget threshold, run Budget Upgrade Review: show under-budget upgrades and optional over-budget high-impact options, then ask the user what to apply (see BUILDER.md Section 11).
+17. Apply selected upgrades, then re-run validate, deck-check, and budget-check.
+18. Write `output/deck_explanation.md`.
+19. Final-build only after the Budget Upgrade Review decision is resolved and validation passes.
 
 ---
 

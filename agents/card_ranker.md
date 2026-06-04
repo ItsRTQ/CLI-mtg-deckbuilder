@@ -163,6 +163,26 @@ Budget is a maximum, not a target.
 
 Do not rank expensive cards higher only because they are expensive. Unknown price is unknown, not free.
 
+### Budget Upgrade Candidates
+
+When the deck is under budget, surface upgrade candidates with labels:
+
+```text
+Under budget
+Within 10% overage
+Over budget - high-impact option
+Over budget - not recommended
+```
+
+Only surface over-budget cards that strongly improve commander synergy, engine,
+win condition, ramp, mana base, card advantage, protection, interaction, or
+consistency. Drop generic expensive staples that do not strongly improve the deck.
+
+Each upgrade candidate carries: old card, new card, old/new price, cost difference,
+new estimated deck total, under/over budget label, why it improves the deck,
+package/role improved, and risk/downside. Respect the user's budget tolerance mode
+(hard_budget, soft_budget, value_based_overage, no_budget_pressure, agent_choice).
+
 ---
 
 ## Combo Context

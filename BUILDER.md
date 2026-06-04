@@ -216,6 +216,21 @@ mtg validate --commander "<Commander>" --deck output/deck.json --json-output
 
 Run deck-check / budget if applicable, fix errors, explain, then final-build.
 
+Budget Upgrade Review flow (see Section 11):
+
+```text
+1. Build initial deck.
+2. Validate.
+3. Deck-check.
+4. Budget-check.
+5. If under budget threshold, run Budget Upgrade Review.
+6. Show under-budget upgrades and optional over-budget high-impact upgrades.
+7. Ask user what to apply.
+8. Apply selected upgrades.
+9. Re-run validate, deck-check, and budget-check.
+10. Final-build only after user decision and passing validation.
+```
+
 ---
 
 ## 7. Commander Analysis Contract
@@ -358,6 +373,8 @@ Rules:
 
 Budget is a maximum constraint, not a spending target.
 
+Budget is also a preference boundary. Some users have a hard budget and cannot go over. Others are fine going over if the upgrade gives major value to the gameplan, win condition, engine, ramp, commander protection, or consistency.
+
 ```text
 Deck synergy > spending the full budget.
 Under budget is valid.
@@ -372,6 +389,99 @@ mtg budget output/deck.json --budget <amount> --overage 10 --json-output
 ```
 
 Do not add expensive cards only to spend budget. Optional upgrades can be listed separately.
+
+### Budget Tolerance Modes
+
+Classify the user's budget tolerance during feedback or Budget Upgrade Review.
+
+```text
+hard_budget          - never exceed the stated budget.
+soft_budget          - up to default 10% over is okay if the upgrade is meaningful.
+value_based_overage  - over budget okay only for major upgrades (gameplan, win
+                       condition, engine, ramp, mana base, commander protection,
+                       card advantage, consistency, interaction quality).
+no_budget_pressure   - budget no longer matters; optimize for power/theme.
+agent_choice         - agent decides from power bracket, goals, and deck context.
+```
+
+For `value_based_overage`, the agent must explain why the over-budget upgrade is worth considering.
+
+### Budget Upgrade Review
+
+Trigger when the deck is meaningfully under budget (especially T1/T2). Show:
+
+```text
+current estimated deck cost
+stated budget
+unused budget
+budget utilization percentage
+upgrade options under budget
+over-budget high-impact options (only if truly worth it)
+```
+
+Label every option:
+
+```text
+Under budget
+Within 10% overage
+Over budget - high-impact option
+Over budget - not recommended
+```
+
+Do not show weak over-budget upgrades. Do not recommend a card only because it is expensive — a generic expensive staple that does not strongly improve the deck is not shown.
+
+Ask before applying upgrades (unless the user already gave permission):
+
+```text
+What do you want to do?
+
+A. Keep the deck at the current lower cost.
+B. Apply only upgrades that stay under the stated budget.
+C. Apply upgrades up to the normal 10% overage if they are worth it.
+D. Show me the over-budget high-impact options before deciding.
+E. Apply only the highest-impact upgrade package, even if it goes slightly over budget.
+F. Agent choice.
+```
+
+```text
+A -> keep deck as-is.
+B -> do not exceed budget.
+C -> allow default overage (10%).
+D -> show over-budget options but do not apply yet.
+E -> apply only upgrades with strong value justification.
+F -> choose based on power bracket and user intent.
+```
+
+Never auto-apply over-budget upgrades without user approval. Do not final-build before the Budget Upgrade Review decision is resolved when review is triggered.
+
+### Power Bracket Behavior
+
+```text
+T1/T2: actively search meaningful upgrades; show strong under-budget upgrades and
+       over-budget high-impact options worth considering.
+T3:    prefer staying under budget; show over-budget options only if user allowed
+       value-based overage or the card strongly supports the commander.
+T4:    do not push over budget unless the user explicitly asks; keep precon-level intent.
+```
+
+### Upgrade Recommendation Quality
+
+Every upgrade recommendation must include:
+
+```text
+old card
+new card
+old price
+new price
+cost difference
+new estimated deck total
+under budget or over budget (with label)
+why it improves the deck
+package/role it improves
+risk/downside
+```
+
+A recommended upgrade must improve at least one: commander synergy, engine strength, win condition, ramp quality, mana base speed, draw/card advantage, protection, interaction, consistency, power bracket fit.
 
 ---
 

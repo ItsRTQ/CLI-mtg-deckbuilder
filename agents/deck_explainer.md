@@ -12,7 +12,7 @@ Do not claim the deck is complete unless validation passed.
 
 ---
 
-## Required Inputs
+## Inputs
 
 Use:
 
@@ -26,6 +26,7 @@ validation report
 deck-check report
 budget report if budget exists
 user feedback preferences
+final-build output if available
 ```
 
 ---
@@ -69,112 +70,139 @@ validation status
 final build path if available
 ```
 
+If available, include commander power/toughness:
+
+```text
+Power/Toughness: 4/4
+```
+
+Omit P/T when missing. Do not invent it.
+
+---
+
+## Commander Gameplan
+
+Explain using `commander_analysis.json`:
+
+```text
+what the commander rewards
+what the deck provides
+what the commander provides
+what the commander needs
+primary engine pattern
+main synergy tags
+primary win conversion
+```
+
 ---
 
 ## Package Breakdown
 
-Explain package choices using category-counts and commander analysis.
+Describe major packages:
 
-Mention where the deck follows or intentionally deviates from `recommended_range`.
+```text
+ramp
+card draw / advantage
+interaction
+protection
+recursion
+archetype core
+enablers
+payoffs
+win conditions
+lands
+utility
+```
 
-Do not pretend compressed category-count targets are hard rules.
+Mention if package counts followed category-count ranges or were adjusted by user preference.
 
 ---
 
-## Win Conditions
-
-List realistic win paths.
-
-Examples:
-
-```text
-combat damage
-token swarm
-commander damage
-aristocrats drain
-combo finish
-value engine into attrition
-big mana finisher
-```
+## Combo Notes
 
 If combos are included, explain:
 
 ```text
-combo cards
-what the combo produces
-bracket/power relevance
-why it fits user combo policy
+cards involved
+result of the combo
+bracket/power appropriateness
+why it fits user preference
 ```
 
-If combos are not included but combo data was checked, say combo data was treated as context only.
+If combo data was checked but not used, say it was treated as optional context.
 
 ---
 
 ## Budget Status
 
-If budget applies, include:
+If budget exists, include:
 
 ```text
 budget limit
 known price total
 budget status
 unknown-price cards
-budget confidence
+confidence
 ```
 
-Do not claim exact budget compliance if unknown-price cards remain.
+Do not claim exact compliance if unknown prices remain.
 
-Budget is a maximum, not a target.
+### Budget Upgrade Review (include if it happened)
+
+```text
+## Budget Upgrade Review
+
+Initial valid deck cost: ~$<x>
+Budget: $<y>
+Budget tolerance: <mode>
+Budget utilization: <pct>%
+Unused budget: ~$<z>
+
+User decision:
+- <what was applied>
+
+Considered but not applied:
+- <Card> would push the deck to ~$<total>, over budget by ~$<delta>.
+  Reason: <value>, but user chose <mode>.
+
+Final estimated cost: ~$<final>
+```
+
+If the user accepted an over-budget card, record the swap, new total, amount over
+budget, and the reason accepted (major improvement to engine / win condition).
 
 ---
 
 ## Validation Status
 
-State whether validation passed.
-
-Mention:
+Include:
 
 ```text
+validation passed/failed
 main deck count
-commander-zone count
-total cards including commanders
-color identity
-Commander legality
-singleton rule
+commander slots
+total including commanders
+remaining warnings if any
 ```
 
-Do not say final if validation failed.
-
----
-
-## Weaknesses
-
-Be honest. Examples:
-
-```text
-commander dependency
-weak to board wipes
-weak to graveyard hate
-slow mana base
-limited card draw
-combo vulnerability
-budget substitutions
-unknown prices
-```
+Do not write final success language if validation failed.
 
 ---
 
 ## Build Feedback
 
-Optional. Include only if useful.
+Include only if useful.
 
-Good feedback is specific and actionable:
+Good feedback:
 
 ```text
-Build Feedback:
-- Search friction: `suggest --role ramp` returned lands, so ramp needed manual filtering.
-- Category-count friction: forced low-fit archetype compressed removal below practical floor.
-- Validation friction: structured command-zone handling needed review.
+search friction
+seed/tag gaps
+category-count mismatch
+validation issue
+unknown prices
+missing CLI feature
+deck-check limitation
 ```
 
-Skip this section if the build went smoothly.
+Do not invent feedback if the build went smoothly.

@@ -2,9 +2,9 @@
 
 Main operating guide for the MTG Commander deckbuilding agent.
 
-The local `mtg` CLI is the source of truth for card data, legality, search, suggestions, pricing, validation, deck-check, enrichment, export, and final build saving.
+The local `mtg` CLI is the source of truth for card data, legality, prices, search, suggestions, validation, deck-check, export, and final-build saving.
 
-The agent is responsible for deckbuilding judgment: strategy, package planning, card choice, cuts, explanation, and user preference handling.
+The agent is responsible for judgment: user preference handling, strategy, package planning, card selection, cuts, explanation, and build feedback.
 
 ---
 
@@ -24,24 +24,30 @@ agents/deck_fixer.md
 agents/deck_explainer.md
 ```
 
-`BUILDER.md` replaces the old `AGENT_USAGE.md`. If an old workflow references `AGENT_USAGE.md`, treat it as a compatibility pointer to this file.
+`BUILDER.md` is the main guide for the agent workflow.
 
 ---
 
 ## 2. Non-Negotiable Rules
 
-1. Do not invent cards.
-2. Do not use cards outside the commander's color identity.
-3. Do not use Commander-illegal cards.
-4. Do not finalize a deck until `mtg validate` passes with no errors.
-5. Do not save anything to `final-builds/` unless validation passes.
+1. Do not invent cards, card text, prices, legality, power, toughness, or color identity.
+2. Do not use Commander-illegal cards.
+3. Do not use cards outside the commander's color identity.
+4. Do not finalize until `mtg validate` passes with no errors.
+5. Do not save to `final-builds/` unless validation passes.
 6. Do not create helper scripts such as `build_*.py`, `temp_*.py`, or one-off Python scripts.
-7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent files during normal deckbuilding unless the user explicitly asks.
-8. Use official CLI commands for deck creation, land filling, validation, export, and final build.
-9. `synergy` is not a role. Never use `--role synergy`. Use `--synergy` as a modifier on a real role.
-10. Commander-zone cards must not live inside `main_deck` in structured deck JSON.
+7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent files during normal deckbuilding.
+8. Use official CLI commands instead of manual scripts.
+9. `synergy` is not a role. Never use `--role synergy`. Use `--synergy` on a real role.
+10. Commander-zone cards are metadata, not `main_deck` cards.
+11. Category counts and skeletons are guidance, not hard locks.
+12. Budget is a maximum constraint, not a spending target.
 
-Allowed working artifacts:
+---
+
+## 3. Allowed Deckbuilding Artifacts
+
+The agent may create/update only these during normal deckbuilding:
 
 ```text
 output/decklist.txt
@@ -55,474 +61,529 @@ output/commander_combos.json
 final-builds/<build-name>/
 ```
 
----
-
-## 3. Core Build Model
-
-Every deck is built from:
+Forbidden unless explicitly requested:
 
 ```text
-Commander + Archetype + Detail + Constraints + User Feedback
+build_*.py
+temp_*.py
+one-off helper scripts
+src/**/*.py
+data/seed/*.json
+README.md
+BUILDER.md
+agents/*.md
+.env
+.gitignore
 ```
 
-Use the commander's real engine. Ask:
-
-```text
-What does the commander ask for?
-What resources does it use?
-What events trigger it?
-What card types does it prefer?
-What protects the engine?
-What converts the engine into a win?
-```
-
-Do not use commander-specific templates. Use generic archetypes and packages.
+If a needed CLI feature is missing, continue as far as possible and report the gap in **Build Feedback**.
 
 ---
 
-## 4. User Preference Flow
+## 4. Command-Zone Model
 
-Use `agents/user-feedback.md` when preferences are missing.
+Commander decks are modeled as:
 
-Default: ask up to **4 multiple-choice questions** before deckbuilding. Always include `Agent choice`.
+```text
+command-zone cards + main_deck
+```
 
-The 4th core question is always:
+Normal commander:
+
+```text
+1 commander + 99 main deck cards = 100 cards
+```
+
+Partner/two-command-zone decks:
+
+```text
+2 commanders + 98 main deck cards = 100 cards
+```
+
+Preferred deck JSON:
+
+```json
+{
+  "commander": "<Commander>",
+  "main_deck": [
+    { "name": "Sol Ring", "quantity": 1 }
+  ]
+}
+```
+
+Partner JSON:
+
+```json
+{
+  "commanders": ["<Commander A>", "<Commander B>"],
+  "main_deck": [
+    { "name": "Sol Ring", "quantity": 1 }
+  ]
+}
+```
+
+The commander should not be inside `main_deck`. If a flat list contains the commander, validation/fill tools should treat it as command-zone metadata and remove it from the main-deck count.
+
+---
+
+## 5. User Feedback Flow
+
+Default: ask up to **4 core questions** before building. Use multiple choice and always include `Agent choice`.
+
+The 4th question is always:
 
 ```text
 How much build detail do you want?
 
-a) Quick build — ask only core questions, then build.
-b) Detailed build — ask more targeted questions before and during building.
+a) Quick build — ask only the core questions and then build
+b) Detailed build — ask more preference questions before building and clarify during the build when useful
 c) Agent choice
 ```
 
-Quick build: proceed after the 4-question flow and use sensible defaults.
+Detailed build mode may ask about playstyle, speed, theme strictness, ramp, interaction, win style, staples, salt level, budget strictness, pet cards, and exclusions.
 
-Detailed build: ask additional targeted questions only when they affect construction, such as playstyle, speed, theme commitment, ramp preference, interaction, win style, staples, combo/tutor/salt policy, budget flexibility, pet cards, or exclusions.
-
-Do not ask endless questions. If enough information exists, build.
+Do not ask endless questions. Ask only questions that materially change the deck.
 
 ---
 
-## 5. Standard Build Workflow
+## 6. Standard Build Workflow
 
-Follow this sequence unless the user gives a different instruction.
-
-### Phase A — Gather and analyze
+Use this flow unless the user gives a narrower task:
 
 ```bash
-mtg card "<commander>" --json-output
-mtg commander-analyze --commander "<commander>" --output output/commander_analysis.json --json-output
+mtg commander-analyze --commander "<Commander>" --output output/commander_analysis.json --json-output
 ```
 
-Partner commanders:
+Partner:
 
 ```bash
-mtg commander-analyze --commander "<commander A>" --partner "<commander B>" --output output/commander_analysis.json --json-output
+mtg commander-analyze --commander "<Commander A>" --partner "<Commander B>" --output output/commander_analysis.json --json-output
 ```
 
-Use `output/commander_analysis.json` as the tactical map for category-counts, synergy suggestions, card ranking, and deck explanation.
-
-### Phase B — Plan counts
+Plan categories:
 
 ```bash
 mtg category-counts \
-  --commander "<commander>" \
-  --archetype "<archetype>" \
+  --commander "<Commander>" \
+  --archetype "<Archetype>" \
   --power-level <number> \
-  --philosophy "<philosophy>" \
+  --philosophy "<Philosophy>" \
   --analysis output/commander_analysis.json \
   --json-output
 ```
 
-Partner commanders:
+Optional context:
 
 ```bash
-mtg category-counts \
-  --commander "<commander A>" \
-  --partner "<commander B>" \
-  --archetype "<archetype>" \
-  --power-level <number> \
-  --philosophy "<philosophy>" \
-  --analysis output/commander_analysis.json \
-  --json-output
+mtg explore --commander "<Commander>" --json-output
+mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
 ```
 
-Use `recommended_range` and `uncompressed_target_count` for planning. `compressed_target_count` and `target_count` are slot-pressure outputs, not hard locks.
-
-If forced archetype fit is low, respect the user but do not pretend the commander naturally supports that plan.
-
-### Phase C — Search candidates
-
-Structured search examples:
-
-```bash
-mtg search "type:demon" --limit 20 --json-output
-mtg search "type:creature oracle:draw" --colors UB --limit 20 --json-output
-mtg search "mv<=2 type:artifact oracle:Add" --colors WU --limit 20 --json-output
-```
-
-Supported lightweight search tokens:
-
-```text
-type:<value>
-oracle:<value>
-text:<value>
-name:<value>
-mv:<number>
-mv<=<number>
-mv>=<number>
-```
-
-Do not assume full Scryfall syntax.
-
-### Phase D — Suggest by role
-
-Role = the card's functional job.
-
-```bash
-mtg suggest --commander "<commander>" --role ramp --limit 30 --json-output
-mtg suggest --commander "<commander>" --role card_draw --limit 30 --json-output
-mtg suggest --commander "<commander>" --role removal --limit 30 --json-output
-mtg suggest --commander "<commander>" --role protection --limit 30 --json-output
-```
-
-Synergy = the card also connects to the commander.
-
-```bash
-mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --limit 40 --json-output
-mtg suggest --commander "<commander>" --role enabler --synergy --analysis output/commander_analysis.json --limit 40 --json-output
-mtg suggest --commander "<commander>" --role payoff --synergy --analysis output/commander_analysis.json --limit 40 --json-output
-mtg suggest --commander "<commander>" --role cheap --synergy --analysis output/commander_analysis.json --limit 30 --json-output
-```
-
-Never set the role value to `synergy`. That role is invalid. Use a real role plus the `--synergy` flag instead.
-
-`--synergy` never bypasses role matching. Example: `--role ramp --synergy` means the card must be real ramp and also fit the commander.
-
-### Phase E — Optional context commands
-
-Community recommendations:
-
-```bash
-mtg explore --commander "<commander>" --json-output
-```
-
-Combo context:
-
-```bash
-mtg combos --commander "<commander>" --output output/commander_combos.json --json-output
-mtg combos --commander "<commander>" --max-bracket 3 --limit 20 --output output/commander_combos.json --json-output
-```
-
-These are candidate signals only. They are not mandatory includes.
-
-### Phase F — Write deck, fill lands, validate
-
-Prefer structured deck JSON.
+Build file:
 
 ```bash
 mtg deck-write \
   --input output/decklist.txt \
   --output output/deck.json \
-  --commander "<commander>" \
+  --commander "<Commander>" \
   --structured \
   --force
 ```
 
-Partner commanders:
+Partner:
 
 ```bash
 mtg deck-write \
   --input output/decklist.txt \
   --output output/deck.json \
-  --commander "<commander A>" \
-  --partner "<commander B>" \
+  --commander "<Commander A>" \
+  --partner "<Commander B>" \
   --structured \
   --force
 ```
 
-Fill basics:
+Fill lands:
 
 ```bash
-mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
-```
-
-Partner commanders:
-
-```bash
-mtg deck-fill-lands --deck output/deck.json --commander "<commander A>" --partner "<commander B>" --output output/deck.json --force
+mtg deck-fill-lands --deck output/deck.json --commander "<Commander>" --output output/deck.json --force
 ```
 
 Validate:
 
 ```bash
-mtg validate --commander "<commander>" --deck output/deck.json --json-output
+mtg validate --commander "<Commander>" --deck output/deck.json --json-output
 ```
 
-Partner commanders:
+Run deck-check / budget if applicable, fix errors, explain, then final-build.
 
-```bash
-mtg validate --commander "<commander A>" --partner "<commander B>" --deck output/deck.json --json-output
-```
-
-### Phase G — Check, fix, export, final build
-
-```bash
-mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
-mtg enrich output/deck.json --output output/deck.enriched.json
-mtg export output/deck.json --output output/deck.moxfield.txt
-```
-
-Final build:
-
-```bash
-mtg final-build \
-  --deck output/deck.json \
-  --commander "<commander>" \
-  --theme "<theme>" \
-  --bracket T4 \
-  --explanation output/deck_explanation.md
-```
-
-Partner final build:
-
-```bash
-mtg final-build \
-  --deck output/deck.json \
-  --commander "<commander A>" \
-  --partner "<commander B>" \
-  --theme "<theme>" \
-  --bracket T2 \
-  --explanation output/deck_explanation.md
-```
-
----
-
-## 6. Command-Zone Model
-
-| Format | Commander-zone cards | Main deck cards | Total |
-|---|---:|---:|---:|
-| Single commander | 1 | 99 | 100 |
-| Partner commanders | 2 | 98 | 100 |
-
-Commander-zone cards should be stored as metadata in structured deck JSON:
-
-```json
-{
-  "commander": "Brago, King Eternal",
-  "main_deck": []
-}
-```
-
-Partner example:
-
-```json
-{
-  "commanders": ["Tymna the Weaver", "Thrasios, Triton Hero"],
-  "main_deck": []
-}
-```
-
-The commander does not need to appear inside `main_deck`. If a commander appears in a flat list, the validator treats it as command-zone metadata and removes it from the main-deck count.
-
-`commander_missing` is only a real issue when no commander is provided by CLI flags or structured metadata.
-
----
-
-## 7. Validation Contract
-
-A deck is complete only when `mtg validate` passes with no errors.
-
-Validation checks:
-
-| Check | Error type | Fix |
-|---|---|---|
-| Card exists in DB | `card_not_found` | Replace misspelled/hallucinated card |
-| Card is Commander legal | `not_commander_legal` | Remove or swap |
-| Commander exists | `commander_not_found` | Fix name |
-| Commander is eligible | `invalid_commander` | Use valid commander |
-| Commander metadata exists | `commander_missing` | Provide `--commander` or structured metadata |
-| Color identity | `color_identity_violation` | Swap card |
-| Deck size | `invalid_deck_size` | Add/cut cards |
-| Singleton | `singleton_violation` | Remove non-basic duplicates |
-
-Validation output should show:
-
-```json
-{
-  "valid": true,
-  "commanders": ["Brago, King Eternal"],
-  "commander_slots": 1,
-  "expected_main_deck_size": 99,
-  "actual_main_deck_size": 99,
-  "total_cards_including_commanders": 100,
-  "command_zone_cards_removed_from_main_deck": [],
-  "errors": [],
-  "warnings": []
-}
-```
-
----
-
-## 8. Suggest Contract
-
-Role suggestions must return cards that actually satisfy the role.
-
-Strict roles should not return cards with empty `matched_tags`:
+Budget Upgrade Review flow (see Section 11):
 
 ```text
-ramp
-card_draw
-removal
-board_wipe
-protection
-graveyard_hate
-countermagic
-engine
-enabler
-payoff
-cheap
+1. Build initial deck.
+2. Validate.
+3. Deck-check.
+4. Budget-check.
+5. If under budget threshold, run Budget Upgrade Review.
+6. Show under-budget upgrades and optional over-budget high-impact upgrades.
+7. Ask user what to apply.
+8. Apply selected upgrades.
+9. Re-run validate, deck-check, and budget-check.
+10. Final-build only after user decision and passing validation.
 ```
-
-Ramp means real acceleration:
-
-```text
-mana rocks
-mana dorks
-rituals
-Treasure makers
-land search
-put lands onto battlefield
-extra land drops
-meaningful cost reducers
-```
-
-Normal lands that only tap for mana are not ramp.
-
-Card draw means actual draw, card advantage, or filtering. Do not accept unrelated legal cards under `card_draw`.
-
-`--synergy` narrows or boosts after role matching. It never replaces role matching.
 
 ---
 
-## 9. Budget Rules
+## 7. Commander Analysis Contract
+
+`output/commander_analysis.json` is the tactical map for the build.
+
+Use it for:
+
+```text
+color identity
+commander slots / library slots
+type line, card types, subtypes, supertypes
+power/toughness when available
+text signals
+commander tags / type tags / synergy tags / anti-synergy tags
+engine profile
+archetype fit
+role pressures
+commander scores
+provides / requires / rewards
+wanted card patterns
+avoid card patterns
+build direction options
+```
+
+Power/toughness is card data. Use it for combat, Voltron, aggro pressure, commander fragility, blocker quality, and creature win-condition evaluation. Do not invent it when missing.
+
+---
+
+## 8. Search Contract
+
+### Simple search
+
+```bash
+mtg search "draw a card" --json-output
+```
+
+### Structured search string
+
+```bash
+mtg search 'type:vampire oracle:draw' --json-output
+mtg search 'mv<=3 oracle:draw oracle:card' --json-output
+```
+
+Repeated structured tokens use **AND** semantics.
+
+### Cleaner repeatable filters
+
+Prefer repeatable options when the query has quotes/apostrophes:
+
+```bash
+mtg search --oracle "can't be blocked" --oracle target --oracle creature --json-output
+mtg search --oracle "draw a card" --type creature --json-output
+mtg search --card-type vampire --type creature --json-output
+mtg search --name Ajani --card-type planeswalker --json-output
+mtg search --mv-lte 3 --oracle draw --oracle card --type creature --json-output
+```
+
+Repeatable filters use **AND**. A result must match every provided filter.
+
+Available filters:
+
+```text
+--oracle / --text   repeatable, searches oracle_text
+--name              repeatable, searches card name
+--card-type         repeatable, searches type_line
+--subtype           repeatable, searches type_line
+--mv                exact mana value
+--mv-lte            mana value <= number
+--mv-gte            mana value >= number
+--type              broad type_line filter; also available on search-tags and suggest
+```
+
+`type:<value>` inside the query searches type line text, often including subtypes. `--type <value>` is an explicit broad type filter. They can be combined:
+
+```bash
+mtg search "type:vampire" --type creature --json-output
+```
+
+---
+
+## 9. Suggest Contract
+
+`role` = the functional job/use of the card.
+
+`--synergy` = the card also supports or connects with the given commander.
+
+Examples:
+
+```bash
+mtg suggest --commander "<Commander>" --role ramp --json-output
+mtg suggest --commander "<Commander>" --role ramp --synergy --json-output
+mtg suggest --commander "<Commander>" --role engine --synergy --analysis output/commander_analysis.json --json-output
+mtg suggest --commander "<Commander>" --role card_draw --type creature --json-output
+```
+
+Rules:
+
+1. Never use `--role synergy`.
+2. `--synergy` never replaces role matching.
+3. Role match happens first.
+4. `--type` narrows results after role match; it never bypasses the role.
+5. A role result should have non-empty `matched_tags`.
+6. Ramp must be real acceleration: rocks, dorks, rituals, Treasure makers, land search, extra land drops, or meaningful cost reducers.
+7. Normal lands are not ramp.
+8. Card draw must be actual draw, card advantage, or filtering.
+9. Off-role results are tool bugs; do not use them.
+
+---
+
+## 10. Category Counts Contract
+
+Use `category-counts` for package planning.
+
+Use:
+
+```text
+recommended_range
+need_score
+uncompressed_target_count
+compressed_target_count
+effective_target_count
+slot_budget notes
+forced_archetype_warning
+fit_confidence
+```
+
+Rules:
+
+1. Use recommended ranges as planning guidance.
+2. Do not treat compressed targets as hard deckbuilding rules.
+3. If a forced archetype has low fit, keep the user's choice but apply extra judgment.
+4. Do not let slot compression silently remove all interaction or win conditions.
+5. Skeletons are fallback guidance only.
+6. Landfall/landsmatter should usually target 38–42 lands, not hard-lock exactly 40 unless asked.
+
+---
+
+## 11. Budget Contract
 
 Budget is a maximum constraint, not a spending target.
 
+Budget is also a preference boundary. Some users have a hard budget and cannot go over. Others are fine going over if the upgrade gives major value to the gameplan, win condition, engine, ramp, commander protection, or consistency.
+
 ```text
 Deck synergy > spending the full budget.
-A strong deck can be far under budget.
-Default overage allowance: 10%.
-Unknown price = unknown, not free and not forbidden.
+Under budget is valid.
+Default overage allowance is 10%.
+Unknown price means unknown, not free and not forbidden.
 ```
 
 Use:
 
 ```bash
-mtg budget output/deck.json --budget <amount> --json-output
-mtg prices-batch output/deck.json --json-output
+mtg budget output/deck.json --budget <amount> --overage 10 --json-output
 ```
 
-Do not add expensive cards just to reach the budget.
+Do not add expensive cards only to spend budget. Optional upgrades can be listed separately.
 
-If unknown-price cards remain, report partial budget confidence and do not claim exact budget compliance.
+### Budget Tolerance Modes
+
+Classify the user's budget tolerance during feedback or Budget Upgrade Review.
+
+```text
+hard_budget          - never exceed the stated budget.
+soft_budget          - up to default 10% over is okay if the upgrade is meaningful.
+value_based_overage  - over budget okay only for major upgrades (gameplan, win
+                       condition, engine, ramp, mana base, commander protection,
+                       card advantage, consistency, interaction quality).
+no_budget_pressure   - budget no longer matters; optimize for power/theme.
+agent_choice         - agent decides from power bracket, goals, and deck context.
+```
+
+For `value_based_overage`, the agent must explain why the over-budget upgrade is worth considering.
+
+### Budget Upgrade Review
+
+Trigger when the deck is meaningfully under budget (especially T1/T2). Show:
+
+```text
+current estimated deck cost
+stated budget
+unused budget
+budget utilization percentage
+upgrade options under budget
+over-budget high-impact options (only if truly worth it)
+```
+
+Label every option:
+
+```text
+Under budget
+Within 10% overage
+Over budget - high-impact option
+Over budget - not recommended
+```
+
+Do not show weak over-budget upgrades. Do not recommend a card only because it is expensive — a generic expensive staple that does not strongly improve the deck is not shown.
+
+Ask before applying upgrades (unless the user already gave permission):
+
+```text
+What do you want to do?
+
+A. Keep the deck at the current lower cost.
+B. Apply only upgrades that stay under the stated budget.
+C. Apply upgrades up to the normal 10% overage if they are worth it.
+D. Show me the over-budget high-impact options before deciding.
+E. Apply only the highest-impact upgrade package, even if it goes slightly over budget.
+F. Agent choice.
+```
+
+```text
+A -> keep deck as-is.
+B -> do not exceed budget.
+C -> allow default overage (10%).
+D -> show over-budget options but do not apply yet.
+E -> apply only upgrades with strong value justification.
+F -> choose based on power bracket and user intent.
+```
+
+Never auto-apply over-budget upgrades without user approval. Do not final-build before the Budget Upgrade Review decision is resolved when review is triggered.
+
+### Power Bracket Behavior
+
+```text
+T1/T2: actively search meaningful upgrades; show strong under-budget upgrades and
+       over-budget high-impact options worth considering.
+T3:    prefer staying under budget; show over-budget options only if user allowed
+       value-based overage or the card strongly supports the commander.
+T4:    do not push over budget unless the user explicitly asks; keep precon-level intent.
+```
+
+### Upgrade Recommendation Quality
+
+Every upgrade recommendation must include:
+
+```text
+old card
+new card
+old price
+new price
+cost difference
+new estimated deck total
+under budget or over budget (with label)
+why it improves the deck
+package/role it improves
+risk/downside
+```
+
+A recommended upgrade must improve at least one: commander synergy, engine strength, win condition, ramp quality, mana base speed, draw/card advantage, protection, interaction, consistency, power bracket fit.
 
 ---
 
-## 10. Combos, Explore, and Community Data
+## 12. Explore and Combos Contract
 
 `explore` and `combos` are optional context.
 
-Use combos when:
+```bash
+mtg explore --commander "<Commander>" --json-output
+mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
+```
 
-1. The user wants combos.
-2. You want to identify useful combo-adjacent cards.
+Use combo data for two reasons:
+
+1. If the user wants combos, evaluate compact combo packages.
+2. If the user does not want combos, individual combo pieces may still signal useful cards.
 
 Rules:
 
-- Combo data is not mandatory.
-- Do not force combos into low-salt/friendly builds.
-- Do not include high-bracket combos in low-power decks unless the user asks.
-- Combo pieces must pass legality, color identity, budget, role balance, and theme fit.
-
-`explore --json-output` should be strict JSON parseable. If it needs `strict=False`, report a tool bug.
+- Do not force combos into every deck.
+- Do not include full combos in low-salt/friendly builds unless requested.
+- Do not include high-bracket combos in low-power decks unless requested.
+- Combo cards still need legality, color identity, budget, role, and theme checks.
 
 ---
 
-## 11. Category-Counts Contract
+## 13. Validation Contract
 
-Use category-counts for package planning, not hard locks.
+A deck is not complete until validation passes.
 
-Important fields:
+Validation must confirm:
 
 ```text
-need_score                  priority of category
-recommended_range           preferred planning range
-uncompressed_target_count   target before slot pressure
-compressed_target_count     result after compression
-target_count                final reported target
-compression_applied         true if target was reduced
-slot_budget                 compression notes and warnings
+all cards exist
+no hallucinated/misspelled names
+all cards are Commander legal
+all cards fit color identity
+singleton rule
+correct main deck size
+correct total size including command-zone cards
 ```
 
-If forced archetype fit is low:
+If validation fails, fix before any final build.
 
-- obey the user if they insist
-- keep the warning
-- use extra judgment
-- consider alternate archetypes
-- do not let low-fit compressed targets hide basic deck needs like removal or win conditions
+Common errors:
+
+| Error | Meaning | Action |
+|---|---|---|
+| `card_not_found` | hallucinated/misspelled card | replace with real card |
+| `not_commander_legal` | illegal in Commander | replace |
+| `color_identity_violation` | outside commander identity | replace |
+| `invalid_deck_size` | wrong main-deck count | add/cut cards |
+| `singleton_violation` | duplicate non-basic | remove duplicates |
+| `commander_missing` | no commander metadata/flag | pass `--commander` or structured metadata |
 
 ---
 
-## 12. Final Build Structure
+## 14. Final Build Contract
 
-Final builds are stored in versioned subdirectories:
+Final builds go under:
 
 ```text
-final-builds/
-└── <Commander>-<Theme>-<Bracket>-<Version>/
-    ├── <Commander>-<Theme>-<Bracket>-<Version>.txt
-    └── <Commander>-<Theme>-<Bracket>-<Version>.explanation.md
+final-builds/<Commander>-<Theme>-<Bracket>-<Version>/
 ```
 
-Never overwrite an existing final build.
+Each folder contains:
+
+```text
+<build-name>.txt
+<build-name>.explanation.md
+```
+
+Use:
+
+```bash
+mtg final-build \
+  --deck output/deck.json \
+  --commander "<Commander>" \
+  --theme "<Theme>" \
+  --bracket T3 \
+  --explanation output/deck_explanation.md
+```
+
+Never final-build if validation failed.
 
 ---
 
-## 13. Build Feedback
+## 15. Build Feedback
 
-Build Feedback is optional. Include it only after finishing the deck and only when there was meaningful friction.
+Include Build Feedback only when useful.
 
-Good feedback names the tool issue and the future improvement:
-
-```text
-Build Feedback:
-- Search friction: ramp suggestions returned lands, so ramp candidates needed manual filtering.
-- Validation friction: structured deck output failed validation, so command-zone handling should be aligned.
-- Category-count friction: forced low-fit archetype compressed removal too aggressively.
-```
-
-Do not invent feedback if the build went smoothly.
-
----
-
-## 14. Final Response Requirements
-
-Only final after validation passes.
-
-Include:
+Good feedback is specific and actionable:
 
 ```text
-commander
-archetype/detail
-power/budget assumptions
-validation status
-export/final build path
-gameplan
-package breakdown
-win conditions
-weaknesses/warnings
-optional build feedback
+Search friction
+Seed/tag gap
+Category-count mismatch
+Validation issue
+Budget uncertainty
+Unknown prices
+Missing CLI feature
+Deck-check limitation
 ```
+
+If the build went smoothly, do not invent feedback.

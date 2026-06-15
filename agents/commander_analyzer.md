@@ -1,12 +1,12 @@
 # Commander Analyzer
 
-Purpose: turn commander data into a tactical map for the build.
+Purpose: convert commander data into a tactical map for deckbuilding.
 
 Use the CLI. Do not rely on model memory for card text.
 
 ---
 
-## Required Command
+## Required Commands
 
 Single commander:
 
@@ -36,16 +36,18 @@ mtg commander-analyze \
 
 ---
 
-## What to Extract
+## What to Read From the Analysis
 
-Use `output/commander_analysis.json` to understand:
+Use `output/commander_analysis.json` for:
 
 ```text
-color_identity
-commander_slots / library_slots
-card types and subtypes
+color identity
+commander slots / library slots
+card types / subtypes / supertypes
+power/toughness
 text signals
 commander tags
+commander type tags
 synergy tags
 anti-synergy tags
 engine profile
@@ -58,90 +60,79 @@ avoid card patterns
 build direction options
 ```
 
+Do not invent missing fields. If power/toughness is null, treat it as unknown.
+
 ---
 
-## Analysis Questions
+## Commander Interpretation
 
-Answer these before building:
+Analyze the commander through these questions:
 
 ```text
-What does the commander provide?
-What does the commander require?
 What does the commander reward?
-Is the commander the engine, payoff, wincon, or support piece?
-How commander-dependent is the deck?
+What does it require from the deck?
+What does it provide by itself?
+How dependent is the deck on the commander?
 How likely is the commander to be removed on sight?
-Does the commander need ramp, protection, evasion, recursion, or redundancy?
-What card types, subtypes, zones, events, and resources matter?
-What archetypes naturally fit?
-What archetypes are forced/low-fit?
+Does it need ramp, protection, evasion, redundancy, or recursion?
+Is it combat-oriented, engine-oriented, combo-oriented, or support-oriented?
 ```
 
 ---
 
-## Type and Subtype Rules
+## Type and Creature Stats
 
-Type tags are signals, not automatic archetypes.
-
-Example:
-
-```text
-Vampire subtype -> possible tribal_vampire signal
-Artifact commander -> possible artifact_engine signal
-Planeswalker commander -> planeswalker_commander signal
-```
-
-Do not force tribal just because a commander has a creature subtype.
-
----
-
-## Provides / Requires / Rewards
-
-Keep these separate:
-
-```text
-provides = commander directly supplies the effect
-requires = commander needs support to function
-rewards = commander makes more of that effect/card type better
-```
+Use type and subtype carefully.
 
 Examples:
 
 ```text
-Commander draws cards -> provides card_draw
-Commander must attack/connect -> requires protection/evasion
-Commander creates tokens -> provides tokens and may reward token payoffs
-Commander rewards creatures dying -> rewards sacrifice/death_trigger packages
-Commander costs 6+ -> requires ramp and protection
+Vampire / Dinosaur / Zombie / Dragon -> possible tribal signal
+Artifact / Enchantment / Planeswalker -> card-type strategy signal
+Equipment / Aura text -> Voltron/equipment/aura signal
+```
+
+Do not assume every subtype means tribal.
+
+Use power/toughness for:
+
+```text
+Voltron viability
+aggro pressure
+go_tall/go_wide combat evaluation
+commander fragility
+blocker quality
+combat-damage trigger support
+creature finisher evaluation
+```
+
+Do not let P/T dominate non-combat roles.
+
+---
+
+## Archetype Fit
+
+Use `archetype_fit` to identify natural paths.
+
+If the user forces a low-fit archetype, respect it but flag the risk.
+
+```text
+Low fit does not mean impossible.
+It means the build needs more support and should not blindly follow compressed category targets.
 ```
 
 ---
 
-## Partner Commanders
+## Output to Other Agents
 
-For partner decks:
-
-```text
-combine color identity
-analyze each commander separately
-then analyze overlap and complementarity
-build one unified plan
-main deck size is 98
-```
-
----
-
-## How Other Agents Use It
-
-`commander_analysis.json` should guide:
+The analysis should guide:
 
 ```text
-category-counts
+theme selection
+category-counts arguments
 suggest --synergy
 card ranking
-package planning
-deck fixing
+role pressure fixes
 deck explanation
+Build Feedback
 ```
-
-If the analysis looks wrong or weak, do not blindly follow it. Note the issue in Build Feedback.

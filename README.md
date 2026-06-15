@@ -33,7 +33,7 @@ Example agent prompt:
 Create a Commander deck with `Krenko, Mob Boss` as commander.
 Archetype: Tribal.
 Detail: Goblins.
-Use AGENT_USAGE.md.
+Use BUILDER.md.
 ```
 
 ---
@@ -43,7 +43,7 @@ Use AGENT_USAGE.md.
 ```text
 External CLI Agent
     ↓
-AGENT_USAGE.md
+BUILDER.md
     ↓
 agents/*.md
     ↓
@@ -219,7 +219,26 @@ mtg card "Sol Ring"
 Look up a card as JSON:
 
 ```bash
-mtg card "Sol Ring" --json-output
+mtg card "Edgar Markov" --json-output
+```
+
+Card data includes creature `power` and `toughness` (stored as text, since values
+can be non-numeric like `*` or `1+*`; `null` for non-creatures):
+
+```json
+{
+  "name": "Edgar Markov",
+  "mana_cost": "{3}{R}{W}{B}",
+  "mana_value": 6.0,
+  "type_line": "Legendary Creature — Vampire Knight",
+  "oracle_text": "...",
+  "power": "4",
+  "toughness": "4",
+  "colors": ["B", "R", "W"],
+  "color_identity": ["B", "R", "W"],
+  "commander_legal": true,
+  "can_be_commander": true
+}
 ```
 
 Search Commander-legal cards:
@@ -309,12 +328,12 @@ The agent should prefer package-based commands when available because they produ
 
 ## Agent Usage
 
-The external CLI agent should use `AGENT_USAGE.md` as its main guide.
+The external CLI agent should use `BUILDER.md` as its main guide.
 
 Recommended agent file order:
 
 ```text
-AGENT_USAGE.md
+BUILDER.md
 agents/system.md
 agents/user-feedback.md
 agents/commander_analyzer.md
@@ -388,7 +407,7 @@ The agent should ask only what is useful. Avoid asking too many questions before
 Recommended maximum:
 
 ```text
-1-3 questions before deckbuilding
+up to 4 core questions before deckbuilding
 ```
 
 ---
@@ -1027,7 +1046,7 @@ mtg card "Sol Ring" --json-output
 Check that the agent is using the files in this order:
 
 ```text
-AGENT_USAGE.md
+BUILDER.md
 agents/system.md
 agents/user-feedback.md
 agents/commander_analyzer.md

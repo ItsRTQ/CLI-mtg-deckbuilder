@@ -35,7 +35,7 @@ agents/deck_explainer.md
 3. Do not use cards outside the commander's color identity.
 4. Do not finalize until `mtg validate` passes with no errors.
 5. Do not save to `final-builds/` unless validation passes.
-6. Do not create helper scripts such as `build_*.py`, `temp_*.py`, or one-off Python scripts.
+6. Do not create helper scripts such as `build_*.py`, `temp_*.py`, or one-off Python scripts that *generate, assemble, or decide* the deck. This rule is about not bypassing the CLI's logic — it does **not** forbid read-only inspection of CLI output (e.g. piping `--json-output` through `jq`/`python -m json.tool` to filter or pretty-print, or counting results). Reading and reformatting the CLI's output is fine; producing deck content outside the CLI is not.
 7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent files during normal deckbuilding.
 8. Use official CLI commands instead of manual scripts.
 9. `synergy` is not a role. Never use `--role synergy`. Use `--synergy` on a real role.
@@ -178,6 +178,18 @@ Optional context:
 mtg explore --commander "<Commander>" --json-output
 mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
 ```
+
+Verify the drafted list **before** building (catches misspelled/illegal names cheaply, before
+the deck-write → fill → validate cycle). `cards-batch`, `prices-batch`, and `budget` accept the
+plain-text `output/decklist.txt` directly — no need to convert to JSON first:
+
+```bash
+mtg cards-batch output/decklist.txt --json-output
+```
+
+Any entry with `"found": false` is a typo or a non-existent name — fix it before `deck-write`.
+For double-faced/split cards, the front-face name resolves (e.g. `Valakut Awakening`). A quick
+price pass can also be run on the raw list: `mtg prices-batch output/decklist.txt --json-output`.
 
 Build file:
 
@@ -361,11 +373,12 @@ fit_confidence
 Rules:
 
 1. Use recommended ranges as planning guidance.
-2. Do not treat compressed targets as hard deckbuilding rules.
-3. If a forced archetype has low fit, keep the user's choice but apply extra judgment.
-4. Do not let slot compression silently remove all interaction or win conditions.
-5. Skeletons are fallback guidance only.
-6. Landfall/landsmatter should usually target 38–42 lands, not hard-lock exactly 40 unless asked.
+2. **`recommended_range` and `need_score` are the source of truth — not `compressed_target_count`.** The compressed target is the most visually prominent number but the least reliable: a Critical/High `need_score` category can be compressed to a tiny target (e.g. payoffs at `need_score` 8.6 compressed to `target_count: 2`). Never build to the compressed target alone. If `need_score` is High/Critical, stay near the **top** of `recommended_range` regardless of the compressed number.
+3. Do not treat compressed targets as hard deckbuilding rules.
+4. If a forced archetype has low fit, keep the user's choice but apply extra judgment.
+5. Do not let slot compression silently remove all interaction or win conditions.
+6. Skeletons are fallback guidance only.
+7. Landfall/landsmatter should usually target 38–42 lands, not hard-lock exactly 40 unless asked.
 
 ---
 

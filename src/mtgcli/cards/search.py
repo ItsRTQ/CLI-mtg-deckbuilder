@@ -10,6 +10,13 @@ from mtgcli.cards.query_parser import (
     merge_parsed,
     empty_parsed,
 )
+from mtgcli.deckbuilder.ramp_rules import (
+    MANA_RAMP_TAGS,
+    RAMP_LAND_ALLOWED_TAGS,
+    is_land,
+    land_matches_allowed_ramp_tags,
+    resolve_tag_keys,
+)
 
 
 # Broad card types matched against type_line via LOWER(type_line) LIKE.
@@ -320,6 +327,15 @@ def search_by_tags(
     seen_ids = set()
     allowed_colors = set(colors.upper()) if colors else None
 
+    # Land-ramp guard: when the search touches mana-production tags (mana_rock, etc.),
+    # lands must qualify through an actually-requested land-oriented ramp tag — otherwise
+    # every basic land leaks in via the mana_rock phrase "{T}: Add". Inactive for searches
+    # that don't involve mana-production tags (e.g. landfall), so land-matters searches are
+    # unaffected. Same rule deck_check and suggestion_scorer use, via the shared helper.
+    resolved_keys = resolve_tag_keys(tags, tag_definitions, role_definitions)
+    land_guard_active = bool(resolved_keys & MANA_RAMP_TAGS)
+    allowed_land_tags = resolved_keys & RAMP_LAND_ALLOWED_TAGS
+
     for row in cursor:
         card = row_to_card(row)
         
@@ -334,6 +350,12 @@ def search_by_tags(
             card_identity = set(card.get("color_identity", []))
             if not card_identity.issubset(allowed_colors):
                 continue
+
+        # Drop lands that only leaked in via mana-production phrases.
+        if land_guard_active and is_land(card) and not land_matches_allowed_ramp_tags(
+            card, tag_definitions, allowed_land_tags
+        ):
+            continue
         
         results.append(card)
         if dedupe:

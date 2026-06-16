@@ -28,3 +28,23 @@ def test_export_deck_to_moxfield(tmp_path):
     export_deck_to_moxfield(deck, out)
     lines = out.read_text().strip().splitlines()
     assert lines == ["1 Sol Ring", "1 Command Tower", "5 Forest"]
+
+
+def test_export_includes_commander_section(tmp_path):
+    deck = [{"name": "Sol Ring", "quantity": 1}, {"name": "Forest", "quantity": 5}]
+    out = tmp_path / "deck.txt"
+    export_deck_to_moxfield(deck, out, commanders=["Gargos, Vicious Watcher"])
+    text = out.read_text()
+    lines = text.strip().splitlines()
+    assert lines[0] == "Commander"
+    assert lines[1] == "1 Gargos, Vicious Watcher"
+    assert "Deck" in lines
+    assert "1 Sol Ring" in lines  # mainboard still present
+
+
+def test_export_no_commander_is_unchanged(tmp_path):
+    # Backward compatible: no commanders => bare card list, no headers.
+    deck = [{"name": "Sol Ring", "quantity": 1}]
+    out = tmp_path / "deck.txt"
+    export_deck_to_moxfield(deck, out)
+    assert out.read_text().strip().splitlines() == ["1 Sol Ring"]

@@ -1,4 +1,22 @@
 from typing import Any, Dict, List
+from pathlib import Path
+
+
+def load_deck_file(path: Any) -> Dict[str, Any]:
+    """Load a deck from disk, accepting either a plain-text decklist (.txt) or a
+    deck JSON file, and return the normalized shape from ``normalize_deck_input``.
+
+    Lets verification commands (cards-batch, prices-batch, budget) run directly on
+    a drafted ``.txt`` decklist before it has been converted with ``deck-write``.
+    """
+    from mtgcli.utils.json_io import read_json
+    from mtgcli.utils.decklist_parser import parse_decklist_text
+
+    p = Path(path)
+    if p.suffix.lower() == ".txt":
+        entries = parse_decklist_text(p.read_text(encoding="utf-8"))
+        return {"commanders": [], "main_deck": entries, "metadata": {}}
+    return normalize_deck_input(read_json(p))
 
 
 def normalize_deck_input(raw_deck: Any) -> Dict[str, Any]:

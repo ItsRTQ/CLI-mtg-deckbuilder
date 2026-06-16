@@ -36,7 +36,12 @@ class CardRepository:
         return conn
 
     def get_card_by_exact_name(self, name: str) -> Optional[Dict[str, Any]]:
-        """Performs a case-insensitive exact name lookup."""
+        """Performs a case-insensitive exact name lookup.
+
+        Falls back to matching the front face of double-faced / split cards, whose
+        stored name is "Front // Back" (e.g. a lookup for "Valakut Awakening"
+        resolves "Valakut Awakening // Valakut Stoneforge").
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -44,7 +49,20 @@ class CardRepository:
                 (name,)
             )
             row = cursor.fetchone()
-            return row_to_card(row) if row else None
+            if row:
+                return row_to_card(row)
+
+            # Fallback: front-face match for double-faced/split cards.
+            if "//" not in name:
+                cursor.execute(
+                    "SELECT * FROM cards WHERE name LIKE ? COLLATE NOCASE",
+                    (f"{name} // %",)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row_to_card(row)
+
+            return None
 
     def search_cards_by_name(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Searches for cards with names containing the query string."""

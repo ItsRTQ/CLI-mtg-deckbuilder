@@ -112,7 +112,10 @@ Do not let P/T dominate non-combat roles.
 
 ## Archetype Fit
 
-Use `archetype_fit` to identify natural paths.
+Use `archetype_fit` to identify natural paths. Entries are ordered best-first; each has a
+`fit_score` (0-10). Entries flagged `low_confidence: true` mean nothing scored as a strong
+natural fit — they are the best available directions, not endorsements. Use them for
+`build_direction_options`, but lean harder on `engine_profile` and `synergy_tags` for card choices.
 
 If the user forces a low-fit archetype, respect it but flag the risk.
 
@@ -120,6 +123,33 @@ If the user forces a low-fit archetype, respect it but flag the risk.
 Low fit does not mean impossible.
 It means the build needs more support and should not blindly follow compressed category targets.
 ```
+
+A big creature commander now scores as a beatdown fit on its power/toughness alone, so an
+8/7 with little oracle text still reads as `stompy`/`go_tall` rather than defaulting to value.
+
+---
+
+## Engine Package — build to the mechanical hook
+
+`engine_profile.primary_pattern`, `synergy_tags`, and `wanted_card_patterns` name *how the
+commander actually wins or generates value*. Translate them into the deck's synergy package
+directly — do not flatten the commander into a generic archetype and fill with goodstuff.
+
+Read `wanted_card_patterns` as a shopping list and turn each entry into `suggest`/`search-tags`
+queries. Examples of hooks the analyzer surfaces:
+
+```text
+etb_blink_engine        -> ETB creatures, blink/flicker, cheap value bodies
+death_trigger_engine    -> sac outlets, death payoffs, token fodder
+token_engine            -> repeatable token makers, doublers, anthems
+targeted_spell_payoff   -> CHEAP spells that target YOUR OWN creatures, and
+                           recurring/buyback auras (e.g. Whip Silk) to retrigger
+```
+
+The `targeted_spell_payoff` class is easy to miss: the commander fires whenever a creature you
+control becomes the target of a spell (yours included), so low-cost self-targeting spells and
+buyback auras turn it into a repeatable engine — these belong in the build even though generic
+archetype filling would never surface them.
 
 ---
 

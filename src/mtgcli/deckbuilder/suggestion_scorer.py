@@ -3,10 +3,9 @@ import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
+from mtgcli.deckbuilder.ramp_rules import RAMP_LAND_ALLOWED_TAGS as _RAMP_LAND_ALLOWED_TAGS
 
 _DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
-
-_RAMP_LAND_ALLOWED_TAGS = frozenset({"land_ramp", "extra_land_drop", "land_recursion"})
 
 _SYNERGY_MECHANICS = [
     "sacrifice", "proliferate", "convoke", "delve", "explore", "adapt", "mutate",

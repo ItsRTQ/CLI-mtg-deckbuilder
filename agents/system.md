@@ -33,7 +33,7 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
 3. Do not use cards outside commander color identity.
 4. Do not finalize until `mtg validate` passes.
 5. Do not save to `final-builds/` unless validation passes.
-6. Do not create helper scripts such as `build_*.py` or `temp_*.py`.
+6. Do not create helper scripts (`build_*.py`, `temp_*.py`) that generate or decide deck content. Read-only inspection of CLI output (piping `--json-output` to `jq` / `json.tool` to filter or pretty-print) is allowed.
 7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent docs during normal deckbuilding.
 8. Use `deck-write`, `deck-fill-lands`, `validate`, `deck-check`, `export`, and `final-build` instead of manual scripts.
 9. `synergy` is not a role. Use `--synergy` on a real role.

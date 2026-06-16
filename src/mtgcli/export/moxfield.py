@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 def export_moxfield_line(card: Dict[str, Any], quantity: int = 1) -> str:
@@ -10,9 +10,29 @@ def export_moxfield_line(card: Dict[str, Any], quantity: int = 1) -> str:
     return f"{quantity} {name}"
 
 
-def export_deck_to_moxfield(deck_cards: List[Dict[str, Any]], output_path: Path) -> Path:
-    """Exports a list of card dictionaries to a Moxfield-compatible text file."""
-    lines = []
+def export_deck_to_moxfield(
+    deck_cards: List[Dict[str, Any]],
+    output_path: Path,
+    commanders: Optional[List[str]] = None,
+) -> Path:
+    """Exports a list of card dictionaries to a Moxfield-compatible text file.
+
+    When ``commanders`` are given, they are written under a ``Commander`` section
+    header (with the rest under ``Deck``), which Moxfield's bulk import recognizes,
+    so the commander imports into the command zone instead of being dropped. With no
+    commanders the output is the bare card list (unchanged, header-free).
+    """
+    commanders = commanders or []
+    lines: List[str] = []
+
+    if commanders:
+        lines.append("Commander")
+        for name in commanders:
+            if name:
+                lines.append(f"1 {name}")
+        lines.append("")
+        lines.append("Deck")
+
     for card in deck_cards:
         quantity = card.get("quantity", 1)
         line = export_moxfield_line(card, quantity)

@@ -2,6 +2,7 @@ import json
 from typing import List, Dict, Any, Optional
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.deckbuilder.theme_profiles import get_theme_packages
+from mtgcli.deckbuilder.ramp_rules import land_matches_allowed_ramp_tags
 
 
 def _get_category_phrases(
@@ -104,7 +105,13 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
         
         if "land" in type_line:
             stats["lands"] += quantity
-            
+            # Lands count as ramp only when they actually ramp (fetch/extra land),
+            # never just for tapping for mana. This keeps basic lands out of the
+            # ramp count while still crediting true ramp-lands (e.g. Myriad Landscape).
+            if land_matches_allowed_ramp_tags(card, tag_definitions):
+                stats["ramp"] += quantity
+            continue
+
         is_synergy = False
         found_core = False
         

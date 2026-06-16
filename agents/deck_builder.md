@@ -118,6 +118,11 @@ budget/salt/power limits
 
 If compressed targets look misleading, use `recommended_range`, `need_score`, and deckbuilding judgment.
 
+Build the commander engine straight from the analysis: turn each `wanted_card_patterns` entry
+(and `synergy_tags` / `engine_profile.primary_pattern`) into `suggest`/`search-tags` queries.
+This is how niche hooks get covered — e.g. a `targeted_spell_payoff` commander wants cheap
+self-targeting spells and buyback auras (Whip Silk) that generic archetype filling never finds.
+
 ---
 
 ## Search and Suggest
@@ -154,6 +159,13 @@ Repeated --oracle / --name / --card-type filters are AND filters.
 Write `output/decklist.txt` as a simple list of main-deck cards.
 
 Avoid including the commander in the main deck list when using structured output.
+
+Verify the list before writing — `cards-batch` accepts the `.txt` directly and flags any
+`"found": false` name (typo or nonexistent card) cheaply, before the deck-write/fill/validate cycle:
+
+```bash
+mtg cards-batch output/decklist.txt --json-output
+```
 
 Then run `deck-write --structured`.
 

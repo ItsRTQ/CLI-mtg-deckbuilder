@@ -90,7 +90,9 @@
   "creature_removal": [
     "destroy target creature",
     "exile target creature",
-    "deals damage to target creature"
+    "deals damage to target creature",
+    "fights",
+    "deals damage equal to its power to target"
   ],
   "artifact_enchantment_removal": [
     "destroy target artifact",
@@ -101,9 +103,10 @@
   "board_wipe": [
     "destroy all",
     "exile all",
-    "each creature",
-    "all creatures",
-    "all nonland permanents"
+    "all nonland permanents",
+    "all creatures get -",
+    "damage to each creature",
+    "each creature gets -"
   ],
   "graveyard_hate": [
     "exile target card from a graveyard",

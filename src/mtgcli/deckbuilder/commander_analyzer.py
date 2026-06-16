@@ -223,6 +223,12 @@ _ENGINE_RULES: List[Tuple[str, List[str], int]] = [
         "search your library for a basic land",
         "whenever a land or nonland permanent you control produces mana",
     ], 1),
+    ("targeted_spell_payoff", [
+        "becomes the target of a spell",
+        "becomes the target of an ability",
+        "whenever you cast a spell that targets",
+        "becomes targeted",
+    ], 1),
 ]
 
 
@@ -359,21 +365,38 @@ def _compute_archetype_fit(
     oracle: str,
     type_line: str,
     forced_archetype: Optional[str] = None,
+    power=None,
+    toughness=None,
 ) -> List[Dict[str, Any]]:
     to_score = list(_ALL_ARCHETYPES)
     if forced_archetype and forced_archetype not in to_score:
         to_score.append(forced_archetype)
 
-    fits = []
+    scored = []
     for arch in to_score:
-        score = score_archetype_fit(oracle, type_line, arch)
-        if score >= 3.0:
-            fits.append({
-                "archetype": arch,
-                "fit_score": round(score, 1),
-                "reason": _ARCHETYPE_REASONS.get(arch, f"Text signals match {arch} patterns."),
-            })
+        score = score_archetype_fit(oracle, type_line, arch, power=power, toughness=toughness)
+        scored.append((arch, score))
+
+    def _entry(arch, score, low_conf=False):
+        e = {
+            "archetype": arch,
+            "fit_score": round(score, 1),
+            "reason": _ARCHETYPE_REASONS.get(arch, f"Text signals match {arch} patterns."),
+        }
+        if low_conf:
+            e["low_confidence"] = True
+        return e
+
+    fits = [_entry(a, s) for a, s in scored if s >= 3.0]
     fits.sort(key=lambda x: -x["fit_score"])
+
+    if not fits:
+        # Nothing cleared the confidence threshold. Rather than return an empty list
+        # (which also leaves build_direction_options empty), surface the best-scoring
+        # archetypes as low-confidence so the agent still gets directional options.
+        scored.sort(key=lambda t: -t[1])
+        fits = [_entry(a, s, low_conf=True) for a, s in scored[:2]]
+
     return fits
 
 
@@ -474,6 +497,12 @@ def _build_wanted_patterns(
         wanted += ["extra land drops", "fetch lands", "landfall payoffs"]
     if "drain_engine" in engine_patterns:
         wanted += ["passive drain effects", "life loss triggers", "each-opponent effects"]
+    if "targeted_spell_payoff" in engine_patterns:
+        wanted += [
+            "cheap spells that target your own creatures",
+            "recurring/buyback auras (e.g. Whip Silk) to retrigger",
+            "low-cost pump and protection that target a creature",
+        ]
     if subtypes:
         tribal_targets = [s.lower() for s in subtypes[:2]]
         wanted.append(f"tribal synergy ({', '.join(tribal_targets)})")
@@ -694,7 +723,7 @@ def analyze_commander(
     anti_synergy_tags = _build_anti_synergy_tags(engine_patterns, oracle)
     commander_tags = sorted(set(commander_type_tags + engine_patterns))
 
-    archetype_fits = _compute_archetype_fit(oracle, type_line, archetype)
+    archetype_fits = _compute_archetype_fit(oracle, type_line, archetype, power=power, toughness=toughness)
     best_archetype = archetype or (archetype_fits[0]["archetype"] if archetype_fits else "value_engine")
 
     forced_archetype_warning: Optional[str] = None

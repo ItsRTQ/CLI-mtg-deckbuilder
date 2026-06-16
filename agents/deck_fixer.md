@@ -13,14 +13,15 @@ Fix using CLI data. Do not invent cards. Do not create helper scripts.
 3. Wrong deck size.
 4. Singleton violations.
 5. Missing commander metadata.
-6. Missing package essentials.
-7. Budget above allowed limit.
-8. Coherence problems.
-9. Nice-to-have improvements.
+6. Off-role package issues.
+7. Missing package essentials.
+8. Budget above allowed overage.
+9. Coherence problems.
+10. Nice-to-have improvements.
 
 ---
 
-## Validation Fixes
+## Validation First
 
 Run:
 
@@ -34,75 +35,59 @@ Partner:
 mtg validate --commander "<commander A>" --partner "<commander B>" --deck output/deck.json --json-output
 ```
 
-Fix common errors:
+Common fixes:
 
 | Error | Meaning | Fix |
 |---|---|---|
 | `card_not_found` | hallucinated/misspelled card | replace with real card |
-| `not_commander_legal` | illegal in Commander | swap card |
-| `color_identity_violation` | outside color identity | swap card |
+| `not_commander_legal` | illegal in Commander | replace |
+| `color_identity_violation` | outside color identity | replace |
 | `invalid_deck_size` | wrong count | add/cut cards |
 | `singleton_violation` | duplicate non-basic | remove duplicates |
-| `commander_missing` | missing commander metadata | provide `--commander` or structured metadata |
+| `commander_missing` | missing command-zone metadata | use `--commander` or structured JSON |
 
-Do not put commander inside `main_deck` just to appease validation. Structured metadata is preferred.
-
----
-
-## Command-Zone Fixes
-
-Preferred deck JSON:
-
-```json
-{
-  "commander": "Commander Name",
-  "main_deck": []
-}
-```
-
-If a flat list contains the commander, validation should treat it as command-zone metadata. If not, fix with structured `deck-write`.
-
-Use:
-
-```bash
-mtg deck-write --input output/decklist.txt --output output/deck.json --commander "<commander>" --structured --force
-mtg deck-fill-lands --deck output/deck.json --commander "<commander>" --output output/deck.json --force
-mtg validate --commander "<commander>" --deck output/deck.json --json-output
-```
+Do not force commander-zone cards into `main_deck` as a fix. Use structured metadata.
 
 ---
 
 ## Deck Size Fixes
 
-Single commander:
+Normal commander:
 
 ```text
-99 main deck + 1 commander = 100
+1 commander + 99 main deck cards = 100
 ```
 
 Partner:
 
 ```text
-98 main deck + 2 commanders = 100
+2 commanders + 98 main deck cards = 100
 ```
 
-Use `deck-fill-lands` for missing basics. Do not manually script land math.
+Use `deck-fill-lands` for missing basics. If deck is overfull, cut weakest off-plan cards first.
 
 ---
 
-## Suggest Fixes
+## Off-Role Results
 
-If replacing cards, use valid role suggestions.
+If `suggest` returned off-role cards, do not use them.
 
-```bash
-mtg suggest --commander "<commander>" --role removal --limit 20 --json-output
-mtg suggest --commander "<commander>" --role protection --limit 20 --json-output
-mtg suggest --commander "<commander>" --role engine --synergy --analysis output/commander_analysis.json --limit 20 --json-output
+Examples:
+
+```text
+normal lands under ramp
+unrelated cards under card_draw
+recursion counted as protection without actual protection
+cheap cards with no synergy or role fit
 ```
 
-Never use `--role synergy`.
+Replace using role-correct searches:
 
-Reject off-role results manually if they appear.
+```bash
+mtg suggest --commander "<commander>" --role ramp --json-output
+mtg suggest --commander "<commander>" --role card_draw --type creature --json-output
+mtg search --oracle "draw a card" --type creature --json-output
+```
 
 ---
 
@@ -110,44 +95,59 @@ Reject off-role results manually if they appear.
 
 Budget is a maximum, not a target.
 
-Only reduce cost when above the allowed limit or user asks.
+Only fix budget if:
 
-Default overage allowance: 10%.
+```text
+known total exceeds budget + allowed overage
+strict budget mode rejects unknown prices
+user requested stricter spending
+```
 
-Unknown-price cards are allowed by default but must be reported.
+Do not cut key synergy just because the deck is under budget.
 
-When cutting for budget:
-
-1. Cut expensive low-synergy cards first.
-2. Preserve core engine pieces.
-3. Preserve required role balance.
-4. Do not make the deck incoherent just to save money.
+A deck under budget is valid and does not need a "fix." If it is meaningfully
+under budget (especially T1/T2), defer to the Budget Upgrade Review (BUILDER.md
+Section 11) instead of forcing spending. Never auto-apply over-budget upgrades
+without user approval, and respect the user's budget tolerance mode.
 
 ---
 
-## Category-Counts Fixes
+## Category Count Fixes
 
-Use category-counts to identify missing or overfilled categories, but do not obey compressed targets blindly.
+Use category-counts as guidance.
 
-Prefer:
+If compression made removal/wincons too low, use:
 
 ```text
 recommended_range
-uncompressed_target_count
 need_score
+uncompressed_target_count
+practical deckbuilding judgment
 ```
 
-If compression pushes removal or win conditions too low, use judgment and report it.
+Do not blindly obey compressed targets.
 
 ---
 
-## Final Check
+## Replacement Rules
 
-After fixes:
+When replacing a card:
+
+1. Verify card exists.
+2. Verify color identity.
+3. Verify Commander legality.
+4. Verify it performs the required role.
+5. Prefer cards matching commander analysis tags if synergy matters.
+6. Re-run validation.
+
+---
+
+## Final Rule
+
+After any fix:
 
 ```bash
 mtg validate --commander "<commander>" --deck output/deck.json --json-output
-mtg deck-check --commander "<commander>" --deck output/deck.json --json-output
 ```
 
-Only then export/final-build.
+No final-build until validation passes.

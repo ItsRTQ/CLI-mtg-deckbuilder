@@ -4,6 +4,11 @@ from mtgcli.config import RAW_CARDS_PATH
 
 SCRYFALL_BULK_API_URL = "https://api.scryfall.com/bulk-data"
 
+HEADERS = {
+    "User-Agent": "mtgcli/1.0",
+    "Accept": "application/json",
+}
+
 def download_default_cards() -> Path:
     """
     Downloads Scryfall bulk card data and saves it to data/raw/scryfall_cards.json.
@@ -14,7 +19,7 @@ def download_default_cards() -> Path:
     Raises:
         RuntimeError: If the API request fails or the required bulk data type is not found.
     """
-    response = requests.get(SCRYFALL_BULK_API_URL)
+    response = requests.get(SCRYFALL_BULK_API_URL, headers=HEADERS)
     if not response.ok:
         raise RuntimeError(f"Failed to fetch bulk data metadata: {response.status_code}")
     
@@ -31,7 +36,7 @@ def download_default_cards() -> Path:
         raise RuntimeError("Could not find 'default_cards' bulk data type in Scryfall metadata.")
     
     # Download the actual card data
-    with requests.get(download_uri, stream=True) as r:
+    with requests.get(download_uri, headers=HEADERS, stream=True) as r:
         if not r.ok:
             raise RuntimeError(f"Failed to download card data: {r.status_code}")
         

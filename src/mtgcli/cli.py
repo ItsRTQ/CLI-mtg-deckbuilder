@@ -41,7 +41,7 @@ from mtgcli.deckbuilder.package_search import search_theme_package
 from mtgcli.deckbuilder.package_scorer import score_package_card
 from mtgcli.deckbuilder.pricing import resolve_card_price, build_budget_summary
 from mtgcli.deckbuilder.land_filler import fill_deck_with_lands, remove_command_zone_cards_from_main_deck
-from mtgcli.utils.deck_io import normalize_deck_input
+from mtgcli.utils.deck_io import normalize_deck_input, load_deck_file
 from mtgcli.utils.decklist_parser import parse_decklist_text
 from mtgcli.category_counts import calculate_category_counts, format_human_readable
 from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
@@ -119,8 +119,15 @@ def card(
             if card_data["usd_price"]:
                 print(f"[green]Price: ${card_data['usd_price']}[/green]")
     else:
-        print(f"[red]No exact match found for '{name}'.[/red]")
         suggestions = repo.search_cards_by_name(name, limit=5)
+        if json_output:
+            print_json({
+                "name": name,
+                "found": False,
+                "suggestions": [s["name"] for s in suggestions],
+            })
+            raise typer.Exit(code=1)
+        print(f"[red]No exact match found for '{name}'.[/red]")
         if suggestions:
             print("[yellow]Did you mean:[/yellow]")
             for s in suggestions:
@@ -804,8 +811,10 @@ def export(
 
     try:
         raw = read_json(input_path)
-        deck_cards = normalize_deck_input(raw)["main_deck"]
-        export_deck_to_moxfield(deck_cards, output_path)
+        normalized = normalize_deck_input(raw)
+        deck_cards = normalized["main_deck"]
+        commanders = normalized.get("commanders") or []
+        export_deck_to_moxfield(deck_cards, output_path, commanders=commanders)
         print(f"[green]Exported deck to {output_path}[/green]")
     except Exception as e:
         print(f"[red]Failed to export deck: {e}[/red]")
@@ -1261,8 +1270,7 @@ def cards_batch(
         raise typer.Exit(code=1)
 
     try:
-        raw = read_json(input_path)
-        deck_entries = normalize_deck_input(raw)["main_deck"]
+        deck_entries = load_deck_file(input_path)["main_deck"]
     except Exception as e:
         print(f"[red]Failed to read deck file: {e}[/red]")
         raise typer.Exit(code=1)
@@ -1344,8 +1352,7 @@ def prices_batch(
         raise typer.Exit(code=1)
 
     try:
-        raw = read_json(input_path)
-        deck_entries = normalize_deck_input(raw)["main_deck"]
+        deck_entries = load_deck_file(input_path)["main_deck"]
     except Exception as e:
         print(f"[red]Failed to read deck file: {e}[/red]")
         raise typer.Exit(code=1)
@@ -1407,7 +1414,7 @@ def budget(
         raise typer.Exit(code=1)
 
     repo = CardRepository(str(SQLITE_PATH))
-    deck_entries = normalize_deck_input(read_json(deck_path))["main_deck"]
+    deck_entries = load_deck_file(deck_path)["main_deck"]
 
     hydrated = []
     for entry in deck_entries:

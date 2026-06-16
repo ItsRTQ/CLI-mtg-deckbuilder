@@ -31,10 +31,14 @@ Example agent prompt:
 
 ```text
 Create a Commander deck with `Krenko, Mob Boss` as commander.
-Archetype: Tribal.
+Archetype: tokens (go-wide).
 Detail: Goblins.
 Use BUILDER.md.
 ```
+
+Note: use a broad engine-first archetype (here `tokens`) and keep `Goblins` as the
+*detail*. Krenko reads as a `token_engine` to the analyzer; forcing `tribal` as the
+archetype produces a low fit score and a forced-archetype warning.
 
 ---
 
@@ -507,7 +511,7 @@ Examples:
 
 ```text
 Commander: Krenko, Mob Boss
-Archetype: Tribal
+Archetype: tokens (go-wide)
 Detail: Goblins
 ```
 
@@ -884,7 +888,7 @@ The agent can follow user constraints when building decks.
 Examples:
 
 ```text
-Create a Commander deck with Krenko, Mob Boss as commander. Archetype: Tribal. Detail: Goblins. Use exactly 33 lands.
+Create a Commander deck with Krenko, Mob Boss as commander. Archetype: tokens (go-wide). Detail: Goblins. Use exactly 33 lands.
 Create a Chishiro deck with more Equipment and fewer board wipes.
 Create a Wilhelt Zombie sacrifice deck with 35 lands and no infinite combos.
 ```

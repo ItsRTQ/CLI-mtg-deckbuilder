@@ -407,12 +407,20 @@ def calculate_category_counts(
     # ── Archetype fit ──────────────────────────────────────────────────────
     oracle = (commander_card_data.get("oracle_text") or "")
     type_line = (commander_card_data.get("type_line") or "")
-    fit_score = score_archetype_fit(oracle, type_line, archetype_key)
+    fit_score = score_archetype_fit(
+        oracle, type_line, archetype_key,
+        power=commander_card_data.get("power"),
+        toughness=commander_card_data.get("toughness"),
+    )
 
     if partner_name and partner_card_data:
         partner_oracle = (partner_card_data.get("oracle_text") or "")
         partner_type = (partner_card_data.get("type_line") or "")
-        partner_fit = score_archetype_fit(partner_oracle, partner_type, archetype_key)
+        partner_fit = score_archetype_fit(
+            partner_oracle, partner_type, archetype_key,
+            power=partner_card_data.get("power"),
+            toughness=partner_card_data.get("toughness"),
+        )
         fit_score = max(fit_score, partner_fit)
 
     forced_warning = None

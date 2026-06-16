@@ -1,23 +1,22 @@
 from pathlib import Path
 from typing import Optional
 from mtgcli.cards.repository import CardRepository
-from mtgcli.utils.json_io import read_json, write_json
-from mtgcli.utils.deck_io import normalize_deck_input
+from mtgcli.utils.json_io import write_json
+from mtgcli.utils.deck_io import load_deck_file
 
 def enrich_deck(deck_path: Path, db_path: Path, output_path: Optional[Path] = None) -> Path:
     """
-    Enriches a simple deck JSON by looking up full card data from the SQLite database.
+    Enriches a simple deck by looking up full card data from the SQLite database.
     Deck entries only need 'name' and 'quantity'.
-    Accepts both flat list and structured {main_deck: [...]} formats.
+    Accepts a plain-text decklist (.txt), a flat list, or a structured
+    {main_deck: [...]} JSON, via load_deck_file.
     """
     if output_path is None:
         output_path = Path("output/deck.enriched.json")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    raw = read_json(deck_path)
-    normalized = normalize_deck_input(raw)
-    deck = normalized["main_deck"]
+    deck = load_deck_file(deck_path)["main_deck"]
     repo = CardRepository(str(db_path))
 
     enriched_deck = []

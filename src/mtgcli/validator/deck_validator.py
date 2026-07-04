@@ -165,7 +165,7 @@ def validate_commander_deck(
                 "card_color_identity": sorted(card_identity),
                 "allowed_color_identity": sorted(combined_identity),
                 "message": (
-                    f"Card color identity {sorted(card_identity)} is outside "
+                    f"'{name}' has color identity {sorted(card_identity)}, outside "
                     f"commander color identity {sorted(combined_identity)}."
                 ),
             })

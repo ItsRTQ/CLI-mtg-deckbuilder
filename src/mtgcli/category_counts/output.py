@@ -4,6 +4,46 @@ from typing import Any, Dict, List
 _PRIORITY_ORDER = ["Critical", "High", "Medium", "Low", "Negligible"]
 
 
+def format_table(result: Dict[str, Any]) -> str:
+    """Flat, plain-text, one-row-per-category table for terminal/pipe use.
+
+    Unlike `format_human_readable`, this is a single ungrouped table (no box-drawing
+    chars, no repeated per-priority headers, no embedded multi-line notes), and it
+    surfaces `compressed_target_count` explicitly alongside `need_score` and
+    `recommended_range` — the exact fields needed to judge whether compression has
+    distorted a category (see BUILDER.md's Category Counts Contract). Designed to be
+    read directly or piped through `column -t` / `awk`, with no JSON parsing required.
+    """
+    lines: List[str] = []
+    recs = sorted(
+        result.get("category_recommendations", []),
+        key=lambda c: -c.get("need_score", 0),
+    )
+    name_width = max([len("Category")] + [len(c.get("display_name", c.get("category", "?"))) for c in recs]) + 1
+
+    header = f"{'Category':<{name_width}} {'Need':>5} {'Range':>8} {'Comp':>5} {'Priority':<10}"
+    lines.append(header)
+    lines.append("-" * len(header))
+
+    for c in recs:
+        lines.append(
+            f"{c.get('display_name', c.get('category', '?')):<{name_width}} "
+            f"{c.get('need_score', 0):>5.1f} "
+            f"{c.get('recommended_range', '?'):>8} "
+            f"{c.get('compressed_target_count', '?'):>5} "
+            f"{c.get('priority', '?'):<10}"
+        )
+
+    lines.append("-" * len(header))
+    lines.append(
+        f"lands={result.get('land_count', '?')} "
+        f"nonland={result.get('nonland_slots', '?')} "
+        f"avg_mv={result.get('projected_avg_mv', '?')} "
+        f"fit={result.get('archetype_fit_score', '?')}"
+    )
+    return "\n".join(lines)
+
+
 def _group_by_priority(
     recommendations: List[Dict[str, Any]],
 ) -> Dict[str, List[Dict[str, Any]]]:

@@ -103,9 +103,9 @@ def test_explore_json_output_is_strict_parseable():
     dirty_html = _make_html("High Synergy Cards", ["Sol\x1fRing"]) + \
         _make_html("Top Cards", ["Command\x07Tower"])
 
-    with patch("mtgcli.cli.build_explore_url", return_value="https://example.com/x"), \
-         patch("mtgcli.cli.fetch_commander_page", return_value=dirty_html), \
-         patch("mtgcli.cli.SQLITE_PATH") as mock_path:
+    with patch("mtgcli.cli.commands.search.build_explore_url", return_value="https://example.com/x"), \
+         patch("mtgcli.cli.commands.search.fetch_commander_page", return_value=dirty_html), \
+         patch("mtgcli.cli.commands.search.SQLITE_PATH") as mock_path:
         mock_path.exists.return_value = False
         runner = CliRunner()
         result = runner.invoke(app, ["explore", "--commander", "Kotis", "--json-output"])

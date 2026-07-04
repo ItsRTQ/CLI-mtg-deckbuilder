@@ -1,6 +1,6 @@
 # CLI-mtg-deckbuilder
 
-Local Python CLI tool and agent workflow for building, validating, checking, explaining, and exporting **Magic: The Gathering Commander** decks.
+**v0.8.0** — Local Python CLI tool and agent workflow for building, validating, checking, explaining, and exporting **Magic: The Gathering Commander** decks.
 
 The project is designed around one important rule:
 
@@ -9,7 +9,20 @@ The Python `mtg` CLI provides facts, search, validation, deck checks, enrichment
 The external CLI agent makes deckbuilding decisions.
 ```
 
-The app should not try to fully replace deckbuilding judgment. It should act as a reliable tool layer that gives the agent accurate card data and legality checks.
+The app should not try to fully replace deckbuilding judgment. It should act as a reliable tool layer that gives the agent accurate card data (38k+ cards from Scryfall in a local SQLite database), legality checks, functional search, an evidence-first commander analyzer, and a hard finalization gate — while an external LLM agent (guided by `BUILDER.md`) supplies the strategy, card choices, and explanations.
+
+## Contents
+
+- [Project Goal](#project-goal)
+- [Core Architecture](#core-architecture)
+- [Requirements](#requirements) · [Setup](#setup) · [Initialize Card Data](#initialize-card-data)
+- [**Command Reference**](#command-reference) — all 34 commands, with a clickable [index](#index)
+- [Agent Usage](#agent-usage)
+- [Power Level Brackets](#power-level-brackets) · [Budget Handling](#budget-handling)
+- [Deck Identity Model](#deck-identity-model) · [Engine-First Deckbuilding](#engine-first-deckbuilding) · [Broad Archetypes](#broad-archetypes)
+- [Package-Based Strategy Construction](#package-based-strategy-construction) · [Generic Deckbuilding Defaults](#generic-deckbuilding-defaults)
+- [Combos and Tutors](#combos-and-tutors) · [Deckbuilding Constraints](#deckbuilding-constraints)
+- [Output Files](#output-files) · [Troubleshooting](#troubleshooting) · [Development Notes](#development-notes)
 
 ---
 
@@ -206,127 +219,709 @@ This makes it easier to test imports without processing the entire bulk file.
 
 ---
 
-## Common Commands
+## Command Reference
 
-Check project status:
+The `mtg` CLI exposes **34 commands** (v0.8.0). This index links to a detailed section for
+each one. Every command supports `--json-output`, and any command accepts the global
+`--log` flag (see [Global flags](#global-flags)).
+
+### Index
+
+**Setup & data**
+
+| Command | What it does |
+|---|---|
+| [`mtg status`](#mtg-status) | Show project paths and whether the card database exists. |
+| [`mtg init-data`](#mtg-init-data) | Download Scryfall bulk data (~2GB) and build the local SQLite database. |
+| [`mtg temp-clean`](#mtg-temp-clean) | Clean temporary / generated files from `output/`. |
+
+**Card lookup & prices**
+
+| Command | What it does |
+|---|---|
+| [`mtg card`](#mtg-card) | Look up ONE card by exact name (full data, single field, or JSON). |
+| [`mtg cards`](#mtg-cards) | Batch lookup of several card names given inline. |
+| [`mtg cards-batch`](#mtg-cards-batch) | Look up every card in a decklist file; `--verify` catches bad names early. |
+| [`mtg price`](#mtg-price) | Price data for one card (USD/foil/EUR/TIX). |
+| [`mtg prices`](#mtg-prices) | Batch price lookup for several names given inline. |
+| [`mtg prices-batch`](#mtg-prices-batch) | Prices for every card in a deck file. |
+| [`mtg budget`](#mtg-budget) | Deck cost summary vs a budget: total, per-card breakdown, high-cost flags. |
+
+**Search & discovery**
+
+| Command | What it does |
+|---|---|
+| [`mtg search`](#mtg-search) | Search commander-legal cards by text/type/name/stats/trigger/price. |
+| [`mtg search-tags`](#mtg-search-tags) | Search by FUNCTION using the curated tag vocabulary, ranked by match count. |
+| [`mtg suggest`](#mtg-suggest) | Role-based suggestions for a commander (ramp, card_draw, removal, …). |
+| [`mtg similar`](#mtg-similar) | Cards that perform the SAME function as a given card. |
+| [`mtg complements`](#mtg-complements) | Cards that complete the OTHER half of a card's interaction. |
+| [`mtg explore`](#mtg-explore) | Community recommendations for a commander (EDHREC page scrape). |
+| [`mtg combos`](#mtg-combos) | Known combos involving a commander, with bracket filters. |
+
+**Commander & deck analysis**
+
+| Command | What it does |
+|---|---|
+| [`mtg commander-analyze`](#mtg-commander-analyze) | Full tactical analysis of a commander → `commander_analysis.json`. |
+| [`mtg analyze-card`](#mtg-analyze-card) | Evidence-first functional read of ANY card, with full provenance traces. |
+| [`mtg category-counts`](#mtg-category-counts) | Recommended slot counts per category (ramp, draw, removal, …). |
+| [`mtg themes`](#mtg-themes) | List the built-in deck theme profiles. |
+| [`mtg theme-info`](#mtg-theme-info) | Show one theme profile and its packages. |
+
+**Deck lifecycle**
+
+| Command | What it does |
+|---|---|
+| [`mtg deck-write`](#mtg-deck-write) | Convert a plain-text decklist into structured deck JSON. |
+| [`mtg deck-fill-lands`](#mtg-deck-fill-lands) | Fill a partial deck with basic lands to reach 99 (98 partner) cards. |
+| [`mtg suggest-lands`](#mtg-suggest-lands) | Basic-land split suggestion for a commander's colors. |
+| [`mtg deck-swap`](#mtg-deck-swap) | Swap cards in a decklist with full validation BEFORE writing. |
+| [`mtg validate`](#mtg-validate) | Hard-rule validation: existence, legality, color identity, singleton, size. |
+| [`mtg deck-check`](#mtg-deck-check) | Quality heuristics: land/ramp/draw/removal counts and warnings. |
+| [`mtg deck-gaps`](#mtg-deck-gaps) | Audit the deck against its commander's plan; lists what's thin. |
+| [`mtg preflight`](#mtg-preflight) | THE finalization gate: every must-pass check in one command → `READY`. |
+
+**Export & reporting**
+
+| Command | What it does |
+|---|---|
+| [`mtg enrich`](#mtg-enrich) | Embed full card data into a deck JSON. |
+| [`mtg export`](#mtg-export) | Export deck JSON to Moxfield import text (with Commander section). |
+| [`mtg final-build`](#mtg-final-build) | Validate and save a versioned final build under `final-builds/`. |
+| [`mtg report`](#mtg-report) | Consolidate the `--log` audit trail into `logs/<name>.json`. |
+
+### Global flags
+
+- **`--json-output`** — every command supports it. With the flag, ALL errors (bad flags,
+  unknown commands, validation aborts, crashes) are also emitted as structured JSON
+  (`{"error": {"type", "message", ...}}`) instead of Rich panels, so agent parsers never
+  break. Failing commands exit non-zero. Always check the `"error"` key before reading
+  results.
+- **`--log`** — accepted by ANY command, in any position. Appends
+  `{seq, command, full_command, response, timestamp, exit_code}` to an on-going staging
+  log (`output/on-going-report.json`). Consolidate it later with
+  [`mtg report`](#mtg-report). Gives builds a replayable audit trail.
+
+---
+
+### Setup & data
+
+#### `mtg status`
+
+Shows the resolved project paths and whether the raw Scryfall data and the SQLite
+database exist. Run it first when anything behaves oddly — most "command returns
+nothing" problems are a missing database.
 
 ```bash
 mtg status
+mtg status --json-output   # {"project_root", "database_path", "database_exists", ...}
 ```
 
-Look up a card:
+#### `mtg init-data`
+
+Downloads the Scryfall bulk data (**~2GB**, one-time) if missing, then builds the local
+SQLite database: one row per unique card identity (38k+), with USD/foil/EUR/TIX prices
+aggregated across all printings, `edhrec_rank` popularity, commander-legality and
+`can_be_commander` flags precomputed.
 
 ```bash
-mtg card "Sol Ring"
+mtg init-data                 # progress output
+mtg init-data --json-output   # quiet; final summary JSON
 ```
 
-Look up a card as JSON:
+Notes:
+- Re-running refreshes the database from the (possibly re-downloaded) raw data.
+- If the process is killed, see [Troubleshooting](#mtg-init-data-gets-killed).
+
+#### `mtg temp-clean`
+
+Cleans generated files from `output/`. Default mode removes temp files only; `--full`
+removes everything except `.gitkeep` (including `deck.json` — it asks for confirmation
+unless `--yes`).
 
 ```bash
-mtg card "Edgar Markov" --json-output
-```
-
-Card data includes creature `power` and `toughness` (stored as text, since values
-can be non-numeric like `*` or `1+*`; `null` for non-creatures):
-
-```json
-{
-  "name": "Edgar Markov",
-  "mana_cost": "{3}{R}{W}{B}",
-  "mana_value": 6.0,
-  "type_line": "Legendary Creature — Vampire Knight",
-  "oracle_text": "...",
-  "power": "4",
-  "toughness": "4",
-  "colors": ["B", "R", "W"],
-  "color_identity": ["B", "R", "W"],
-  "commander_legal": true,
-  "can_be_commander": true
-}
-```
-
-Search Commander-legal cards:
-
-```bash
-mtg search "draw a card" --colors RG --limit 20
-```
-
-Search cards by tags:
-
-```bash
-mtg search-tags ramp card_draw --colors RG --limit 30
-```
-
-Suggest cards for a commander by role:
-
-```bash
-mtg suggest --commander "Chishiro, the Shattered Blade" --role ramp --limit 20
-```
-
-Validate a deck:
-
-```bash
-mtg validate --commander "Chishiro, the Shattered Blade" --deck output/deck.json
-```
-
-Validate with JSON output:
-
-```bash
-mtg validate --commander "Chishiro, the Shattered Blade" --deck output/deck.json --json-output
-```
-
-Enrich a deck with full card data:
-
-```bash
-mtg enrich output/deck.json --output output/deck.enriched.json
-```
-
-Run deck quality checks, if available:
-
-```bash
-mtg deck-check --commander "Chishiro, the Shattered Blade" --deck output/deck.json --json-output
-```
-
-Export a deck to Moxfield format:
-
-```bash
-mtg export output/deck.json --output output/deck.moxfield.txt
+mtg temp-clean --dry-run            # list what would be deleted, delete nothing
+mtg temp-clean                      # remove temp files
+mtg temp-clean --full --yes         # wipe output/ without prompting
 ```
 
 ---
 
-## Future / Recommended Commands
+### Card lookup & prices
 
-These commands are recommended as the project improves:
+#### `mtg card`
+
+Exact-name lookup for ONE card — the source of truth for oracle text, mana cost, P/T,
+color identity, legality, and price. Never trust memory for card data; check here.
 
 ```bash
-mtg archetypes
+mtg card "Sol Ring"                          # human-readable
+mtg card "Krenko, Mob Boss" --json-output    # full card JSON
+mtg card "Sol Ring" --field oracle_text      # ONE raw field, no JSON/rich wrapping
+mtg card "Sol Ring" --field mana_cost        # pipe-friendly
+```
+
+Key behaviors:
+- **Double-faced / split cards resolve by front-face name**: `mtg card "Valakut Awakening"`
+  finds `Valakut Awakening // Valakut Stoneforge`.
+- **Not found + `--json-output` (or `--field`)** emits
+  `{"name", "found": false, "suggestions": [...]}` and **exits 1** — agent pipelines can
+  branch on the exit code.
+- `--field` with an unknown field name lists the real available fields and exits 1.
+- `power`/`toughness` are stored as text (values like `*` or `1+*` exist); `null` for
+  non-creatures.
+
+> Looking for a card but only know part of the name? `mtg search --name "Sol Ring"`
+> does partial name matching. Plain `mtg search "Sol Ring"` is a *text* search (it
+> splits words and matches oracle text too — you'll get noise).
+
+#### `mtg cards`
+
+Batch exact-name lookup for names given inline. Each result carries `"found": true/false`.
+
+```bash
+mtg cards "Sol Ring" "Command Tower" "Arcane Signet" --json-output
+```
+
+#### `mtg cards-batch`
+
+Looks up every card in a deck file — accepts **both** deck JSON and plain-text `.txt`
+decklists (`1 Card Name` per line). Its `--verify` mode is a **mandatory step** of the
+build workflow: run it on your drafted `.txt` BEFORE `deck-write` to catch misspelled or
+hallucinated names cheaply.
+
+```bash
+mtg cards-batch output/decklist.txt --verify
+# → "64 entries, 0 not found."            exit 0
+# → "64 entries, 2 not found." + names    exit 1  (with suggestions)
+
+mtg cards-batch output/decklist.txt --verify --json-output
+# → {"total_entries", "found_count", "not_found_count", "not_found": [{name, suggestions}]}
+```
+
+Notes:
+- `--verify` exits **non-zero if anything is missing** — no scripting needed to detect
+  `"found": false` entries.
+- Without `--verify` it returns the full card data for every entry.
+
+#### `mtg price`
+
+Price data for one card from the local database (aggregated across printings):
+`usd_price`, `usd_foil_price`, `eur_price`, `tix_price`, plus `price_status`
+(`known`/`unknown`) and `price_source`.
+
+```bash
+mtg price "Sol Ring" --json-output
+```
+
+#### `mtg prices`
+
+Batch price lookup for names given inline.
+
+```bash
+mtg prices "Sol Ring" "Lightning Bolt" --json-output
+```
+
+#### `mtg prices-batch`
+
+Prices for every card in a deck file (deck JSON or `.txt` decklist).
+
+```bash
+mtg prices-batch output/decklist.txt --json-output
+```
+
+#### `mtg budget`
+
+Deck cost summary against a budget. Accepts deck JSON **or** the raw `.txt` decklist, so
+you can budget-check a draft before any deck file exists.
+
+```bash
+mtg budget output/decklist.txt --budget 130
+mtg budget output/deck.json --budget 130 --overage 10 --json-output
+mtg budget output/decklist.txt --budget 130 --by-card         # most expensive first
+mtg budget output/deck.json --budget 130 --by-card --top 25
+```
+
+Options:
+- `--budget <USD>` — the maximum. Budget is a **constraint, not a spending target**.
+- `--overage <pct>` — allowed percent above the limit (default 10).
+- `--by-card` — per-card `line_total = usd_price × quantity` breakdown, most expensive
+  first (`--top N`, 0 = all).
+- `--high-cost-pct` — flags single cards eating ≥ this fraction of the budget
+  (default 0.20); they surface in `high_cost_cards` with `pct_of_budget`.
+- `--strict` — fail if any card has unknown price.
+
+Notes:
+- Output includes `budget_status` (`under_budget` / `over_budget` / …) and
+  `budget_confidence` (`complete` when every card has a known price).
+- **Unknown price means unknown — not free and not forbidden.**
+
+---
+
+### Search & discovery
+
+#### `mtg search`
+
+The general card search over commander-legal cards. Three ways to express a query, all
+AND-combined:
+
+**1. Query string with structured tokens** (`oracle:`, `type:`, `name:`, `mv:`):
+
+```bash
+mtg search 'type:vampire oracle:draw' --json-output
+mtg search 'mv<=3 oracle:draw oracle:card' --json-output
+```
+
+**2. Repeatable filter options** (cleaner when text has quotes/apostrophes):
+
+```bash
+mtg search --oracle "can't be blocked" --oracle target --json-output
+mtg search --oracle "draw a card" --type creature --json-output
+mtg search --card-type vampire --type creature --json-output
+```
+
+**3. Numeric / structural filters:**
+
+```bash
+# efficient beaters: power >= 5 at MV <= 4 in green
+mtg search --colors G --type creature --pow-gte 5 --mv-lte 4 --json-output
+
+# cards that trigger on an EVENT family
+mtg search --trigger permanent_dies --colors B --json-output
+mtg search --list-triggers    # permanent_dies, permanent_enters, you_cast_spell,
+                              # attacks_or_combat, sacrifice, targeted_by_spell,
+                              # draw_or_discard, life_change, recurring_tick
+
+# budget builds
+mtg search --oracle "extra turn" --max-price 5 --json-output
+```
+
+Full filter list: `--colors` (color identity), `--type` (broad card type), `--oracle/--text`
+(repeatable), `--name` (repeatable), `--card-type/--subtype` (repeatable), `--mv`,
+`--mv-lte`, `--mv-gte`, `--pow-lte/gte`, `--tou-lte/gte`, `--trigger`, `--max-price`,
+`--limit` (default 20).
+
+Notes:
+- **Repeated filters and tokens use AND semantics** — a result must match everything.
+- **Plain free text is split into words**, each matched as a substring of
+  name OR type OR oracle text. `mtg search "Sol Ring"` therefore matches Soldiers
+  ("**Sol**dier") and "du**ring**" — for a specific card use
+  [`mtg card`](#mtg-card) (exact) or `--name` (partial name, phrase kept whole).
+- `*` / variable power never matches a numeric bound (a `*/*` creature is not a
+  guaranteed 5-power beater).
+- An unknown `--type` value errors out listing the supported types and suggesting
+  `--subtype` for creature types (e.g. `Rogue`).
+- Results are ranked with real EDHREC popularity as tiebreak (staples first).
+
+#### `mtg search-tags`
+
+Search by **card function** using the curated tag vocabulary (106 functional tags —
+`ramp`, `card_draw`, `evasion`, `sacrifice_outlet`, `reanimation`, `protection`, …).
+Passing several tags unions their phrases, and results are **ranked by
+`tag_match_count`** — how many of the requested tags' phrases each card hits — so the
+most on-function cards come first.
+
+```bash
+mtg search-tags evasion --colors G --type creature --json-output
+mtg search-tags sacrifice_outlet death_trigger --colors B --json-output
+mtg search-tags ramp --max-price 3 --mv-lte 3 --json-output
+mtg search-tags --list-tags        # the full vocabulary
+```
+
+This is how to search deeper than the obvious: decompose the plan into functions
+(commander damage = `evasion` + `damage_multiplier` + `protection`; aristocrats =
+`sacrifice_outlet` + `death_trigger` + `token_maker`), pull a ranked shortlist per
+function, then judge fit yourself.
+
+Notes:
+- Tags are curated and substring-based — treat results as **candidates to evaluate**,
+  not a verdict.
+- A `ramp` search will NOT leak basic lands: lands only count as ramp when they
+  actually ramp (Myriad Landscape yes, Mountain no).
+- Filters: `--colors`, `--type`, `--max-price`, `--mv-lte`, `--limit`.
+
+#### `mtg suggest`
+
+Role-based suggestions for a commander. `role` is the functional job of the card
+(`ramp`, `card_draw`, `removal`, `engine`, …); `--synergy` additionally narrows to cards
+that connect with the commander's strategy — **applied after** the role match, never
+replacing it.
+
+```bash
+mtg suggest --commander "Krenko, Mob Boss" --role ramp --json-output
+mtg suggest --commander "Krenko, Mob Boss" --role engine --synergy \
+    --analysis output/commander_analysis.json --json-output
+mtg suggest --commander "Krenko, Mob Boss" --role card_draw --type creature --json-output
+```
+
+Rules that keep suggestions honest:
+- **`synergy` is not a role.** Never `--role synergy`; use `--synergy` as a modifier on a
+  real role.
+- Role results carry non-empty `matched_tags` — that's the evidence for WHY a card
+  qualified. Ramp must be real acceleration (rocks, dorks, rituals, Treasure makers,
+  land search, extra land drops, cost reducers) — normal lands are not ramp.
+- `--analysis` (defaults to `output/commander_analysis.json`) makes `--synergy` smarter.
+- `--type` narrows after the role match; `--exclude <deck.json>` skips cards already in
+  the deck; `--max-price` for budget builds.
+- Ties are sorted by real EDHREC popularity.
+
+#### `mtg similar`
+
+Cards that perform the **same function** as a given card: profiles the card's functional
+tags and finds other cards sharing them, ranked by how many they share. Defaults to the
+source card's own color identity.
+
+```bash
+mtg similar "Sol Ring" --json-output
+mtg similar "Cultivate" --colors G --max-price 2 --json-output
+```
+
+Use it to find replacements: budget stand-ins, redundancy copies for a key effect, or
+alternatives when a card is banned/excluded.
+
+#### `mtg complements`
+
+The **other half of the interaction**: profiles the card and maps its functions to their
+payoffs/enablers via a curated complement map. A sacrifice outlet finds death-triggers,
+recursion and token makers; a +1/+1-counter placer finds proliferate and counter payoffs.
+
+```bash
+mtg complements "Ashnod's Altar" --json-output
+mtg complements "Krenko, Mob Boss" --json-output
+```
+
+Use it after locking a key engine piece to build the package around it.
+
+#### `mtg explore`
+
+Fetches community card recommendations for a commander from EDHREC (network required).
+Returns `high_synergy` and `top_cards` lists. Optional context, not a build requirement.
+
+```bash
+mtg explore --commander "Krenko, Mob Boss" --json-output
+```
+
+#### `mtg combos`
+
+Fetches and parses known combos involving a commander (network required). Writes
+`output/commander_combos.json` by default.
+
+```bash
+mtg combos --commander "Krenko, Mob Boss" --json-output
+mtg combos --commander "Krenko, Mob Boss" --max-bracket 3 --limit 10 --json-output
+```
+
+Options: `--bracket` (exact) / `--max-bracket` (ceiling), `--limit`, `--no-write`,
+`--include-raw`, `--output <path>`.
+
+Usage judgment (see the Combos section of BUILDER.md): if the user wants combos,
+evaluate compact packages; if not, individual combo pieces may still be good cards.
+Don't force combos into low-power/friendly decks. Combo cards still need legality,
+color-identity, budget and theme checks like any card.
+
+---
+
+### Commander & deck analysis
+
+#### `mtg commander-analyze`
+
+The first command of every build: full tactical analysis of a commander, written to
+`output/commander_analysis.json` (a reusable artifact other commands consume).
+
+```bash
+mtg commander-analyze --commander "Krenko, Mob Boss" \
+    --output output/commander_analysis.json --json-output
+
+# partner decks
+mtg commander-analyze --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" \
+    --output output/commander_analysis.json --json-output
+```
+
+What the artifact contains (all top-level keys):
+- `color_identity` / `combined_color_identity` — the deck's legal colors.
+- **`analyzer` (preferred)** — the evidence-first read: `archetype_support` as ordinal
+  bands (`very_high/high/medium/low`) each backed by detected signals, plus `signals`
+  (compact IDs), `dominant_symmetry`, and `warnings`. Full traces via
+  [`mtg analyze-card`](#mtg-analyze-card).
+- `archetype_fit` (legacy) — weighted text scores, kept for compatibility. **When the two
+  disagree, trust `analyzer.archetype_support`** and treat this as a hint.
+- `engine_profile` — the commander's primary pattern and engine action.
+- `oracle_hooks` — generic, commander-agnostic structural reads of the oracle text:
+  `named_counters` (a custom counter like `slime`/`experience` means proliferate +
+  any-counter payoffs, NOT +1/+1-specific ones), `asymmetric_punisher` (build
+  attrition/protection, not go-wide), `trigger_events`, `token_types`,
+  `cost_reduction_type`, and derived `build_signals`.
+- `synergy_tags` / `anti_synergy_tags`, `wanted_card_patterns` / `avoid_card_patterns`,
+  `role_pressures`, commander scores, `build_direction_options`.
+- Power/toughness when available — real data for combat/Voltron/fragility judgment.
+
+Notes:
+- Check commander legality FIRST: `mtg card "<name>" --field can_be_commander`. Legal
+  non-creature face commanders missing from detection can be added to the curated
+  allowlist `data/seed/commander_overrides.json` (verify before adding).
+- Analysis JSONs are stamped with `tool_version`; consumers warn when an artifact
+  predates the installed version (stale-cache trap) — re-run after upgrading the tool.
+- If `archetype_support` comes back empty/all-low on a commander that clearly has a
+  plan, that's an analyzer coverage gap: note it and reason from the oracle text.
+
+#### `mtg analyze-card`
+
+Deck-independent, evidence-first functional analysis of **any** card — the transparency
+tool behind the analyzer. Every conclusion is a signal with a trace: which rule fired,
+on what text. No scores, no include/cut verdict — judgment stays with the agent.
+
+```bash
+mtg analyze-card "Krenko, Mob Boss"          # compact: bands + signals
+mtg analyze-card "Grave Pact" --json-output  # full provenance traces
+```
+
+Use it when a card's function is non-obvious, when you disagree with a band, or to
+audit WHY the analyzer read something (calibration work relies on it).
+
+#### `mtg category-counts`
+
+Recommended slot counts per functional category (ramp, card draw, removal, wipes,
+lands, synergy packages…) for a commander + archetype + power level, adjusted by the
+commander's own provisions (a commander that IS removal lowers the removal need).
+
+```bash
+mtg category-counts --commander "Krenko, Mob Boss" --archetype "tokens" \
+    --power-level 7 --analysis output/commander_analysis.json --json-output
+
+mtg category-counts --commander "Krenko, Mob Boss" --archetype "tokens" --table
+```
+
+How to read it — **this contract matters**:
+- **`recommended_range` and `need_score` are the source of truth**, NOT the visually
+  prominent `compressed_target_count`. Compression can shrink a Critical-need category
+  to a misleading near-zero target. If `need_score` is High/Critical, stay near the TOP
+  of `recommended_range` regardless of the compressed number.
+- `--table` prints a flat one-row-per-category table (need_score, range, compressed,
+  priority) sorted by need — grep/awk-friendly, exactly the fields the contract needs.
+- Pass `--analysis` for richer commander scoring; re-generate the analysis after tool
+  upgrades (cached scores go stale).
+- Counts are guidance, not hard locks. An invalid `--philosophy` string warns and falls
+  back to `balanced` (`philosophy_warning` names the 14 valid options).
+
+#### `mtg themes`
+
+Lists the built-in theme profiles (token_engine, sacrifice_value, creature_type_tribal, …).
+
+```bash
+mtg themes --json-output
+```
+
+#### `mtg theme-info`
+
+Shows one theme profile: description and its packages with min/ideal counts.
+
+```bash
+mtg theme-info token_engine --json-output
+```
+
+---
+
+### Deck lifecycle
+
+#### `mtg deck-write`
+
+Converts a plain-text decklist (`1 Card Name` per line) into deck JSON.
+
+```bash
+mtg deck-write --input output/decklist.txt --output output/deck.json \
+    --commander "Krenko, Mob Boss" --structured --force
+
+# partner decks
+mtg deck-write --input output/decklist.txt --output output/deck.json \
+    --commander "Tymna the Weaver" --partner "Thrasios, Triton Hero" --structured --force
+```
+
+Notes:
+- **`--commander` implies `--structured`** — the structured shape
+  (`{"commander": ..., "main_deck": [...]}`) keeps the commander in the command zone as
+  metadata, NOT as a main-deck card. The old unstructured default silently produced an
+  illegal deck shape when a commander was given; that trap is closed.
+- `--force` overwrites an existing output file.
+- Workflow rule: run [`mtg cards-batch --verify`](#mtg-cards-batch) on the `.txt` BEFORE
+  this step.
+
+#### `mtg deck-fill-lands`
+
+Fills a partial deck with basic lands (split by the commander's color identity) up to
+the target main-deck size (99, or 98 for partners).
+
+```bash
+mtg deck-fill-lands --deck output/deck.json --commander "Krenko, Mob Boss" \
+    --output output/deck.json
+mtg deck-fill-lands --deck output/deck.json --commander "..." --dry-run
+```
+
+Notes:
+- **In-place fill (output == deck) just works** — `--force` is only needed to overwrite
+  a *different* existing file.
+- If a flat list contains the commander, it is treated as command-zone metadata and
+  removed from the main-deck count.
+- `--target-main` overrides the default size.
+
+#### `mtg suggest-lands`
+
+Suggests a basic-land split for a commander's color identity (default 37 lands).
+Useful as a starting point before manual mana-base work.
+
+```bash
+mtg suggest-lands --commander "Lathril, Blade of the Elves" --count 38 --json-output
+```
+
+#### `mtg deck-swap`
+
+**The blessed way to change cards in a list** (budget trims, cutting a salt card, fixing
+a violation). Each `--swap "Old=New"` is validated BEFORE anything is written: the
+incoming card must exist, be Commander-legal, fit the commander's color identity, and
+not create a singleton violation. If ANY swap is invalid, the whole operation aborts
+atomically — nothing is written, and the message names the offending card.
+
+```bash
+mtg deck-swap --deck output/decklist.txt --commander "Krenko, Mob Boss" \
+    --swap "Lightning Bolt=Goblin Bombardment"
+
+mtg deck-swap --deck output/deck.json --commander "..." \
+    --swap "Old One=New One" --swap "Old Two=New Two" --dry-run
+```
+
+Notes:
+- Works on `.txt` decklists AND deck JSON; `--output` writes elsewhere instead of
+  in-place; `--dry-run` validates and reports without writing.
+- **Never hand-edit the list with `sed`/`python` replaces** — that skips every check
+  this command enforces.
+
+#### `mtg validate`
+
+Hard-rule validation of a deck: all cards exist (no hallucinated/misspelled names), all
+Commander-legal, all inside the color identity, singleton respected, correct main-deck
+and total size, commander present as metadata.
+
+```bash
+mtg validate --commander "Krenko, Mob Boss" --deck output/deck.json --json-output
+```
+
+Error types you may see:
+
+| Error | Meaning | Action |
+|---|---|---|
+| `card_not_found` | hallucinated/misspelled card | replace with a real card |
+| `not_commander_legal` | illegal in Commander | replace |
+| `color_identity_violation` | outside commander identity (message names the card) | replace |
+| `invalid_deck_size` | wrong main-deck count | add/cut cards |
+| `singleton_violation` | duplicate non-basic | remove duplicates |
+| `commander_missing` | no commander metadata/flag | pass `--commander` or use structured JSON |
+
+A deck is not complete until validation passes — but prefer
+[`mtg preflight`](#mtg-preflight) as the single finalization gate.
+
+#### `mtg deck-check`
+
+Quality heuristics (not legality): land count, ramp, card draw, removal, board wipes,
+protection, synergy counts, with warnings for low counts. Optional `--theme` validates
+thematic package minimums.
+
+```bash
+mtg deck-check --commander "Krenko, Mob Boss" --deck output/deck.json --json-output
+```
+
+Notes:
+- Lands only count as ramp when they actually ramp (Myriad Landscape yes, basics no).
+- Fight/bite spells count as removal.
+- Counts are heuristic tag matches — treat warnings as prompts for judgment, not
+  hard failures.
+
+#### `mtg deck-gaps`
+
+Audits the built deck against **its own plan**: cross-references the category-count
+targets and the commander's oracle hooks against what the deck actually contains, then
+lists what's thin — ranked by need, each gap with a ready-to-run
+[`search-tags`](#mtg-search-tags) command to fill it. Also reports hook-specific gaps
+(e.g. a custom-counter commander with no proliferate).
+
+```bash
+mtg deck-gaps --deck output/deck.json --commander "Krenko, Mob Boss" \
+    --archetype tokens --power-level 7 --json-output
+```
+
+Run it before finalizing — it closes the analyze → build → audit loop and catches the
+deck's blind spots against its own strategy.
+
+#### `mtg preflight`
+
+**The single finalization gate.** Runs every must-pass check in one command, reusing the
+same validator/deck-check/budget logic: commander legal & in the command zone, deck
+size, all cards exist, all Commander-legal, singleton, color identity, and budget (when
+`--budget` is given). Prints a ✓/✗ checklist ending in **`READY`** or **`NOT READY`**
+(exit code 0/1). Quality notes (low ramp, etc.) are shown as non-blocking.
+
+```bash
+mtg preflight --deck output/deck.json --commander "Krenko, Mob Boss" --budget 130
+```
+
+**Do not declare a deck done — and do not run `final-build` — until preflight prints
+`READY`.** This one command replaces remembering ten separate rules.
+
+---
+
+### Export & reporting
+
+#### `mtg enrich`
+
+Embeds full card data (oracle text, types, prices, …) from the database into a deck
+JSON — producing `deck.enriched.json` for downstream consumers that need card details
+without further lookups. Accepts `.txt` decklists too.
+
+```bash
+mtg enrich output/deck.json --output output/deck.enriched.json --json-output
+```
+
+#### `mtg export`
+
+Exports deck JSON to Moxfield-compatible import text. The export includes a
+**`Commander` section** so the commander lands in Moxfield's command zone, plus the
+`Deck` section with the 99.
+
+```bash
+mtg export output/deck.json --output output/deck.moxfield.txt --json-output
+```
+
+#### `mtg final-build`
+
+Validates the deck and saves a versioned final build folder:
+
+```text
+final-builds/<Commander>-<Theme>-<Bracket>-v<N>/
+├── <build-name>.txt                # Moxfield-compatible decklist
+└── <build-name>.explanation.md    # the deck explanation
 ```
 
 ```bash
-mtg archetype-info voltron --json-output
+mtg final-build --deck output/deck.json --commander "Krenko, Mob Boss" \
+    --theme "goblin-swarm" --bracket T3 --explanation output/deck_explanation.md
 ```
+
+Never final-build a deck that hasn't passed [`mtg preflight`](#mtg-preflight). Version
+numbers auto-increment per build name.
+
+#### `mtg report`
+
+Consolidates the on-going `--log` audit trail into `logs/<name>.json` and clears the
+staging file (`--keep` retains it). `--note` adds annotations (repeatable); `--summary`
+derives calibration metrics (per-command call counts, every card passed to
+`analyze-card`, and any non-zero-exit commands).
 
 ```bash
-mtg suggest-package \
-  --commander "Krenko, Mob Boss" \
-  --archetype tribal \
-  --detail "goblins" \
-  --package enablers \
-  --limit 30 \
-  --json-output
+mtg search-tags ramp --colors R --log           # ... any commands, all with --log
+mtg report --name krenko-build-v1 --note "budget build, $130 cap" --summary
 ```
 
-```bash
-mtg deck-check \
-  --commander "Krenko, Mob Boss" \
-  --deck output/deck.json \
-  --archetype tribal \
-  --detail "goblins" \
-  --json-output
-```
-
-The agent should prefer package-based commands when available because they produce more useful candidates than a generic `synergy` search.
+The log is self-verifying: any logged command can be re-run later and compared. Use it
+whenever a build should be auditable/reproducible.
 
 ---
 
@@ -355,21 +950,23 @@ When asked to build a deck, the agent should:
 1. Read the user request.
 2. Identify commander, archetype, detail, and constraints.
 3. Use `agents/user-feedback.md` to ask useful preference questions if needed.
-4. Look up the commander through the `mtg` CLI.
-5. Confirm the commander exists, is Commander legal, and can be a commander.
-6. Analyze the commander's engine from the returned card object.
-7. Determine broad archetype and specific detail.
-8. Build package goals.
-9. Search/suggest candidates using the CLI.
-10. Rank candidates with `agents/card_ranker.md`.
-11. Build `output/deck.json`.
-12. Validate with `mtg validate`.
-13. Fix errors with `agents/deck_fixer.md`.
-14. Run `mtg deck-check` if available.
-15. Export with `mtg export`.
+4. Confirm the commander exists and is legal: `mtg card "<name>" --field can_be_commander`.
+5. Analyze the commander: `mtg commander-analyze` (prefer the `analyzer` bands; read `oracle_hooks`).
+6. Plan slot targets with `mtg category-counts` (trust `recommended_range`/`need_score`).
+7. Build package goals; shortlist candidates with `search`, `search-tags`, `suggest`,
+   `similar`, `complements`.
+8. Rank candidates with `agents/card_ranker.md`; draft `output/decklist.txt`.
+9. **Verify the draft BEFORE building: `mtg cards-batch output/decklist.txt --verify`.**
+10. Build the deck file: `mtg deck-write --commander "<name>" --structured`.
+11. Fill lands: `mtg deck-fill-lands`.
+12. Audit against the plan: `mtg deck-gaps`. Validate: `mtg validate`; quality: `mtg deck-check`;
+    budget: `mtg budget`.
+13. Fix errors with `mtg deck-swap` (guided by `agents/deck_fixer.md`).
+14. **Gate: `mtg preflight` must print `READY`.**
+15. Export with `mtg export`; save with `mtg final-build`.
 16. Explain the final validated deck.
 
-The agent must not claim the deck is valid unless validation passes.
+The agent must not claim the deck is done unless `mtg preflight` prints `READY`.
 
 ---
 
@@ -1079,7 +1676,7 @@ Card creates Goblins repeatedly, feeds the deck's body count, and enables mass p
 
 ### Deck validates but feels incoherent
 
-Run deck-check if available:
+Run deck-check and deck-gaps:
 
 ```bash
 mtg deck-check --commander "<commander name>" --deck output/deck.json --json-output
@@ -1103,28 +1700,41 @@ too many cards that only keyword-match the theme
 
 ## Development Notes
 
-Recommended future improvements:
+Project layout (v0.8.0):
 
 ```text
-- Add archetype profile support.
-- Add package-based suggestion commands.
-- Add deck-check support for package balance.
-- Deduplicate suggestions by oracle_id.
-- Add price-aware budget filtering.
-- Add power-level-aware tutor/combo filtering.
-- Add engine-pattern tags during card normalization.
+src/mtgcli/
+├── cli/               # the Typer CLI package (34 commands in commands/{data,search,cards,deck,analysis,misc}.py)
+├── analyzer/          # evidence-first card analyzer: signals with provenance traces, ordinal bands
+├── cards/             # SQLite repository, search engine, query parser
+├── category_counts/   # slot planning (calculator, scoring, output)
+├── deckbuilder/       # commander analyzer, oracle hooks, pricing, land filler, deck check, ramp rules
+├── data/              # Scryfall download / normalize / SQLite build
+├── combos/, explore/  # external combo & EDHREC data
+├── export/            # Moxfield + final-builds
+├── utils/, validator/ # deck IO, JSON IO, deck validation
+└── config.py, logging_util.py
 ```
 
-Recommended seed/config files:
+Key data files:
 
 ```text
-data/seed/card_tags.json
-data/seed/role_definitions.json
-data/seed/deck_skeletons.json
-data/seed/constraint_rules.json
-data/seed/archetype_profiles.json
-data/seed/power_level_profiles.json
+data/seed/card_tags.json              # 106 functional tags — curated, DB-measured phrases
+data/seed/commander_overrides.json    # allowlist for non-creature face commanders
+data/golden/golden_cards.json         # 166 hand-verified analyzer reads (the regression net)
+data/processed/mtg.sqlite             # the card database (built by init-data)
 ```
+
+Testing:
+
+```bash
+pip install -e .
+python3 -m pytest -q     # 950 tests; the golden set catches analyzer regressions in seconds
+```
+
+Run the full suite after ANY code change, and add a regression test for any bug fixed.
+Agent-facing workflow docs live in `BUILDER.md` (the canonical build contract) and
+`agents/*.md` (per-role guides); `CHANGELOG.md` documents what each version fixed.
 
 ---
 

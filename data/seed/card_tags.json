@@ -144,13 +144,14 @@
     "return up to one target card from your graveyard"
   ],
   "self_mill": [
-    "mill",
-    "put the top",
+    "you mill",
+    "mill two cards",
+    "mill three cards",
+    "cards from your library into your graveyard",
     "surveil"
   ],
   "discard_outlet": [
-    "discard a card",
-    "discard"
+    "discard a card"
   ],
   "reanimation": [
     "return target creature card from your graveyard to the battlefield",
@@ -178,13 +179,17 @@
     "whenever a creature dies",
     "whenever another creature dies",
     "when this creature dies",
-    "dies"
+    "another creature dies",
+    "you control dies",
+    "counter on it dies",
+    "undying",
+    "nontoken creature dies"
   ],
   "aristocrats": [
-    "each opponent loses",
-    "you gain",
     "whenever a creature dies",
-    "whenever you sacrifice"
+    "whenever you sacrifice",
+    "creature you control dies",
+    "create or sacrifice a token"
   ],
   "token_maker": [
     "creature token",
@@ -195,9 +200,9 @@
   ],
   "repeatable_token_maker": [
     "whenever you create",
-    "creature token",
-    "at the beginning of each",
-    "create a token"
+    "}: create",
+    "tap: create",
+    "combat damage to a player, create"
   ],
   "token_payoff": [
     "whenever a token",
@@ -206,8 +211,8 @@
     "creatures you control get"
   ],
   "token_doubler": [
-    "twice that many",
-    "create one or more tokens"
+    "create one or more tokens",
+    "twice that many tokens"
   ],
   "replacement_multiplier": [
     "twice that many tokens",
@@ -235,9 +240,14 @@
     "put a counter"
   ],
   "counter_payoff": [
-    "counters on",
     "modified",
-    "whenever one or more counters"
+    "whenever one or more counters",
+    "counters on each",
+    "counters on creatures you control",
+    "counter on each creature you control",
+    "remove a +1/+1 counter",
+    "remove x +1/+1 counters",
+    "put that many +1/+1 counters"
   ],
   "modified_payoff": [
     "modified",
@@ -253,10 +263,13 @@
     "proliferate"
   ],
   "spell_payoff": [
-    "whenever you cast",
     "magecraft",
     "prowess",
-    "copy target instant or sorcery"
+    "copy target instant or sorcery",
+    "whenever you cast a spell,",
+    "whenever you cast an instant",
+    "whenever you cast a noncreature spell",
+    "instant or sorcery spell"
   ],
   "magecraft": [
     "magecraft"
@@ -281,7 +294,8 @@
   ],
   "spell_copy": [
     "copy target instant or sorcery",
-    "copy that spell"
+    "first instant",
+    "instant or sorcery spell, copy"
   ],
   "attack_trigger": [
     "whenever this creature attacks",
@@ -329,11 +343,15 @@
     "when this enters"
   ],
   "blink": [
-    "return it to the battlefield",
-    "return that card to the battlefield",
     "blink",
     "flicker",
-    "exile target permanent you control"
+    "exile target permanent you control",
+    "exile it, then return",
+    "exile target creature you control, then return",
+    ", then return it to the battlefield",
+    ", then return that card to the battlefield",
+    "exile another target permanent you control",
+    "then return those cards to the battlefield"
   ],
   "trigger_doubler": [
     "triggers an additional time",
@@ -345,12 +363,21 @@
   "artifact_payoff": [
     "whenever an artifact",
     "artifacts you control",
-    "sacrifice an artifact"
+    "artifact you control",
+    "artifact spell",
+    "sacrifices an artifact",
+    "whenever you sacrifice an artifact",
+    "sacrifice an artifact:",
+    "artifact or enchantment spell",
+    "sacrifice two artifacts",
+    "historic spell",
+    "artifact or enchantment card"
   ],
   "artifact_recursion": [
     "return target artifact card",
     "artifact card from your graveyard",
-    "return target artifact"
+    "return target artifact",
+    "artifact or enchantment card"
   ],
   "enchantment": [
     "Enchantment"
@@ -389,8 +416,7 @@
     "whenever a creature deals combat damage"
   ],
   "lifedrain": [
-    "each opponent loses",
-    "you gain"
+    "each opponent loses"
   ],
   "alternate_wincon": [
     "you win the game",
@@ -398,7 +424,9 @@
   ],
   "landfall": [
     "landfall",
-    "whenever a land enters"
+    "whenever a land enters",
+    "play an additional land",
+    "land cards are put into your graveyard"
   ],
   "land_recursion": [
     "play lands from your graveyard",
@@ -406,8 +434,8 @@
   ],
   "land_payoff": [
     "for each land you control",
-    "lands you control",
-    "land you control"
+    "land you control enters",
+    "lands you control enter"
   ],
   "tribal_creature": [
     "{creature_type}"
@@ -426,22 +454,30 @@
     "changeling"
   ],
   "theft": [
-    "gain control",
-    "target opponent controls",
-    "you may cast",
-    "from exile"
+    "an opponent owns",
+    "opponents own",
+    "that player owns",
+    "owned by",
+    "from among cards an opponent",
+    "exiled with",
+    "don't own",
+    "cast spells from that player's hand"
   ],
   "copy_effect": [
     "copy target",
     "token that's a copy"
   ],
   "stax": [
-    "players can't",
-    "opponents can't",
     "costs more",
     "doesn't untap",
-    "skip",
-    "only one"
+    "opponents can't cast",
+    "players can't cast",
+    "opponents can't untap",
+    "opponents can't attack",
+    "opponents can't draw",
+    "can't cast more than",
+    "skip their",
+    "only one spell"
   ],
   "pillowfort": [
     "can't attack you",
@@ -457,7 +493,13 @@
   "group_slug": [
     "each opponent loses",
     "each player loses",
-    "whenever an opponent"
+    "damage to each player",
+    "damage to each opponent",
+    "spell, they lose",
+    "damage to that player",
+    "that player loses",
+    "opponent loses life",
+    "target player loses"
   ],
   "poison": [
     "infect",
@@ -499,5 +541,55 @@
     "destroy target enchantment",
     "exile target artifact",
     "exile target enchantment"
+  ],
+  "wheel": [
+    "discards their hand",
+    "draws seven cards",
+    "shuffles their hand"
+  ],
+  "mill_opponents": [
+    "opponent mills",
+    "target player mills",
+    "each player mills",
+    "would mill",
+    "that player mills",
+    "each player mills",
+    "enchanted player mills",
+    "controller mills"
+  ],
+  "superfriends": [
+    "loyalty counter",
+    "loyalty abilities",
+    "loyalty ability",
+    "planeswalker spells"
+  ],
+  "graveyard_recast": [
+    "spell from your graveyard",
+    "cast spells from your graveyard",
+    "play a land and cast",
+    "instant card from your graveyard"
+  ],
+  "morph_facedown": [
+    "face down",
+    "face-down"
+  ],
+  "attack_trigger_payoff": [
+    "dealt combat damage to",
+    "dealt combat damage this turn",
+    "was dealt combat damage"
+  ],
+  "battlecruiser": [
+    "annihilator"
+  ],
+  "toughness_matters": [
+    "with defender",
+    "gain life equal to that creature's toughness"
+  ],
+  "aura_equipment_payoff": [
+    "aura or equipment",
+    "aura, equipment",
+    "aura and equipment",
+    "equipped creature you control",
+    "enchanted creature you control"
   ]
 }

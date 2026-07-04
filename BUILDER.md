@@ -26,6 +26,12 @@ agents/deck_explainer.md
 
 `BUILDER.md` is the main guide for the agent workflow.
 
+`$.venv/bin/mtg` is how you will use the mtg tool
+
+`$.venv/bin/mtg --help` is how you will see the possible commands for the mtg tool
+
+`$.venv/bin/mtg <command> --help` is how you will see specific instructions for a command(use this to take full advantage of the mtg tool)
+
 ---
 
 ## 2. Non-Negotiable Rules
@@ -35,13 +41,14 @@ agents/deck_explainer.md
 3. Do not use cards outside the commander's color identity.
 4. Do not finalize until `mtg validate` passes with no errors.
 5. Do not save to `final-builds/` unless validation passes.
-6. Do not create helper scripts such as `build_*.py`, `temp_*.py`, or one-off Python scripts that *generate, assemble, or decide* the deck. This rule is about not bypassing the CLI's logic — it does **not** forbid read-only inspection of CLI output (e.g. piping `--json-output` through `jq`/`python -m json.tool` to filter or pretty-print, or counting results). Reading and reformatting the CLI's output is fine; producing deck content outside the CLI is not.
+6. Do not create helper scripts such as `build_*.py`, `temp_*.py`, or one-off Python scripts that *generate, assemble, or decide* the deck. This rule is about not bypassing the CLI's logic — it does **not** forbid read-only inspection of CLI output (e.g. piping `--json-output` through `jq`/`python -m json.tool` to filter or pretty-print, or counting results). Reading and reformatting the CLI's output is fine; producing or editing deck content outside the CLI is not — to change a card in the list use `mtg deck-swap` (it validates before writing), never a `sed`/`python` replace.
 7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent files during normal deckbuilding.
 8. Use official CLI commands instead of manual scripts.
 9. `synergy` is not a role. Never use `--role synergy`. Use `--synergy` on a real role.
 10. Commander-zone cards are metadata, not `main_deck` cards.
 11. Category counts and skeletons are guidance, not hard locks.
 12. Budget is a maximum constraint, not a spending target.
+13. Before starting the build ask the user "Do you want to clear output folder? "(Yes/No - answere only) if user selects yes run(.venv/bin/mtg temp-clean --full --yes) to clear output folder using the mtg tool. if user select no, then skip and continue to build
 
 ---
 
@@ -179,17 +186,34 @@ mtg explore --commander "<Commander>" --json-output
 mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
 ```
 
-Verify the drafted list **before** building (catches misspelled/illegal names cheaply, before
-the deck-write → fill → validate cycle). `cards-batch`, `prices-batch`, and `budget` accept the
+**MANDATORY STEP — verify the drafted list BEFORE building** (catches misspelled/hallucinated/
+illegal names cheaply, before the deck-write → fill → validate cycle; the Gargos and Anowon test
+builds each caught invented card names here). A build that skips this step is not following this
+document. `cards-batch`, `prices-batch`, and `budget` accept the
 plain-text `output/decklist.txt` directly — no need to convert to JSON first:
 
 ```bash
-mtg cards-batch output/decklist.txt --json-output
+mtg cards-batch output/decklist.txt --verify
 ```
 
-Any entry with `"found": false` is a typo or a non-existent name — fix it before `deck-write`.
-For double-faced/split cards, the front-face name resolves (e.g. `Valakut Awakening`). A quick
-price pass can also be run on the raw list: `mtg prices-batch output/decklist.txt --json-output`.
+`--verify` reports only the names that weren't found (with suggestions) and exits non-zero if any
+are missing — use it instead of piping `--json-output` through a script to find `"found": false`.
+
+Other built-in helpers so you never need an inline `python`/`jq` script to read or edit:
+
+```bash
+mtg card "<Card>" --field oracle_text          # one raw field, no JSON/grep needed
+mtg category-counts ... --table                # flat one-row-per-category table, sorted by need
+mtg budget output/decklist.txt --budget <USD> --by-card   # total + most-expensive cards + high-cost flags
+mtg deck-swap --deck output/decklist.txt --commander "<Commander>" --swap "Old=New"
+```
+
+`deck-swap` is the blessed way to change a card in the list (budget trim, swap a salt card, etc.):
+it validates the incoming card (exists, Commander-legal, in color identity, no singleton dup)
+**before writing** and aborts atomically if anything is wrong — never hand-edit the decklist with a
+`sed`/`python` replace, which skips all those checks.
+
+For double-faced/split cards, the front-face name resolves (e.g. `Valakut Awakening`).
 
 Build file:
 
@@ -228,6 +252,18 @@ mtg validate --commander "<Commander>" --deck output/deck.json --json-output
 
 Run deck-check / budget if applicable, fix errors, explain, then final-build.
 
+Finalization gate — REQUIRED before declaring the deck done or running `final-build`:
+
+```bash
+mtg preflight --deck output/deck.json --commander "<Commander>" [--budget <USD>]
+```
+
+`preflight` runs every must-pass check in one shot (commander legal & in the command zone,
+deck size, all cards exist, all Commander-legal, singleton, color identity, and budget if given)
+and prints a checklist ending in `READY` or `NOT READY` (exit code 0/1). Do not finalize unless it
+prints `READY`. This is the single gate that replaces remembering each rule individually — if any
+line shows `✗`, fix it and re-run preflight.
+
 Budget Upgrade Review flow (see Section 11):
 
 ```text
@@ -247,6 +283,52 @@ Budget Upgrade Review flow (see Section 11):
 
 ## 7. Commander Analysis Contract
 
+### 7.0b Archetype: prefer `analyzer.archetype_support` over `archetype_fit`
+
+`commander_analysis.json` now carries TWO archetype reads:
+
+- **`analyzer` (preferred)** — the evidence-first analyzer: `archetype_support` as ordinal bands
+  (`very_high/high/medium/low`), plus `signals` (detected feature IDs), `dominant_symmetry`, and
+  `warnings`. Every band is backed by detected evidence; run `mtg analyze-card "<Commander>"` if
+  you need the full traces (which rule fired on which text).
+- **`archetype_fit` (legacy)** — weighted text scores. Kept for compatibility during the migration;
+  its numeric scores can be confidently wrong (e.g. reminder text once read as a lands/mill plan).
+
+**Rule: when the two disagree, trust `analyzer.archetype_support`.** Treat `archetype_fit` as a
+secondary hint at most. **Toolbox commanders:** if `archetype_support` includes `Toolbox / Goodstuff` (or the analyzer
+warns "multi-mode commander"), the per-mode bands are OPTIONS on a menu, not the theme. Resolve
+the menu with the user's answers from the build questions (§5 User Feedback Flow): pick the mode
+that best aligns with their requested direction (user wants aggro -> the aggro-adjacent mode).
+If their answers don't disambiguate, ASK before committing to a mode.
+
+If `archetype_support` is empty or all-low while the commander clearly has
+a plan, that is an analyzer coverage gap — note it (it is calibration signal), reason from the
+oracle text yourself, and proceed with your own judgment.
+
+
+### 7.0 Commander legality pre-check (do this FIRST)
+
+Before analyzing or building, confirm the commander is actually a legal commander:
+
+```bash
+mtg card "<Commander>" --field can_be_commander
+```
+
+- `True` → proceed normally.
+- `False` → the tool's detection may be incomplete. The `can_be_commander` flag is a text/type
+  heuristic (Legendary Creature, or "can be your commander" text, or the curated allowlist in
+  `data/seed/commander_overrides.json`). It cannot detect non-creature face commanders that carry no
+  oracle signal (e.g. some Legendary Vehicles like Shorikai). **Do not silently proceed and do not
+  guess.** Instead:
+  1. If it's a Legendary Creature or plainly a designated commander, verify quickly via web search
+     whether it's a legal Commander (Scryfall/official). If confirmed legal, add its exact name to
+     `data/seed/commander_overrides.json` and re-run the check.
+  2. If web access is unavailable or the result is ambiguous, ask the user to confirm the commander
+     is legal before continuing.
+  Only build once legality is confirmed. A wrong allowlist entry would let a non-commander through,
+  so add names only when verified.
+
+
 `output/commander_analysis.json` is the tactical map for the build.
 
 Use it for:
@@ -265,12 +347,33 @@ commander scores
 provides / requires / rewards
 wanted card patterns
 avoid card patterns
+oracle hooks (general, commander-agnostic)
 build direction options
 ```
 
 Power/toughness is card data. Use it for combat, Voltron, aggro pressure, commander fragility, blocker quality, and creature win-condition evaluation. Do not invent it when missing.
 
+The `oracle_hooks` field is derived directly from the commander's oracle text and applies to ANY
+commander. Read it before drafting — it captures things the fixed archetype list can miss:
+- `named_counters`: the actual counter type(s). If it's a custom counter (e.g. `slime`,
+  `experience`), use proliferate and payoffs that count counters of ANY kind, and do NOT include
+  +1/+1-specific payoffs — they do nothing. Only treat +1/+1 / -1/-1 payoffs as live if those are
+  the listed counters.
+- `asymmetric_punisher`: if true, the commander harms opponents' boards; build attrition and
+  protection, not go-wide (your own board is not the payoff).
+- `trigger_events`, `token_types`, `cost_reduction_type`: the build's natural hooks.
+- `build_signals`: a ready-made shopping list derived from the above; it is also merged into
+  `wanted_card_patterns`.
+
 ---
+
+## 7.9 Audit trail (`--log` / `report`)
+
+Any `mtg` command accepts a global `--log` flag: it appends `{seq, command, full_command,
+response, timestamp, exit_code}` to an on-going staging log. `mtg report --name <name> [--note
+"<finding>"]... [--summary]` consolidates it into `logs/<name>.json` and clears staging. Use it
+when a build should be auditable/reproducible (calibration runs per CALIMAX.md always log; normal
+builds may). The log is self-verifying: any logged command can be re-run later and compared.
 
 ## 8. Search Contract
 
@@ -322,9 +425,54 @@ Available filters:
 mtg search "type:vampire" --type creature --json-output
 ```
 
+### Search by FUNCTION with tags — go deeper than the obvious
+
+When you want cards that perform a strategic function, reason in **tags** (the tool's vocabulary of
+card functions) and let `search-tags` union their phrases and **rank** results by how many facets
+each card hits:
+
+```bash
+mtg search-tags evasion --colors G --type creature --json-output
+mtg search-tags sacrifice_outlet death_trigger --colors B --json-output   # union of several tags
+mtg search-tags --list-tags        # all 97 functional tags
+```
+
+This is how to go deeper than the obvious without enumerating combinations: decompose the build's
+plan into functions (e.g. commander damage = `evasion` + `damage_multiplier` + `protection`;
+aristocrats = `sacrifice_outlet` + `death_trigger` + `token_maker`), pull a ranked shortlist per
+function, then judge fit against the deck's intent. Each result carries `tag_match_count` (how many
+of the requested tags' phrases it hit) — higher = more on-function. Tags are curated and
+substring-based, so treat the shortlist as candidates to evaluate, not a verdict, and combine with
+`--colors`, `--type`, `--mv-lte`, and `--max-price` to stay inside the build's constraints.
+
+### More search axes
+
+- **Creature stat quality** — `mtg search --pow-gte 5 --mv-lte 4 --colors G --type creature` finds
+  efficient beaters. Also `--pow-lte/--tou-gte/--tou-lte`. Variable/`*` power never matches a
+  numeric bound (a `*/*` creature is not a guaranteed 5-power beater).
+- **By trigger event** — `mtg search --trigger attacks_or_combat --colors R` finds cards that
+  trigger on an event family (`--list-triggers`: permanent_dies, permanent_enters, you_cast_spell,
+  attacks_or_combat, sacrifice, targeted_by_spell, draw_or_discard, life_change, recurring_tick).
+- **Similar / complementary to a card** — `mtg similar "<Card>"` returns cards performing the same
+  function (ranked by shared facets); `mtg complements "<Card>"` returns the other half of the
+  interaction (a sacrifice outlet → death-triggers, recursion, token makers; a +1/+1 placer →
+  proliferate and counter payoffs). Both default to the card's own color identity.
+
+### Auditing the built deck — `deck-gaps`
+
+```bash
+mtg deck-gaps --deck output/deck.json --commander "<Commander>" --archetype <archetype>
+```
+
+Cross-references the category-count targets and the commander's oracle hooks against what the deck
+actually contains, and lists what's thin (ranked by need) with a ready `search-tags` command to fill
+each gap — plus hook-specific gaps (e.g. a custom-counter commander with no proliferate). Run it
+before finalizing to catch the deck's blind spots against its own plan.
+
 ---
 
 ## 9. Suggest Contract
+
 
 `role` = the functional job/use of the card.
 

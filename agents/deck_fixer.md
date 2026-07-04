@@ -131,6 +131,16 @@ Do not blindly obey compressed targets.
 
 ## Replacement Rules
 
+Make every swap through the CLI, never by editing the list manually:
+
+```bash
+mtg deck-swap --deck output/deck.json --swap "<out>=<in>" --commander "<name>"   # validates before writing
+mtg similar "<card being cut>"          # find functional replacements for a cut
+mtg deck-gaps --deck ... --commander ...  # re-audit after fixes: did the fix close the gap?
+```
+
+The fix loop ends at `mtg preflight` printing READY — never on memory of having checked.
+
 When replacing a card:
 
 1. Verify card exists.

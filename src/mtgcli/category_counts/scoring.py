@@ -205,6 +205,10 @@ def _score_provides(oracle: str) -> Dict[str, float]:
         removal_strength += 1.5
     if "-x/-x" in oracle or "-1/-1 counter" in oracle:
         removal_strength += 1.0
+    # Fight/bite is repeatable removal (Gargos "fights up to one target creature" — the
+    # legacy heuristic scored it 0.0 until the v0.8 Gargos test build caught it).
+    if "fights up to" in oracle or "fights target" in oracle or "fight up to" in oracle:
+        removal_strength += 2.0
     if removal_strength:
         provides["targeted_removal"] = min(5.0, removal_strength)
 

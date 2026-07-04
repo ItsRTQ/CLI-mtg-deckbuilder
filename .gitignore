@@ -19,3 +19,8 @@ final-builds/*
 .claude
 .agents
 .codex
+logs/*
+!logs/.gitkeep
+claude-memory
+claude-memory/*
+CLAUDE.md

@@ -57,6 +57,18 @@ def _resolve_philosophy(philosophy: str) -> str:
     return PHILOSOPHY_ALIASES.get(key, "balanced")
 
 
+def _philosophy_warning(philosophy: str) -> Optional[str]:
+    """A custom string silently fell back to 'balanced' (Gargos test build, F10) — the
+    caller deserves to KNOW. Returns a warning naming the valid options, or None."""
+    key = philosophy.lower().strip()
+    if key in PHILOSOPHY_ALIASES:
+        return None
+    from mtgcli.category_counts.profiles import get_philosophy_modifiers
+    valid = sorted(k for k in get_philosophy_modifiers() if not k.startswith("_"))
+    return (f"Philosophy '{philosophy}' not recognized — using 'balanced'. "
+            f"Valid options: {', '.join(valid)}.")
+
+
 def _resolve_meta(meta: str) -> str:
     key = meta.lower().strip()
     return META_ALIASES.get(key, "universal")
@@ -313,6 +325,21 @@ def _load_analysis_scores(analysis_path: Optional[str]) -> Optional[Dict[str, An
             return None
         with open(p, "r", encoding="utf-8") as f:
             analysis = _json.load(f)
+        # Stale-cache trap (F10 in the Gargos build): scores cached in an analysis file
+        # written by an older tool version can silently disagree with the current scorer.
+        try:
+            from importlib.metadata import version as _pkg_version
+            _installed = _pkg_version("mtgcli")
+            _written = analysis.get("tool_version")
+            if _written is not None and _written != _installed:
+                import warnings
+                warnings.warn(
+                    f"Analysis file {p} was written by mtgcli {_written} but {_installed} is "
+                    f"installed — cached commander_scores may be stale; re-run commander-analyze.",
+                    stacklevel=2,
+                )
+        except Exception:
+            pass
         scores = dict(analysis.get("commander_scores", {}))
         scores["provides"] = analysis.get("provides", {})
         scores["requires"] = analysis.get("requires", {})
@@ -346,6 +373,7 @@ def calculate_category_counts(
     """
     resolved_power = _resolve_power_level(power_level, bracket)
     philosophy_key = _resolve_philosophy(philosophy)
+    philosophy_warning = _philosophy_warning(philosophy)
     meta_key = _resolve_meta(meta)
     archetype_key = archetype.lower().strip().replace(" ", "_").replace("-", "_")
 
@@ -561,6 +589,7 @@ def calculate_category_counts(
         "power_level": resolved_power,
         "power_tier": _power_tier_label(resolved_power),
         "deckbuilding_philosophy": _philosophy_display(philosophy_key),
+        "philosophy_warning": philosophy_warning,
         "meta": _meta_display(meta_key),
         "color_identity": color_identity,
         "commander_scores": commander_scores,

@@ -40,6 +40,13 @@ mtg commander-analyze \
 
 Use `output/commander_analysis.json` for:
 
+**Exact top-level paths** (don't guess nested locations — these live at the ROOT of the JSON):
+`color_identity` (e.g. `["B","U"]`), `combined_color_identity` (with partner),
+`is_valid_commander`, `analyzer` (the preferred archetype read), `archetype_fit` (legacy),
+`engine_profile`, `synergy_tags`, `wanted_card_patterns`, `oracle_hooks`,
+`build_direction_options`. The `commander` key holds the raw card object (name, oracle,
+type_line, mana_cost) — identity fields are NOT nested inside it.
+
 ```text
 color identity
 commander slots / library slots
@@ -110,12 +117,27 @@ Do not let P/T dominate non-combat roles.
 
 ---
 
-## Archetype Fit
+## Archetype: `analyzer` (preferred) then `archetype_fit` (legacy hint)
 
-Use `archetype_fit` to identify natural paths. Entries are ordered best-first; each has a
-`fit_score` (0-10). Entries flagged `low_confidence: true` mean nothing scored as a strong
-natural fit — they are the best available directions, not endorsements. Use them for
-`build_direction_options`, but lean harder on `engine_profile` and `synergy_tags` for card choices.
+The analysis carries TWO archetype reads. Read them in this order:
+
+**1. `analyzer` (preferred, evidence-first).** Contains `archetype_support` (ordinal bands
+`very_high/high/medium/low`, each backed by detected evidence), `signals` (feature IDs the
+analyzer detected in the oracle text), `dominant_symmetry`, and `warnings`. For partners it also
+carries `partner_archetype_support` / `partner_signals`. If you need the full evidence traces
+(which rule fired on which text), run `mtg analyze-card "<Commander>"`.
+
+**2. `archetype_fit` (legacy).** Weighted text scores (0-10), ordered best-first, with
+`low_confidence` flags. Kept during the archetype migration; its numeric scores can be
+confidently wrong. **When the two reads disagree, trust `analyzer.archetype_support`** and treat
+`archetype_fit` as a secondary hint (BUILDER.md §7.0b).
+
+If `archetype_support` is empty or all-low while the commander clearly has a plan, that is an
+analyzer coverage gap: note it (it is calibration signal), reason from the oracle text yourself,
+and proceed with your own judgment.
+
+A `Toolbox / Goodstuff` band (multi-mode commander, 4+ activated abilities) means the per-mode
+bands are options, not the theme — hand the mode choice to the user-feedback flow.
 
 If the user forces a low-fit archetype, respect it but flag the risk.
 

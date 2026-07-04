@@ -235,3 +235,12 @@ theme strictness affects major card choices
 ```
 
 Do not ask just to delay building.
+
+## Toolbox Commanders (multi-mode)
+
+When the commander analysis shows `Toolbox / Goodstuff` in `analyzer.archetype_support` (4+
+activated abilities — a menu of modes like Kenrith or Cromat), the user's answers are what
+resolve the menu: map their requested direction to the mode that serves it, and present that
+choice back ("you asked for aggro, so I'm leaning the {R} haste/trample mode"). If the default
+build questions didn't disambiguate which mode to lean, ask ONE targeted follow-up before
+drafting — do not pick a mode silently.

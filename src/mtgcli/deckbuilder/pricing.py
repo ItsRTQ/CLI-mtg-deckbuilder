@@ -84,6 +84,7 @@ def build_budget_summary(
     treat_basics_as_free: bool = True,
     budget_limit: Optional[float] = None,
     overage_percent: float = 10.0,
+    high_cost_pct: float = 0.20,
 ) -> Dict[str, Any]:
     """
     Summarizes USD budget for a list of card dicts (each may have quantity).
@@ -91,10 +92,16 @@ def build_budget_summary(
 
     If budget_limit is provided, evaluates the total against it and returns
     budget_status. Budget is a maximum constraint, not a spending target.
+
+    Always returns a `breakdown` list (priced cards, with line_total = usd_price *
+    quantity, sorted most-expensive first) so callers don't have to re-derive it. When
+    budget_limit is set, also returns `high_cost_cards`: single cards whose line_total
+    is >= high_cost_pct of the budget (default 20%), each with its pct_of_budget.
     """
     known_total = 0.0
     known_count = 0
     unknown_cards: List[str] = []
+    breakdown: List[Dict[str, Any]] = []
 
     for entry in deck_entries:
         name = entry.get("name", "")
@@ -106,11 +113,19 @@ def build_budget_summary(
             continue
 
         if usd is not None:
+            line_total = round(usd * quantity, 2)
             known_total += usd * quantity
             known_count += quantity
+            breakdown.append({
+                "name": name,
+                "quantity": quantity,
+                "usd_price": usd,
+                "line_total": line_total,
+            })
         else:
             unknown_cards.append(name)
 
+    breakdown.sort(key=lambda c: -c["line_total"])
     budget_confidence = "complete" if not unknown_cards else "partial"
 
     result: Dict[str, Any] = {
@@ -120,10 +135,17 @@ def build_budget_summary(
         "unknown_price_cards_count": len(unknown_cards),
         "unknown_price_cards": unknown_cards,
         "budget_confidence": budget_confidence,
+        "breakdown": breakdown,
     }
 
     if budget_limit is not None:
         budget_eval = evaluate_budget(known_total, budget_limit, overage_percent)
         result.update(budget_eval)
+        threshold = high_cost_pct * budget_limit
+        result["high_cost_cards"] = [
+            {**c, "pct_of_budget": round(c["line_total"] / budget_limit * 100, 1)}
+            for c in breakdown
+            if c["line_total"] >= threshold
+        ]
 
     return result

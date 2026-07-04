@@ -127,6 +127,25 @@ self-targeting spells and buyback auras (Whip Silk) that generic archetype filli
 
 ## Search and Suggest
 
+New search axes (v0.8.0) — use them before falling back to raw --oracle text matching:
+
+```bash
+mtg search --trigger <family>          # cards by trigger family (attacks, dies, enters, ...)
+mtg search --pow-gte 4 --tou-lte 2     # numeric power/toughness filters
+mtg search-tags <tag...>               # ranked by tag_match_count (multi-tag = strongest first)
+mtg similar "<card>"                   # cards performing the SAME function (find replacements)
+mtg complements "<card>"               # cards that SYNERGIZE (the other half of the interaction)
+```
+
+Before finalizing, audit the draft against the commander's plan:
+
+```bash
+mtg deck-gaps --deck output/deck.json --commander "<name>" --archetype <arch>
+```
+
+It reports thin categories with ready fill-commands. Treat its output as candidates to judge,
+not automatic includes.
+
 Use role suggestions:
 
 ```bash

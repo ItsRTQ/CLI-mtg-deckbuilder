@@ -45,6 +45,18 @@ CLI `suggestion_score` is a baseline, not the final decision.
 
 ## Inputs to Consider
 
+For non-obvious cards (asymmetric effects, multi-face, replacement effects, named counters,
+meta-triggers), get an evidence-based read before scoring:
+
+```bash
+mtg analyze-card "<card>"              # compact: archetype bands + signals + tags
+mtg analyze-card "<card>" --json-output  # full traces (which rule fired on which text)
+```
+
+Its `archetype_support` bands are evidence-backed (a `high` band cites the detected signals);
+use them to check your synergy read, not to replace it. An empty/low read on a clearly
+synergistic card is an analyzer coverage gap — score with your own judgment and note it.
+
 ```text
 output/commander_analysis.json
 category-counts recommended_range / need_score / compression notes

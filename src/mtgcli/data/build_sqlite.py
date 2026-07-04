@@ -10,7 +10,7 @@ from mtgcli.data.normalize_cards import normalize_card, min_known_price
 CHUNK_SIZE = 1000
 
 _PRICE_FIELDS = [
-    "usd_price", "usd_foil_price", "usd_etched_price",
+    "usd_price", "usd_foil_price", "usd_etched_price", "edhrec_rank",
     "eur_price", "eur_foil_price", "tix_price",
 ]
 
@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS cards (
     commander_legal INTEGER,
     can_be_commander INTEGER,
     usd_price REAL,
+    edhrec_rank INTEGER,
     usd_foil_price REAL,
     usd_etched_price REAL,
     eur_price REAL,
@@ -48,10 +49,10 @@ INSERT OR REPLACE INTO cards (
     oracle_id, name, mana_cost, mana_value, type_line, oracle_text,
     power, toughness,
     colors, color_identity, commander_legal, can_be_commander,
-    usd_price, usd_foil_price, usd_etched_price, eur_price, eur_foil_price, tix_price,
+    usd_price, usd_foil_price, usd_etched_price, edhrec_rank, eur_price, eur_foil_price, tix_price,
     price_status, price_source,
     layout, games, digital, finishes
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -72,6 +73,7 @@ def _to_row(norm: Dict[str, Any]) -> tuple:
         norm["usd_price"],
         norm["usd_foil_price"],
         norm["usd_etched_price"],
+        norm.get("edhrec_rank"),
         norm["eur_price"],
         norm["eur_foil_price"],
         norm["tix_price"],

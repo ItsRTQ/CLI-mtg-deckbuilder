@@ -1,0 +1,6 @@
+{
+  "_comment": "Cards that ARE legal commanders but whose oracle text/type gives no detectable signal (non-creature face commanders printed in Commander products, e.g. Legendary Vehicles). The can_be_commander heuristic (Legendary Creature OR 'can be your commander' text) can't catch these, and the authoritative source is Scryfall's designation, not the card text. Seed conservatively with VERIFIED cases only; when a build hits an unrecognized commander, BUILDER.md's fallback verifies via web/user before adding here. Do NOT pad this with guesses — a wrong entry would wrongly allow a non-commander (e.g. Esika's Chariot).",
+  "commanders": [
+    "Shorikai, Genesis Engine"
+  ]
+}

@@ -16,6 +16,7 @@ from mtgcli.category_counts.scoring import (
     score_commander,
     merge_partner_scores,
 )
+from mtgcli.deckbuilder.oracle_hooks import extract_hooks
 
 
 # ─── Power / toughness helpers ────────────────────────────────────────────────
@@ -789,6 +790,14 @@ def analyze_commander(
     avoid = _build_avoid_patterns(engine_patterns)
     directions = _build_direction_options(archetype_fits, engine_patterns)
 
+    # General oracle-derived hooks (commander-agnostic). Its build_signals are merged
+    # ahead of the fixed-table wanted patterns because they're specific to THIS card's
+    # actual text (named counters, punisher asymmetry, trigger families, cost reduction).
+    oracle_hooks = extract_hooks(oracle)
+    for sig in oracle_hooks["build_signals"]:
+        if sig not in wanted:
+            wanted.insert(0, sig)
+
     notes: List[str] = []
     if power_level is not None:
         notes.append(f"Power level context: {power_level}/10")
@@ -833,11 +842,39 @@ def analyze_commander(
         "rewards": {k: round(v, 2) for k, v in rewards.items()},
         "wanted_card_patterns": wanted,
         "avoid_card_patterns": avoid,
+        "oracle_hooks": oracle_hooks,
         "build_direction_options": directions,
         "notes": notes,
     }
 
     if forced_archetype_warning:
         result["forced_archetype_warning"] = forced_archetype_warning
+
+    # Fase 1 of the archetype migration (strangler fig): embed the evidence-first analyzer's
+    # read ALONGSIDE the legacy archetype_fit. Purely additive — no legacy field changes and no
+    # consumer is forced to switch. Signals are compacted to IDs to keep the payload small
+    # (full traces remain available via `mtg analyze-card`). The parallel analyzer must never
+    # be able to break the legacy analysis, hence the broad guard.
+    try:
+        from importlib.metadata import version as _pkg_version
+        result["tool_version"] = _pkg_version("mtgcli")
+    except Exception:
+        result["tool_version"] = None
+    try:
+        from mtgcli.analyzer.analyze import analyze_card as _universal_analyze
+        _ua = _universal_analyze(commander_card)
+        result["analyzer"] = {
+            "schema_version": _ua.get("schema_version"),
+            "archetype_support": _ua.get("archetype_support", []),
+            "dominant_symmetry": _ua.get("dominant_symmetry"),
+            "signals": [s["id"] for s in _ua.get("signals", [])],
+            "warnings": _ua.get("warnings", []),
+        }
+        if partner_card:
+            _up = _universal_analyze(partner_card)
+            result["analyzer"]["partner_archetype_support"] = _up.get("archetype_support", [])
+            result["analyzer"]["partner_signals"] = [s["id"] for s in _up.get("signals", [])]
+    except Exception:
+        pass
 
     return result

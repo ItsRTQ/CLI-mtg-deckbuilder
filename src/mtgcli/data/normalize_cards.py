@@ -72,13 +72,25 @@ def can_be_commander(card: Dict[str, Any]) -> bool:
     """Determines if a card can be a commander."""
     type_line = get_type_line(card)
     oracle_text = get_oracle_text(card)
-    
-    if "Legendary Creature" in type_line:
+
+    # "Legendary" and "Creature" may be separated by other supertypes ("Legendary Enchantment
+    # Creature" — Theros Gods; "Legendary Artifact Creature") so the contiguous substring
+    # "Legendary Creature" misses 180+ legal commanders.
+    if "Legendary" in type_line and "Creature" in type_line:
         return True
-    
+
     if "can be your commander" in oracle_text.lower():
         return True
-    
+
+    # Curated allowlist for face commanders the heuristic can't detect (non-creature
+    # commanders with no oracle signal, e.g. some Legendary Vehicles).
+    try:
+        from mtgcli.cards.repository import _commander_overrides
+        if card.get("name") in _commander_overrides():
+            return True
+    except Exception:
+        pass
+
     return False
 
 
@@ -115,6 +127,7 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         "commander_legal": card.get("legalities", {}).get("commander") == "legal",
         "can_be_commander": can_be_commander(card),
         "usd_price": parse_price((card.get("prices") or {}).get("usd")),
+        "edhrec_rank": card.get("edhrec_rank"),
         "usd_foil_price": parse_price((card.get("prices") or {}).get("usd_foil")),
         "usd_etched_price": parse_price((card.get("prices") or {}).get("usd_etched")),
         "eur_price": parse_price((card.get("prices") or {}).get("eur")),

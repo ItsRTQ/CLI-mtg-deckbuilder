@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 import mtgcli.cli as cli
+import mtgcli.cli.commands.cards as card_cmd  # `card` command now lives here (cli.py split)
 from mtgcli.cli import app, has_power_toughness
 
 runner = CliRunner()
@@ -20,7 +21,7 @@ def _patch_card(monkeypatch, card):
         def __str__(self):
             return ":memory:"
 
-    monkeypatch.setattr(cli, "SQLITE_PATH", FakePath())
+    monkeypatch.setattr(card_cmd, "SQLITE_PATH", FakePath())
 
     class FakeRepo:
         def __init__(self, *_args, **_kwargs):
@@ -32,7 +33,10 @@ def _patch_card(monkeypatch, card):
         def search_cards_by_name(self, *_a, **_k):
             return []
 
-    monkeypatch.setattr(cli, "CardRepository", FakeRepo)
+        def suggest_similar_names(self, *_a, **_k):
+            return []
+
+    monkeypatch.setattr(card_cmd, "CardRepository", FakeRepo)
 
 
 EDGAR = {

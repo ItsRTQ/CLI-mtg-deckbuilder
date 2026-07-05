@@ -42,9 +42,10 @@ Use `output/commander_analysis.json` for:
 
 **Exact top-level paths** (don't guess nested locations — these live at the ROOT of the JSON):
 `color_identity` (e.g. `["B","U"]`), `combined_color_identity` (with partner),
-`is_valid_commander`, `analyzer` (the preferred archetype read), `archetype_fit` (legacy),
-`engine_profile`, `synergy_tags`, `wanted_card_patterns`, `oracle_hooks`,
-`build_direction_options`. The `commander` key holds the raw card object (name, oracle,
+`is_valid_commander`, `analyzer` (the preferred archetype read; its `tags` list replaces the
+deprecated tag lists), `archetype_fit` (legacy, deprecated), `legacy_deprecations` (what is
+deprecated and what replaces it), `engine_profile`, `synergy_tags` (deprecated),
+`wanted_card_patterns`, `oracle_hooks`, `build_direction_options`. The `commander` key holds the raw card object (name, oracle,
 type_line, mana_cost) — identity fields are NOT nested inside it.
 
 ```text
@@ -123,14 +124,17 @@ The analysis carries TWO archetype reads. Read them in this order:
 
 **1. `analyzer` (preferred, evidence-first).** Contains `archetype_support` (ordinal bands
 `very_high/high/medium/low`, each backed by detected evidence), `signals` (feature IDs the
-analyzer detected in the oracle text), `dominant_symmetry`, and `warnings`. For partners it also
-carries `partner_archetype_support` / `partner_signals`. If you need the full evidence traces
+analyzer detected in the oracle text), `tags` (the functional tag names it matched — the
+single-source replacement for the deprecated `commander_tags`/`synergy_tags`),
+`dominant_symmetry`, and `warnings`. For partners it also carries
+`partner_archetype_support` / `partner_signals`. If you need the full evidence traces
 (which rule fired on which text), run `mtg analyze-card "<Commander>"`.
 
-**2. `archetype_fit` (legacy).** Weighted text scores (0-10), ordered best-first, with
-`low_confidence` flags. Kept during the archetype migration; its numeric scores can be
-confidently wrong. **When the two reads disagree, trust `analyzer.archetype_support`** and treat
-`archetype_fit` as a secondary hint (BUILDER.md §7.0b).
+**2. `archetype_fit` (legacy, DEPRECATED — removal planned v0.10).** Weighted text scores
+(0-10), ordered best-first, with `low_confidence` flags. The analysis JSON carries a
+machine-readable `legacy_deprecations` block naming it and its replacement; its numeric
+scores can be confidently wrong. **When the two reads disagree, trust
+`analyzer.archetype_support`** and treat `archetype_fit` as a secondary hint (BUILDER.md §7.0b).
 
 If `archetype_support` is empty or all-low while the commander clearly has a plan, that is an
 analyzer coverage gap: note it (it is calibration signal), reason from the oracle text yourself,
@@ -157,7 +161,10 @@ A big creature commander now scores as a beatdown fit on its power/toughness alo
 commander actually wins or generates value*. Translate them into the deck's synergy package
 directly — do not flatten the commander into a generic archetype and fill with goodstuff.
 
-Read `wanted_card_patterns` as a shopping list and turn each entry into `suggest`/`search-tags`
+Read `wanted_card_patterns` as a shopping list and turn each entry into `suggest`/`search-tags`.
+Entries suffixed "(analyzer high/very_high)" come from the evidence-first analyzer and already
+carry a ready-to-run command (e.g. `Go Wide (analyzer high): mtg search-tags go_wide_payoff
+token_maker anthem`) — run those first; they are the commander's detected plan. Turn the rest into `suggest`/`search-tags`
 queries. Examples of hooks the analyzer surfaces:
 
 ```text

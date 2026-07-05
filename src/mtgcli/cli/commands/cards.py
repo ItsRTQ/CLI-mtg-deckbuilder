@@ -18,9 +18,7 @@ def card(
     ),
 ):
     """Lookup a card by exact name."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     card_data = repo.get_card_by_exact_name(name)
@@ -70,9 +68,7 @@ def price(
     json_output: bool = typer.Option(False, "--json-output", help="Output price data as JSON"),
 ):
     """Look up local Scryfall price data for a card."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     card_data = repo.get_card_by_exact_name(name)
@@ -114,9 +110,7 @@ def cards(
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
     """Batch card lookup by exact name."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     results = []
@@ -146,9 +140,7 @@ def cards_batch(
     verify: bool = typer.Option(False, "--verify", help="Only report names that weren't found (with suggestions) and exit non-zero if any are missing. No inline scripting needed to validate a drafted list."),
 ):
     """Look up all cards in a deck JSON or .txt decklist."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not input_path.exists():
         print(f"[red]File not found: {input_path}[/red]")
@@ -211,9 +203,7 @@ def prices(
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
     """Batch price lookup by card name."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     results = []
@@ -252,9 +242,7 @@ def prices_batch(
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
     """Look up prices for all cards in a deck JSON file."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not input_path.exists():
         print(f"[red]File not found: {input_path}[/red]")
@@ -318,9 +306,7 @@ def budget(
     strict: bool = typer.Option(False, "--strict", help="Fail if any card has unknown price"),
 ):
     """Summarize deck budget using local Scryfall price data."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not deck_path.exists():
         print(f"[red]Deck file not found: {deck_path}[/red]")

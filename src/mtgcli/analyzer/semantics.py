@@ -90,8 +90,14 @@ def detect_counter_sense(text: str, profile: CardProfile, card_name: str = None)
     if not text:
         return
     low = text.lower()
+    # Counterspell matching runs on RULES text only: keyword reminder text explains a
+    # keyword, it isn't a counterspell plan (batch-14 Ghyrson finding — ward's reminder
+    # "counter it unless that player pays {2}" read COUNTERSPELL_INTERACTION and fed a
+    # false Spellslinger band). The marker branch below deliberately KEEPS reminder text:
+    # dethrone's "(... put a +1/+1 counter on it.)" is a real counters read.
+    low_rules = re.sub(r"\([^)]*\)", "", low)
     for pattern in _COUNTERSPELL_PATTERNS:
-        m = re.search(pattern, low)
+        m = re.search(pattern, low_rules)
         if m:
             profile.add_signal(Signal(
                 id="COUNTERSPELL_INTERACTION", label="Counters spells/abilities",

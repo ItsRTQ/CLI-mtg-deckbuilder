@@ -5,7 +5,7 @@ All scores are floats 0-10 before clamping. These are heuristics derived from
 oracle text and type line — not ground truth. The AI agent may override or
 adjust these based on deeper commander analysis.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Iterable
 from .models import MV_PRESSURE_TABLE, MV_PRESSURE_HIGH
 
 # ─── Archetype fit keyword patterns ───────────────────────────────────────────
@@ -167,9 +167,19 @@ def score_archetype_fit(
 
 # ─── Commander provides (reduces category need) ───────────────────────────────
 
-def _score_provides(oracle: str) -> Dict[str, float]:
-    """Estimate how much the commander provides each category intrinsically."""
+def _score_provides(oracle: str, signals: Optional[Iterable[str]] = None) -> Dict[str, float]:
+    """Estimate how much the commander provides each category intrinsically.
+
+    Fase 2 (M2 consumer #1): when the universal analyzer's signal IDs are passed in, the
+    signal-backed branches take precedence — they carry evidence and traces (run
+    `mtg analyze-card` for provenance). Semantics are per-branch fallback: a present
+    signal REPLACES its oracle-heuristic twin (no double counting); an absent signal
+    falls back to the oracle read, which also keeps callers without an analyzer
+    (signals=None) at exact legacy behavior. Branches with no analyzer signal yet
+    (removal, protection, board wipes, most of draw) stay pure oracle heuristics.
+    """
     provides: Dict[str, float] = {}
+    sig = set(signals) if signals else set()
 
     # Draw
     draw_strength = 0.0
@@ -186,7 +196,11 @@ def _score_provides(oracle: str) -> Dict[str, float]:
 
     # Ramp
     ramp_strength = 0.0
-    if "add {" in oracle or "add mana" in oracle:
+    if "MANA_ABILITY" in sig:
+        # Analyzer: "{T}: Add ..." — also catches "Add one mana of any color" (the Esika
+        # class), which the substring twins below miss.
+        ramp_strength += 2.5
+    elif "add {" in oracle or "add mana" in oracle:
         ramp_strength += 2.5
     if "search your library for a" in oracle and "land" in oracle:
         ramp_strength += 2.0
@@ -212,8 +226,14 @@ def _score_provides(oracle: str) -> Dict[str, float]:
     if removal_strength:
         provides["targeted_removal"] = min(5.0, removal_strength)
 
-    # Tutors
-    if "search your library for a card" in oracle:
+    # Tutors — analyzer signals first (1:1 ports of the strong/conditional split), oracle
+    # substrings as fallback (they also cover forms the conditional regex doesn't, e.g.
+    # "search your library for two basic lands").
+    if "TUTOR_UNCONDITIONAL" in sig:
+        provides["tutors"] = 3.0
+    elif "TUTOR_CONDITIONAL" in sig:
+        provides["tutors"] = 1.5
+    elif "search your library for a card" in oracle:
         provides["tutors"] = 3.0
     elif "search your library for" in oracle:
         provides["tutors"] = 1.5
@@ -406,18 +426,22 @@ def score_mv_pressure(mv: float) -> float:
 
 # ─── Main commander scoring entry point ──────────────────────────────────────
 
-def score_commander(card_data: Dict[str, Any], archetype: str) -> Dict[str, Any]:
+def score_commander(card_data: Dict[str, Any], archetype: str,
+                    signals: Optional[Iterable[str]] = None) -> Dict[str, Any]:
     """
     Compute commander scores from card data.
 
     Returns a dict with dependency, threat_reputation, mana_value_pressure,
     built_in_* convenience fields, combo_potential, provides, requires, rewards.
+
+    `signals` (Fase 2): the universal analyzer's signal IDs for this card; when given,
+    signal-backed provides branches take precedence over the oracle heuristics.
     """
     oracle = (card_data.get("oracle_text") or "").lower()
     type_line = (card_data.get("type_line") or "").lower()
     mv = float(card_data.get("mana_value") or 0)
 
-    provides = _score_provides(oracle)
+    provides = _score_provides(oracle, signals=signals)
     requires = _score_requires(oracle, mv)
     rewards = _score_rewards(oracle, type_line, archetype)
     dependency = _score_dependency(oracle, type_line, mv, archetype)

@@ -2,6 +2,268 @@
 
 ## 0.8.0
 
+### Fixed
+- **Known-gaps session: the annotated backlog worked — one CW regression killed, three
+  detector classes added, two stale annotations reconciled, one data-drift regression
+  caught.** Live verification first: the batch-11 known-gaps (Tymna/Xenagos/Kozilek/
+  Jhoira/Ikra) and Galea were ALREADY closed by later fix rounds — annotations were stale.
+  The real work: (1) *Volo CW regression (batch-16 fallout):* GRAVEYARD_CLONE matched
+  Volo's reminder text ("(A copy of a creature spell becomes a token.)") beside a NEGATIVE
+  graveyard condition → false `Graveyard Value: high`. Reminder text now stripped (the
+  batch-14 lesson at a second site) with two measured compensations: embalm/eternalize
+  keywords + the directional "from ... graveyard ... copy it" recast form (112 cards, 7
+  reminder FPs out, 20 genuine recasters in — Kaervek/Nashi/Shiko/Mizzix's Mastery class).
+  (2) *Sygg class:* new LOST_LIFE_PAYOFF detector — threshold "lost (N or more) life this
+  turn" payoffs are a variable-number class the vocabulary cannot enumerate (40 measured:
+  spectacle cycle, Bloodchief Ascension; self-loss excluded) → defining Life Loss. Sygg
+  empty→high; Vito low→medium via lifedrain +"target opponent loses" (104 measured).
+  (3) *Old Stickfingers class:* new GRAVEYARD_SCALING detector ("equal to the number of
+  ... in your graveyard", 46 measured — the Lhurgoyf class) + self_mill reveal-forms
+  ("rest into your graveyard", 76 measured). Empty→medium. (4) *Elder Brain class:* new
+  THEFT_EXILE conjunction — same-line exile + opponent-zone + "you may play/cast",
+  order-free, reminder-stripped, "you own"-excluded (97 measured, all you-play-theirs).
+  Also caught a DATA-DRIFT regression: fresh Scryfall wording had silently cost Gonti,
+  Lord of Luxury his Theft read (the measured "don't own" phrase no longer exists on the
+  card) — THEFT_EXILE restores it. (5) Surrak documented honest-empty (Jetmir precedent).
+  NEW findings annotated (not fixed): morph_facedown FPs on exile-face-down (Gonti reads
+  a false Morph high), theft's "exiled with" phrase measured dirty (191 cards, needs a
+  directional rebuild that preserves the multi-line Nightveil class). Golden set: +6
+  sentinels and 5 historical duplicate-name entries consolidated → 210 unique sentinels,
+  sanity "211 passed"; suite 1025 green. (`analyzer/content.py`, `analyzer/analyze.py`,
+  `analyzer/mapping.py`, `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `docs/MIGRATION-archetypes.md`)
+
+### Fixed
+- **Both M5 frictions fixed root-cause, plus the Budget Contract gains a utilization
+  floor.** (1) *Ability-word trigger class (968 cards measured):* `extract_trigger_events`
+  required the clause to START with a trigger word, so "Alliance — Whenever ..." /
+  "Landfall — Whenever ..." / every ability-word-prefixed trigger (Magecraft, Coven, Raid,
+  Constellation...) was invisible to trigger families. A lookahead-guarded prefix strip
+  (only fires when a real trigger condition follows the em dash) fixes the whole class at
+  the single source both consumers share — Galadriel now reads `permanent_enters` + ETB
+  Value/Blink bands; Izoni and Professor Onyx controls read their events; Galadriel pinned
+  as sentinel (209-card set). (2) *Token-shadow class (data):* Scryfall token printings
+  lived in the DB as cards — 4,020 nonplayable rows (token, double_faced_token, emblem,
+  art_series, vanguard, scheme, planar), 88 of them SHADOWING a real card's name in
+  exact-name lookups; the eternalize token of Timeless Witness answered for the real card
+  with `commander_legal=False`. New `NONPLAYABLE_LAYOUTS` filter at ingest
+  (build_sqlite skips them) + existing DB repaired via DELETE (38,304 → 34,284 rows);
+  Timeless Witness now resolves uniquely and legal. (3) *Budget Contract:* the budget is
+  also a POWER signal — new utilization floor (~60%): landing more than 40% under budget
+  makes the Budget Upgrade Review REQUIRED before finalizing (BUILDER §11, both the
+  principles block and the review trigger). 5 regression tests; suite 1024 green.
+  (`deckbuilder/oracle_hooks.py`, `data/normalize_cards.py`, `data/build_sqlite.py`,
+  `BUILDER.md`, `data/golden/golden_cards.json`, `tests/test_m5_fixes.py`)
+
+### Added
+- **M5 validation build: Galadriel, Light of Valinor (virgin commander, post-migration
+  pipeline) — READY at $77.33/$130, zero gaps, exactly 2 new frictions (meets the ≤2
+  bar).** Full BUILDER.md flow: analyze → category-counts → function shortlists →
+  verify-early (63/63) → budget trim via deck-swap (Bristly Bill flagged at 31.5% of
+  budget by `--by-card`) → deck-write/fill/validate → deck-check → deck-gaps → preflight
+  READY → final-build. The M2 plan check earned its keep in production: `plan_gaps: []`
+  on a deliberately on-plan deck. validate caught a real draft error (Timeless Witness,
+  black) — and exposed friction #2: **`commander_legal=False` in the DB for Timeless
+  Witness, which IS Commander-legal (data bug)**. Friction #1 (detection class): the
+  Alliance layout "Whenever another creature you control enters, choose one — •…" fires
+  NO `permanent_enters` trigger family (oracle_hooks.trigger_events empty, no ETB Value
+  band) — the modal-trigger layout is invisible to trigger families; the analyzer still
+  read Counters Matter high from mode 2. deck-swap resolved a DFC by front face (Bala Ged
+  Recovery) mid-fix. Audit: `logs/testbuild-galadriel-m5.json` (26 commands, 0 failures).
+  (`final-builds/Galadriel-Light-of-Valinor-Alliance-Counters-T3-v1/`)
+
+### Changed
+- **Agent files synced to the current tool (pre-M5 pass).** Audit of BUILDER.md, BUFF.md
+  and agents/*.md against everything shipped this cycle found the M2/M3 features
+  undocumented for agents; fixed surgically, preserving intentional redundancy:
+  (1) deck-gaps' **Commander plan check** (`analyzer_support`/`plan_gaps` + fill commands)
+  documented in BUILDER §8, agents/deck_builder.md ("fix it or consciously justify it"),
+  agents/deck_fixer.md (re-audit closes plan gaps too) and BUFF.md (plan_gaps = the
+  strongest lead); (2) the "(analyzer high)" entries in `wanted_card_patterns` documented
+  in agents/commander_analyzer.md — run those ready commands FIRST, they are the detected
+  plan; (3) `suggest --synergy` enrichment noted in agents/deck_builder.md; (4) NEW
+  **JSON error contract** section in agents/system.md — the five error types
+  (usage/cli/validation/environment/internal), check-"error"-before-"results", non-zero
+  exits, and fuzzy not-found suggestions ("Krenkooo" → Krenko) — the defensive-parsing
+  lesson made durable for every future agent; (5) commander_analyzer.md's top-level path
+  list now marks the deprecated fields and adds `legacy_deprecations` + `analyzer.tags`.
+  Suite 1018 green (docs-only). (`BUILDER.md`, `BUFF.md`, `agents/system.md`,
+  `agents/deck_builder.md`, `agents/deck_fixer.md`, `agents/commander_analyzer.md`)
+
+### Changed
+- **M3: legacy archetype fields formally deprecated (delete lands in v0.10).**
+  `commander_analysis.json` gains a machine-readable `legacy_deprecations` block naming
+  `archetype_fit`, `commander_tags` and `synergy_tags` as deprecated with their
+  replacements (`analyzer.archetype_support`, `analyzer.tags` + `analyzer.signals`) and
+  the planned removal (v0.10); the fields themselves REMAIN so no consumer breaks before
+  then. The analyzer embed now exposes `tags` (tag names only; traces via
+  `mtg analyze-card`) — the single-source replacement for the two legacy tag lists. All
+  four agent files updated in place (BUILDER.md §7.0b, agents/commander_analyzer.md,
+  agents/system.md rule 11, CLAUDE.md hard rules), preserving their intentional
+  redundancy. 2 regression tests (block present + fields still present + embed tags);
+  suite 1018 green. (`deckbuilder/commander_analyzer.py`, `BUILDER.md`,
+  `agents/commander_analyzer.md`, `agents/system.md`, `CLAUDE.md`,
+  `tests/test_m3_deprecation.py`)
+
+### Changed
+- **M2 consumer #3 migrated: `suggest --synergy` and `wanted_card_patterns` consume the
+  analyzer — Fase 2 consumer migration COMPLETE.** (a) `wanted_card_patterns` now appends
+  one pattern per high/very_high analyzer band with a ready search command ("Go Wide
+  (analyzer high): mtg search-tags go_wide_payoff token_maker anthem"), reusing the
+  profile already computed for scoring (M2 #1) — no extra analyzer run. (b)
+  `extract_commander_synergy_signals` enriches its signal set with the measured
+  card_tags phrases of each high band's rule tokens via a new `_analyzer_synergy_phrases`
+  helper — in BOTH paths (analysis-file and the no-analysis heuristic fallback, where the
+  analyzer runs directly on the card; pure logic, no DB). All three consumers now share
+  ONE plan vocabulary (`mapping._ARCHETYPE_RULES` ∩ card_tags) — the multi-consumer-drift
+  root cause is structurally closed for archetype context. Additive and guarded
+  throughout: analyzer failure leaves legacy behavior intact. Certero note: M2 did not
+  touch `archetype_support` itself; the 208-sentinel golden net (green) carries the
+  regression evidence, and an exact certero re-measure needs the 110-commander judgment
+  dataset, which is not in the repo. 5 regression tests; suite 1016 green.
+  (`deckbuilder/commander_analyzer.py`, `deckbuilder/suggestion_scorer.py`,
+  `tests/test_m2_synergy_analyzer.py`)
+
+### Changed
+- **M2 consumer #2 migrated: `deck-gaps` audits the deck against the analyzer's read of
+  the commander.** New "Commander plan check" section: for every high/very_high band in
+  `analyzer.archetype_support`, deck-gaps counts the deck cards that serve that plan and
+  reports a `plan_gap` (with a ready `search-tags` fill command) when fewer than 5 do.
+  The plan→function map is the analyzer's OWN vocabulary — `mapping._ARCHETYPE_RULES`
+  defining+supporting tokens that are card_tags names — so it can never drift out of sync
+  with the archetype system (the recurring multi-consumer root cause this project keeps
+  fixing); tribal bands count by creature type in the type line. JSON output gains
+  `analyzer_support` and `plan_gaps`; guarded so an analyzer failure only drops the new
+  section. Verified live: an off-plan Krenko deck reports `Go Wide: high but only 0 deck
+  cards serve it` with `fill: mtg search-tags go_wide_payoff token_maker anthem --colors
+  R`. 2 DB-backed regression tests (off-plan reports, on-plan stays quiet); suite 1011
+  green. (`cli/commands/deck.py`, `tests/test_m2_deck_gaps_analyzer.py`)
+
+### Changed
+- **M2 consumer #1 migrated: `_score_provides` now consumes analyzer signals, oracle
+  heuristics as per-branch fallback (Fase 2, gate opened by batch #15).**
+  `score_commander` gains an optional `signals` param; `analyze_commander` computes the
+  universal analyzer profile BEFORE scoring (guarded — analyzer failure leaves signals
+  None and behavior exactly legacy) and reuses it for the `analyzer` embed, so the
+  analyzer runs once per card; category-counts' no-analysis fallback path passes signals
+  via a guarded helper. Semantics: a present signal REPLACES its oracle twin (same score,
+  no double counting — TUTOR_UNCONDITIONAL 3.0 / TUTOR_CONDITIONAL 1.5 / MANA_ABILITY
+  2.5); an absent signal falls back to the oracle substring, preserving coverage the
+  narrow regexes lack ("search your library for TWO basic lands" still scores). Measured
+  improvement shipped: the Esika class — "{T}: Add one mana of any color" matches neither
+  "add {" nor "add mana", so legacy scored 0 ramp; MANA_ABILITY sees it (Esika and Zaxara
+  now report `built_in_ramp: 2.5`). Spot-check over 10 diverse commanders: 8 identical,
+  2 strictly better, 0 worse. Removal/protection/wipes/draw branches stay pure oracle
+  heuristics until the analyzer covers them. 7 regression tests; suite 1009 green.
+  (`category_counts/scoring.py`, `category_counts/calculator.py`,
+  `deckbuilder/commander_analyzer.py`, `tests/test_m2_provides_migration.py`)
+
+### Added
+- **Calibration batch #16 (post-gate; Chishiro by user request): one CW — the first
+  promotion-regression — and four class fixes.** Chishiro read right in batch #2, but the
+  later `aura_equipment_payoff`→defining-Voltron promotion (measured on the Sram/Galea class,
+  whose payoffs are personal) made him read `Voltron: very_high` — his payoff scopes "EACH
+  modified creature you control": the deck goes wide, not tall. Fix: **wide-vs-tall
+  exclusion** in the mapper — when evidence carries both REPEATABLE_TOKEN_MAKER and broad
+  COUNTER_MARKER, aura_equipment_payoff demotes to Voltron supporting (measured over all 24
+  commanders with the tag: only the Chishiro class has both; Sram/Galea/Wyleth/Kemba/Stangg
+  keep their reads). Coverage: `attacks_or_combat` gains the player-scope "you attack" form
+  (156 cards — Raffine now Attack Triggers high); tribal patterns skip an optional
+  "nontoken" qualifier (Miirym reads Dragon Tribal high; the "non-" negation guard is
+  unaffected because the qualifier is skipped, not captured); and a new **GRAVEYARD_CLONE
+  conjunction detector** (same-line graveyard + copy — a class substring vocab cannot
+  express safely; 90 cards measured, all genuine: Lazav family, Scarab God, Feldon, the
+  embalm/eternalize cycle) defines Graveyard Value — closing the batch-14 Mimeoplasm
+  known-gap. Positives from the batch: Food correctly reads value-engine (Gyome), the
+  ephemeral-token guard held on Feldon's sac-at-end-step copies, Ojer Axonil's replacement
+  effect wasn't misread as a trigger. Ten sentinels (208-card set, sanity "209 passed");
+  suite 1002 green. (`analyzer/mapping.py`, `analyzer/content.py`, `analyzer/analyze.py`,
+  `deckbuilder/oracle_hooks.py`, `data/golden/golden_cards.json`,
+  `docs/MIGRATION-archetypes.md`, `logs/calibration-batch-16.json`,
+  `logs/calibration-batch-16-fixround.json`)
+
+### Added
+- **Gate-validation batch #15 (confirmation batch, blind-first self-run): PASS — the Fase 2
+  gate is OPEN.** Tally: right 5 (Yawgmoth, Kwain, Syr Konrad — whose Mill + Group Slug +
+  Aristocrats triple-high is all true, Emiel, Multani), partial 4 (Zaxara, Grismold, Rielle,
+  Vito — honest underbands, zero lies), empty 1 (Animar, honest), wrong 0, **CW 0**:
+  right+partial 9/10 ≥ 6 AND CW=0. The batch also confirmed the #13/#14 fix classes
+  generalize on fresh commanders (Emiel's activated flicker reads Blink high via the batch-13
+  vocab; Animar's self-counters correctly never band Counters Matter). Per the PASS protocol
+  no analyzer changes were made: findings recorded as known-gaps (cast-creature engine class,
+  X-spell payoff class, 0/0-with-counters tokens read as fodder, wheel/lifedrain vocab
+  phrasings). Ten sentinels pinned with improvement-friendly band lists (198-card set, sanity
+  "199 passed"); suite 992 green. Gate criteria: (1) golden set ✓ (2) product bar ✓
+  (3) coverage ✓ (4) goodstuff case ✓ (c) fresh confirmation batch ✓ — **M1 closed, M2
+  (consumer migration, starting with `_score_provides`) is unblocked.**
+  (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/gate-validation-batch-15.json`)
+
+### Added
+- **Gate-validation batch #14 (confirmation batch, blind-first self-run): FAIL (right 5,
+  partial 1, empty 3, CW 1) — three class fixes.** The CW: Queen Marchesa read `Go Wide:
+  high` from her conditional upkeep Assassin — a token whose creation is CONDITIONED on an
+  opponent state ("if an opponent is the monarch") is a deterrent/catch-up effect, not an
+  army (measured: 15 cards, all parity effects — Beza, Linvala, Sunset Revelry class). New
+  guard in `REPEATABLE_TOKEN_MAKER`; Brimaz (attacking Cats) unaffected. Her missing truth:
+  new `MONARCH` detector ("becomes? the monarch", ~60 cards / 13 commanders measured, all
+  monarch-politics builds) → defining `Group Hug / Politics` — Queen Marchesa and Palace
+  Jailer now read Politics high. Reminder-text class: Ghyrson's ward reminder ("counter it
+  unless that player pays {2}") fed COUNTERSPELL_INTERACTION → a false Spellslinger band;
+  the counterspell branch now matches rules text only (parens stripped THERE only — the
+  counter-marker branch keeps reminder text, dethrone's counters read is real; Talrand
+  control intact). Positive generalization from batch #13 confirmed on fresh commanders:
+  Tivit (Treasures ≠ Go Wide), Brimaz (real token army IS Go Wide), Gisela (replacement not
+  read as trigger). Known-gaps annotated: Chulane cast-creature engine, Mimeoplasm
+  graveyard-clone, Ghyrson exactly-N-damage pingers, Marchesa BR counters underband. Nine
+  sentinels (188-card set, sanity "189 passed"); suite 982 green. Batch consumed →
+  confirmation batch #15 required. (`analyzer/content.py`, `analyzer/semantics.py`,
+  `analyzer/mapping.py`, `data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/gate-validation-batch-14.json`, `logs/gate-batch-14-fixround.json`)
+
+### Added
+- **Gate-validation batch #13 (confirmation batch, blind-first self-run): FAIL (right 6,
+  partial 2, empty 1, CW 1) — four class fixes + one honest rejection.** The CW: Lord
+  Windgrace read `Go Wide: high` because `REPEATABLE_TOKEN_MAKER`'s activated-ability regex
+  accepted ANY loyalty line — his −11 ultimate's six Cats read as an engine. The loyalty
+  split: only +N:/0: activations are repeat markers (fire every turn); a minus ability
+  consumes loyalty, so its token creation is a finisher (measured: 53 plus/0 engines keep
+  firing — Archangel Elspeth control; 81 minus ultimates stop). Coverage: `land_recursion`
+  gains the "land card(s) from your graveyard to the battlefield" forms (Windgrace finally
+  reads Lands; "to your hand"/"discard a land card" forms measured dirty, rejected) and
+  `blink` gains the activated delayed-flicker phrasing (22/22 pure — Roon/Flickerwisp/
+  Mistmeadow class; the "return it..." death-recursion and "return the exiled card" O-Ring
+  forms measured dirty, rejected). Mapping: the tax detector now splits per line —
+  TAX_COST_INCREASE (general tax, PROMOTED to defining Stax: GAAIV and Thalia read
+  `Stax: high`) vs new TARGETED_TAX (targeting-conditional tax = protection, never Stax —
+  kills the would-be Erebos-class CWs on Kopala/Charix/Esior/Hinata; measured 5 general vs
+  6 targeting taxers). Direction: `sacrifice_outlet` rebuilt with directional forms
+  (colon-cost / you-may / additional-cost, all measured clean) — the naked "sacrifice a
+  creature" caught opponent edicts ("unless THEY sacrifice" — Mogis read a false
+  Aristocrats). Honest rejection: Jetmir's threshold anthems measure 3 cards and every
+  generalization is dirty (anthem→defining would flip 92 commanders, Mikaeus CW again) —
+  documented as known-gap, no archetype forced. Positive generalization confirmed: Wyleth
+  (`Voltron: very_high` via aura_equipment_payoff) and Esika (DFC split + Legendary Matters)
+  read right untouched. Thirteen sentinels (179-card set, sanity "180 passed"); suite 973
+  green. Batch consumed → confirmation batch #14 required. (`analyzer/content.py`,
+  `analyzer/mapping.py`, `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `docs/MIGRATION-archetypes.md`, `logs/gate-validation-batch-13.json`,
+  `logs/gate-batch-13-fixround.json`)
+
+### Fixed
+- **The global "Database not found" pre-check now respects `--json-output` (last F2-class
+  hole).** Every command's DB pre-check printed rich plain text under `--json-output`,
+  breaking agent parsers — annotated as a ~30-site global class in the search-family fix, and
+  measured at exactly 20 broken sites (deck 6, search 5, cards 7, analysis 2; `status` in
+  data.py was already JSON-aware). All 20 now call a shared `require_database(SQLITE_PATH,
+  json_output)` helper (`cli/_shared.py`) that emits `{"error": {"type": "environment",
+  "message": ...}}` and exits 1; human-mode output unchanged. The helper takes the caller's
+  `SQLITE_PATH` as an argument so the suite's per-module monkeypatching keeps working. New
+  error type `environment` joins `validation`/`usage`/`cli`/`internal` (a missing DB is not
+  an input error). 6 regression tests (one command per module + human mode). Suite: 960 green.
+  (`cli/_shared.py`, `cli/commands/{deck,search,cards,analysis}.py`,
+  `tests/test_db_missing_json.py`)
+
 Quality, agent-ergonomics, and analysis-generality pass driven by full end-to-end builds (Krenko, Mob Boss; Gargos, Vicious Watcher) and friction notes from agent runs.
 
 ### Fixed

@@ -139,9 +139,7 @@ def deck_fill_lands(
     json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
 ):
     """Fill a partial deck with basic lands to reach the target main deck size."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not deck_path.exists():
         print(f"[red]Deck file not found: {deck_path}[/red]")
@@ -283,9 +281,7 @@ def suggest_lands(
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
     """Suggest basic lands based on commander color identity."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     commander_card = repo.get_card_by_exact_name(commander)
@@ -314,9 +310,7 @@ def deck_check(
     json_output: bool = typer.Option(False, "--json-output", help="Output report as JSON")
 ):
     """Check deck quality: land count, ramp, draw, removal, and thematic packages."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not deck_path.exists():
         print(f"[red]Deck file not found: {deck_path}[/red]")
@@ -386,9 +380,7 @@ def deck_swap(
     commander's color identity. If any swap is invalid the whole operation aborts and
     nothing is written — a safe replacement for hand-editing the decklist with a script.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     if not deck.exists():
         print(f"[red]Deck file not found: {deck}[/red]")
         raise typer.Exit(code=1)
@@ -503,9 +495,7 @@ def preflight(
     can run ONE command instead of remembering to run (and pass) each rule separately. Exits
     non-zero if the deck is not ready. This is the blessed "are we done?" check.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     if not deck_path.exists():
         print(f"[red]Deck file not found: {deck_path}[/red]")
         raise typer.Exit(code=1)
@@ -618,9 +608,7 @@ def deck_gaps(
     ranked by need — each with a ready `search-tags` command to fill it. Closes the
     analyze -> build -> audit loop.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     if not deck_path.exists():
         print(f"[red]Deck file not found: {deck_path}[/red]")
         raise typer.Exit(code=1)
@@ -683,20 +671,73 @@ def deck_gaps(
         if custom and _count_matching(_get_category_phrases("proliferate", tag_defs, role_defs)) == 0:
             hook_gaps.append(f"Commander uses '{', '.join(custom)}' counters but the deck has no proliferate — add proliferate (search-tags proliferate).")
 
+    # ── M2 consumer #2: audit the deck against the ANALYZER's read of the commander ──
+    # For every high/very_high band in analyzer.archetype_support, count how many deck
+    # cards serve that plan. The plan→function map is the analyzer's OWN vocabulary
+    # (mapping._ARCHETYPE_RULES defining+supporting tokens that are card_tags names), so
+    # no new curation can drift out of sync with the archetype system. Tribal bands count
+    # by creature type. Guarded: an analyzer failure only drops this section.
+    analyzer_support = []
+    plan_gaps = []
+    _colors = "".join((cmd_card or {}).get("color_identity", []))
+    if cmd_card:
+        try:
+            from mtgcli.analyzer.analyze import analyze_card as _ua_analyze
+            from mtgcli.analyzer.mapping import _ARCHETYPE_RULES
+            _ua = _ua_analyze(cmd_card)
+            _high = [s for s in _ua.get("archetype_support", [])
+                     if s.get("band") in ("high", "very_high")]
+            analyzer_support = [{"archetype": s["archetype"], "band": s["band"]} for s in _high]
+            _PLAN_MIN = 5  # fewer than this many cards serving a detected plan = thin
+            for s in _high:
+                arch = s["archetype"]
+                if arch.endswith(" Tribal"):
+                    ttype = arch[: -len(" Tribal")].lower()
+                    have = sum(c.get("quantity", 1) for c in deck_cards
+                               if ttype in (c.get("type_line") or "").lower())
+                    fill = f"mtg search --subtype {ttype} --type creature --colors {_colors}"
+                else:
+                    rules = _ARCHETYPE_RULES.get(arch, {})
+                    plan_tags = [t for t in list(rules.get("defining", [])) + list(rules.get("supporting", []))
+                                 if t in tag_defs]
+                    if not plan_tags:
+                        continue
+                    have = _count_matching([p for t in plan_tags for p in tag_defs[t]])
+                    fill = f"mtg search-tags {' '.join(plan_tags[:3])} --colors {_colors}"
+                if have < _PLAN_MIN:
+                    plan_gaps.append({
+                        "archetype": arch,
+                        "band": s["band"],
+                        "have": have,
+                        "want_at_least": _PLAN_MIN,
+                        "fill_command": fill,
+                    })
+        except Exception:
+            analyzer_support = []
+            plan_gaps = []
+
     gaps.sort(key=lambda g: -g["need_score"])
-    result = {"commander": commander, "archetype": archetype, "gaps": gaps, "hook_gaps": hook_gaps}
+    result = {"commander": commander, "archetype": archetype, "gaps": gaps, "hook_gaps": hook_gaps,
+              "analyzer_support": analyzer_support, "plan_gaps": plan_gaps}
 
     if json_output:
         print_json(result)
     else:
-        if not gaps and not hook_gaps:
-            print("[bold green]No major gaps: the deck covers its category targets.[/bold green]")
+        if not gaps and not hook_gaps and not plan_gaps:
+            print("[bold green]No major gaps: the deck covers its category targets and the commander's plan.[/bold green]")
             return
         print(f"[bold blue]Deck gaps for {commander} ({archetype})[/bold blue] [dim]— ranked by need[/dim]")
         for g in gaps:
             print(f"  [red]✗[/red] {g['display_name']}: have {g['have']}, want ≥ {g['want_at_least']} (range {g['recommended_range']})")
-            print(f"      fill: [dim]mtg search-tags {g['category']} --colors {''.join((cmd_card or {}).get('color_identity', []))}[/dim]")
+            print(f"      fill: [dim]mtg search-tags {g['category']} --colors {_colors}[/dim]")
         for hg in hook_gaps:
             print(f"  [yellow]![/yellow] {hg}")
+        if plan_gaps:
+            _reads = ", ".join("{} {}".format(a["archetype"], a["band"]) for a in analyzer_support) or "none"
+            print(f"[bold blue]Commander plan check[/bold blue] [dim](analyzer reads: {_reads})[/dim]")
+            for pg in plan_gaps:
+                print(f"  [yellow]![/yellow] Analyzer reads [bold]{pg['archetype']}: {pg['band']}[/bold] "
+                      f"but only {pg['have']} deck cards serve it (want ≥ {pg['want_at_least']})")
+                print(f"      fill: [dim]{pg['fill_command']}[/dim]")
 
 

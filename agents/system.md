@@ -40,7 +40,10 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
 10. Commander-zone cards are metadata, not `main_deck` cards.
 11. `commander_analysis.json` carries two archetype reads: prefer `analyzer.archetype_support`
     (evidence bands) over the legacy numeric `archetype_fit`; when they disagree, trust the
-    analyzer and treat the legacy score as a hint (BUILDER.md §7.0b).
+    analyzer and treat the legacy score as a hint (BUILDER.md §7.0b). `archetype_fit`,
+    `commander_tags` and `synergy_tags` are formally DEPRECATED (see the analysis JSON's
+    `legacy_deprecations` block; removal planned v0.10) — new reads should use
+    `analyzer.archetype_support`, `analyzer.tags` and `analyzer.signals`.
 
 ---
 
@@ -85,6 +88,26 @@ Do not skip validation. Do not treat suggestions as automatic includes.
 ---
 
 ## Error Handling
+
+### JSON error contract (parse defensively)
+
+Under `--json-output`, EVERY error is structured JSON — never a rich text panel:
+
+```json
+{"error": {"type": "<type>", "message": "..."}}
+```
+
+Types: `usage` (bad flag/command, includes did-you-mean), `cli` (click-level),
+`validation` (bad input values: unknown --type, empty query, --role synergy),
+`environment` (missing database — run `mtg init-data`), `internal` (unexpected crash).
+
+Rules: **check the `"error"` key BEFORE reading `"results"`** — a well-formed error can
+otherwise be silently swallowed by a lazy parse. Non-zero exit codes accompany every error.
+Not-found card lookups return `{"found": false, "suggestions": [...]}` with FUZZY
+suggestions (in-word typos recover: "Krenkooo" → Krenko, Mob Boss) — offer the suggestion
+instead of retrying blind variations.
+
+### Bad candidates
 
 If a tool returns bad candidates, do not blindly use them. Report it in Build Feedback.
 

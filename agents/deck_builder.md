@@ -143,7 +143,10 @@ Before finalizing, audit the draft against the commander's plan:
 mtg deck-gaps --deck output/deck.json --commander "<name>" --archetype <arch>
 ```
 
-It reports thin categories with ready fill-commands. Treat its output as candidates to judge,
+It reports thin categories with ready fill-commands, and a **Commander plan check**: for each
+high/very_high analyzer band it counts the deck cards serving that plan (`plan_gaps` in JSON,
+each with a fill command). A plan gap means the deck ignores its commander's detected plan —
+fix it or consciously justify it before finalizing. Treat all output as candidates to judge,
 not automatic includes.
 
 Use role suggestions:
@@ -166,7 +169,8 @@ Rules:
 
 ```text
 Never use --role synergy.
---synergy modifies a real role.
+--synergy modifies a real role. Its matching is enriched with the analyzer's high-band plan
+phrases (one vocabulary with deck-gaps), so results carry richer matched_tags.
 --type narrows the card type and never bypasses role matching.
 Repeated --oracle / --name / --card-type filters are AND filters.
 ```

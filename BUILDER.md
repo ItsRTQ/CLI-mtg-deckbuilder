@@ -291,8 +291,11 @@ Budget Upgrade Review flow (see Section 11):
   (`very_high/high/medium/low`), plus `signals` (detected feature IDs), `dominant_symmetry`, and
   `warnings`. Every band is backed by detected evidence; run `mtg analyze-card "<Commander>"` if
   you need the full traces (which rule fired on which text).
-- **`archetype_fit` (legacy)** — weighted text scores. Kept for compatibility during the migration;
-  its numeric scores can be confidently wrong (e.g. reminder text once read as a lands/mill plan).
+- **`archetype_fit` (legacy, DEPRECATED)** — weighted text scores. Formally deprecated as of
+  v0.8.0 (the analysis JSON carries a machine-readable `legacy_deprecations` block; removal
+  planned for v0.10). Its numeric scores can be confidently wrong (e.g. reminder text once read
+  as a lands/mill plan). The same block deprecates `commander_tags`/`synergy_tags` — their
+  single-source replacement is `analyzer.tags` (+ `analyzer.signals`).
 
 **Rule: when the two disagree, trust `analyzer.archetype_support`.** Treat `archetype_fit` as a
 secondary hint at most. **Toolbox commanders:** if `archetype_support` includes `Toolbox / Goodstuff` (or the analyzer
@@ -466,7 +469,11 @@ mtg deck-gaps --deck output/deck.json --commander "<Commander>" --archetype <arc
 
 Cross-references the category-count targets and the commander's oracle hooks against what the deck
 actually contains, and lists what's thin (ranked by need) with a ready `search-tags` command to fill
-each gap — plus hook-specific gaps (e.g. a custom-counter commander with no proliferate). Run it
+each gap — plus hook-specific gaps (e.g. a custom-counter commander with no proliferate). It also
+runs a **Commander plan check**: for every high/very_high band in `analyzer.archetype_support` it
+counts the deck cards that actually serve that plan and reports a `plan_gap` (JSON keys:
+`analyzer_support`, `plan_gaps`; each gap carries a ready fill command). A plan gap means the deck
+ignores what the commander's own text says it wants — treat it as a first-class finding. Run it
 before finalizing to catch the deck's blind spots against its own plan.
 
 ---
@@ -538,7 +545,13 @@ Budget is also a preference boundary. Some users have a hard budget and cannot g
 
 ```text
 Deck synergy > spending the full budget.
-Under budget is valid.
+Under budget is valid — but a budget is also a POWER signal: the user chose that number
+  expecting cards of roughly that quality.
+Utilization floor: the finished deck should use at least ~60% of the stated budget.
+  Landing more than 40% under budget is NOT a win — it usually means the build defaulted
+  to the cheapest functional card in every slot. When that happens, the Budget Upgrade
+  Review (below) is REQUIRED, not optional: walk the unused budget back into the deck's
+  weakest slots (mana base quality, draw engines, protection, win-condition certainty).
 Default overage allowance is 10%.
 Unknown price means unknown, not free and not forbidden.
 ```
@@ -569,7 +582,11 @@ For `value_based_overage`, the agent must explain why the over-budget upgrade is
 
 ### Budget Upgrade Review
 
-Trigger when the deck is meaningfully under budget (especially T1/T2). Show:
+Trigger when the deck is meaningfully under budget — concretely, whenever budget
+utilization is below ~60% (more than 40% of the budget unused), and especially at T1/T2.
+Below that floor the review is REQUIRED before finalizing: the user's budget number is a
+quality expectation, and a deck that ignores 40%+ of it almost certainly took the cheapest
+option in slots where a strictly better card was affordable. Show:
 
 ```text
 current estimated deck cost

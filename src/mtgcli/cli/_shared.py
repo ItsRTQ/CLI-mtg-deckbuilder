@@ -73,6 +73,23 @@ def _emit_json_error(payload: dict) -> None:
     _s.stdout.write(_j.dumps(payload) + "\n")
 
 
+def require_database(db_path, json_output: bool) -> None:
+    """Exit(1) when the SQLite DB is missing — structured JSON under --json-output.
+
+    Takes the caller's ``SQLITE_PATH`` as an argument (instead of reading the
+    module global here) so the test suite's monkeypatch of a command module's
+    ``SQLITE_PATH`` keeps controlling this check.
+    """
+    if db_path.exists():
+        return
+    if json_output:
+        _emit_json_error({"error": {"type": "environment",
+                          "message": "Database not found. Please run 'init-data' first."}})
+    else:
+        print("[red]Database not found. Please run 'init-data' first.[/red]")
+    raise typer.Exit(code=1)
+
+
 def print_json(payload) -> None:
     """Emit JSON to stdout WITHOUT rich formatting.
 

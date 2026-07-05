@@ -108,6 +108,17 @@ def _price_status(prices: Dict[str, Any]) -> str:
     return "known" if any(parse_price(prices.get(f)) is not None for f in fields) else "unknown"
 
 
+# Scryfall objects that are never deck-playable cards: token printings (they SHADOW real
+# card names — the M5 'Timeless Witness' bug: the eternalize TOKEN row resolved in exact-
+# name lookup instead of the real card, reporting commander_legal=False for a legal card),
+# emblems, art-series cards, and the Vanguard/Planechase/Archenemy non-deck objects.
+# Excluding them at ingest keeps name lookups and search pools clean. Measured in the
+# shipped DB: 4,020 rows, 88 of them shadowing a real card's name.
+NONPLAYABLE_LAYOUTS = frozenset({
+    "token", "double_faced_token", "emblem", "art_series", "vanguard", "scheme", "planar",
+})
+
+
 def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """Transforms a raw Scryfall card dict into our internal format."""
     raw_oracle_id = card.get("oracle_id")

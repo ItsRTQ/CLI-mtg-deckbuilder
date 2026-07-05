@@ -1,0 +1,10 @@
+requests
+typer
+rich
+python-dotenv
+pydantic
+ijson
+beautifulsoup4
+
+[dev]
+pytest

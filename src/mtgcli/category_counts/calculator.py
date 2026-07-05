@@ -39,6 +39,19 @@ from .scoring import (
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+def _analyzer_signal_ids(card_data: Dict[str, Any]) -> Optional[List[str]]:
+    """Universal-analyzer signal IDs for a card (Fase 2 provides migration).
+
+    Guarded: returns None on any failure so score_commander falls back to pure oracle
+    heuristics — the analyzer must never break category-counts.
+    """
+    try:
+        from mtgcli.analyzer.analyze import analyze_card
+        return [s["id"] for s in analyze_card(card_data).get("signals", [])]
+    except Exception:
+        return None
+
+
 def _resolve_power_level(
     power_level: Optional[float],
     bracket: Optional[str],
@@ -425,9 +438,11 @@ def calculate_category_counts(
     if analysis_scores:
         commander_scores = analysis_scores
     else:
-        primary_scores = score_commander(commander_card_data, archetype_key)
+        primary_scores = score_commander(commander_card_data, archetype_key,
+                                         signals=_analyzer_signal_ids(commander_card_data))
         if partner_name and partner_card_data:
-            partner_scores = score_commander(partner_card_data, archetype_key)
+            partner_scores = score_commander(partner_card_data, archetype_key,
+                                             signals=_analyzer_signal_ids(partner_card_data))
             commander_scores = merge_partner_scores(primary_scores, partner_scores)
         else:
             commander_scores = primary_scores

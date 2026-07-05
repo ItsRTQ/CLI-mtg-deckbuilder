@@ -42,7 +42,9 @@ _TRIGGER_FAMILIES = [
     ("permanent_dies", ["dies", "put into a graveyard", "put into your graveyard", "leaves the battlefield", "is put into a graveyard"]),
     ("permanent_enters", ["enters"]),
     ("you_cast_spell", ["you cast"]),
-    ("attacks_or_combat", ["attacks", "deals combat damage", "blocks"]),
+    # "you attack" covers the player-scope form "whenever you attack" (Raffine, Adeline,
+    # Inti — 156 cards measured), which the bare "attacks" keyword misses.
+    ("attacks_or_combat", ["attacks", "you attack", "deals combat damage", "blocks"]),
     ("sacrifice", ["sacrifice"]),
     ("draw_or_discard", ["draw", "discard"]),
     ("life_change", ["gain life", "lose life", "loses life", "gains life"]),
@@ -79,10 +81,20 @@ def extract_token_types(oracle: str) -> List[str]:
     return out
 
 
+# Ability words prefix a trigger as "Alliance — Whenever ..." / "Landfall — Whenever ...".
+# The lookahead only strips when a real trigger condition follows the em dash, so flavor
+# dashes and modal bullets are untouched. The M5 Galadriel build found the class: her
+# Alliance trigger was invisible to trigger families — measured: 968 cards carry an
+# ability-word-prefixed trigger (Landfall, Magecraft, Coven, Raid, Constellation, ...).
+_ABILITY_WORD_PREFIX_RE = re.compile(
+    r"^[a-z][a-z' ]{2,25}\s*—\s*(?=whenever |when |at the beginning)")
+
+
 def extract_trigger_events(oracle: str) -> List[str]:
     events: List[str] = []
     for clause in _split_clauses(oracle):
         low = clause.lower()
+        low = _ABILITY_WORD_PREFIX_RE.sub("", low)
         if not (low.startswith("whenever") or low.startswith("when") or low.startswith("at the beginning")):
             continue
         # Look only at the trigger condition (before the first comma) to classify.

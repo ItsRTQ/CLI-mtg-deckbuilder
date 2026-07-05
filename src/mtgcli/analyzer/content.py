@@ -30,13 +30,17 @@ _CREATURE_TYPES = {
 
 # tribal references: "another Dinosaur", "other Dinosaurs", "Dinosaur creatures", "Dinosaurs you control"
 _TRIBAL_PATTERNS = [
-    r"\b(?:another|other|each other|each)\s+([A-Za-z]+?)s?\s+(?:you control|creature)",
+    # "(?:nontoken\s+)?" — qualifier may sit between the article and the type (batch-16
+    # Miirym: "another NONTOKEN Dragon you control"; measured: elf/zombie/vampire/dragon/
+    # human/spirit variants exist). The negation guard below still sees "non-" prefixes
+    # because "nontoken" is skipped, not captured.
+    r"\b(?:another|other|each other|each)\s+(?:nontoken\s+)?([A-Za-z]+?)s?\s+(?:you control|creature)",
     r"\b([A-Za-z]+?)s?\s+creatures?\s+you control",
     r"\b([A-Za-z]+?)\s+creatures\b",
     r"\bother\s+([A-Za-z]+?)s\b",
     # singular trigger form: "whenever a Ninja you control ..." (Yuriko-style);
     # lowercase-safe: the _CREATURE_TYPES whitelist filters non-type words (creature, card...)
-    r"\ba\s+([a-z]+)\s+you control\b",
+    r"\ba\s+(?:nontoken\s+)?([a-z]+)\s+you control\b",
     # library/hand references: "Dinosaur creature cards" (Gishath-style)
     r"\b([a-z]+)\s+creature cards?\b",
     # mass attack phrasing: "attack with one or more Zombies" (Varina-style)
@@ -186,18 +190,39 @@ def detect_keywords(text: str, profile: CardProfile, type_line: str = "") -> Non
         ))
         profile.add_tag("Vehicles", profile.signals[-1].trace)
 
-    # Tax / stax: effects that make spells cost more (e.g. Saga chapters, prison pieces)
-    if re.search(r"cost (?:\{\d+\}|\d+|one|two|three) (?:or more )?more to cast", low) or \
-       re.search(r"spells? cost .* more", low):
-        profile.add_signal(Signal(
-            id="TAX_COST_INCREASE", label="Tax (spells cost more)",
-            kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
-            polarity=Polarity.RESTRICTIVE,
-            trace=Trace(rule_id="content.tax.v1", rule_version="1.0",
-                        matched_text="cost more to cast", span=None,
-                        note="Increases opponents' (or all) casting costs — a tax/stax effect."),
-        ))
-        profile.add_tag("Stax", profile.signals[-1].trace)
+    # Tax / stax: effects that make spells cost more (e.g. Saga chapters, prison pieces).
+    # Direction matters (batch-13 GAAIV finding): a GENERAL tax ("spells your opponents
+    # cast cost {1} more" — GAAIV, Thalia) is a prison plan and defines Stax. A tax
+    # CONDITIONAL ON TARGETING ("spells that target a Merfolk you control cost {2} more" —
+    # the Kopala/Charix/Esior class) is a protection effect, not stax; giving it a Stax
+    # high band would be the Erebos CW class (one hate line != a prison plan). Measured
+    # over all commanders: 5 general taxers vs 6 targeting/protection taxers (incl.
+    # Hinata's per-target tax, whose real plan is spellslinger).
+    for _tax_line in low.split("\n"):
+        if not (re.search(r"cost (?:\{\d+\}|\d+|one|two|three) (?:or more )?more to cast", _tax_line)
+                or re.search(r"spells? cost .* more", _tax_line)):
+            continue
+        if "target" in _tax_line:
+            profile.add_signal(Signal(
+                id="TARGETED_TAX", label="Targeting tax (protection)",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                polarity=Polarity.RESTRICTIVE,
+                trace=Trace(rule_id="content.tax.v2", rule_version="2.0",
+                            matched_text=_tax_line.strip()[:80], span=None,
+                            note="Tax conditional on targeting — protects your permanents; not a prison plan."),
+            ))
+            profile.add_tag("Protection", profile.signals[-1].trace)
+        else:
+            profile.add_signal(Signal(
+                id="TAX_COST_INCREASE", label="Tax (spells cost more)",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                polarity=Polarity.RESTRICTIVE,
+                trace=Trace(rule_id="content.tax.v2", rule_version="2.0",
+                            matched_text=_tax_line.strip()[:80], span=None,
+                            note="Increases opponents' (or all) casting costs — a tax/stax effect."),
+            ))
+            profile.add_tag("Stax", profile.signals[-1].trace)
+        break  # one tax signal is enough
 
     # Legendary-matters: oracle references legendary permanents/spells as a synergy payoff
     # (not just the card being legendary itself, which lives in the type line).
@@ -224,11 +249,30 @@ def detect_keywords(text: str, profile: CardProfile, type_line: str = "") -> Non
             profile.add_tag("Legendary Matters", profile.signals[-1].trace)
             break
 
+    # Monarch: granting/claiming the crown is a politics plan (batch-14 Queen Marchesa
+    # finding — 'you become the monarch' read nothing while her deterrent token read Go
+    # Wide). Measured: ~60 cards / 13 commanders, all monarch-politics builds (Queen
+    # Marchesa, Jared Carthalion, Aragorn King of Gondor).
+    m = re.search(r"becomes? the monarch", low)
+    if m:
+        profile.add_signal(Signal(
+            id="MONARCH", label="Monarch (crown politics)",
+            kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+            trace=Trace(rule_id="content.monarch.v1", rule_version="1.0",
+                        matched_text=m.group(0), span=m.span(),
+                        note="Becoming/granting the monarch — politics + recurring card advantage."),
+        ))
+        profile.add_tag("Monarch", profile.signals[-1].trace)
+
 
 # Clause-level repeat markers: a recurring trigger, a scheduled trigger, or an activated
-# ability (cost ":" effect) — including planeswalker loyalty activations (once per turn).
+# ability (cost ":" effect). Planeswalker loyalty: only PLUS/0 activations count as repeat
+# markers — they fire every turn indefinitely. A MINUS ability consumes loyalty (self-
+# limiting; a big minus is once-per-game), so its token creation is a finisher, not an
+# engine — the batch-13 CW was Lord Windgrace's −11 (six Cats) reading Go Wide: high.
+# Measured against the DB: 53 plus/0 loyalty token-makers keep firing, 81 minus stop.
 _REPEAT_MARKERS = ("whenever", "at the beginning of")
-_ACTIVATED_RE = re.compile(r"(?:\}\s*:|^[+\u2212\u2013-]?\d+\s*:|\btap\b[^:]*:)", re.IGNORECASE | re.MULTILINE)
+_ACTIVATED_RE = re.compile(r"(?:\}\s*:|^(?:\+\d+|0)\s*:|\btap\b[^:]*:)", re.IGNORECASE | re.MULTILINE)
 # Tokens handed to OPPONENTS are a downside/political effect, not your engine.
 _OPPONENT_TOKEN_RE = re.compile(r"(?:that player|each opponent|an opponent|defending player)\s+creates", re.IGNORECASE)
 
@@ -256,6 +300,12 @@ def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
         # Ephemeral tokens (encore/embalm-haste style): the SAME clause sacrifices or exiles
         # them at the next end step — a temporary strike force, not a standing army.
         if ("at the beginning of the next end step" in low and ("sacrifice" in low or "exile" in low))            or "exile those tokens" in low:
+            continue
+        # Deterrent / catch-up tokens (batch-14 Queen Marchesa CW): creation CONDITIONED on
+        # an opponent-state ("if an opponent is the monarch / controls more lands than you",
+        # "if you have less life") is insurance or a punishment rider, not an army plan.
+        # Measured: 15 cards, all parity/catch-up effects (Beza, Linvala, Sunset Revelry).
+        if re.search(r"if an opponent|unless an opponent|if you have (?:less|fewer)|if you control fewer", low):
             continue
         repeatable = any(m in low for m in _REPEAT_MARKERS) or bool(_ACTIVATED_RE.search(clause))
         if not repeatable:
@@ -308,6 +358,42 @@ def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
             ))
             profile.add_tag("Repeatable Tokens", profile.signals[-1].trace)
         return  # one signal is enough
+
+
+_GY_COPY_IT_RE = re.compile(r"\bcopy (it|them|that card)\b")
+_GY_KEYWORD_RE = re.compile(r"\bembalm\b|\beternalize\b")
+
+
+def detect_graveyard_clone(text: str, profile: CardProfile) -> None:
+    """GRAVEYARD_CLONE: copying/recasting cards OUT of a graveyard (batch-16 Feldon/
+    Mimeoplasm finding). The class is a CONJUNCTION the substring vocabulary cannot
+    express safely — 'copy of' alone catches library/battlefield clones, 'from a
+    graveyard' alone is the over-broad phrase graveyard_recast deliberately avoids.
+    Matching runs on RULES text (reminder text stripped — the batch-14 lesson: Volo's
+    '(A copy of a creature spell becomes a token.)' reminder next to a NEGATIVE graveyard
+    condition read a false Graveyard Value high). Two compensations, both measured:
+    embalm/eternalize keywords ARE graveyard clones by rule (their copy semantics live
+    only in reminder text), and the directional 'from ... graveyard ... copy it/them/that
+    card' recast form (Kaervek/Nashi/Shiko class). Re-measured against the DB: 112 cards,
+    all genuine graveyard value; 7 reminder-text false positives dropped (Volo, Joo Dee,
+    Deepfathom Echo...), 20 genuine recasters gained (Mizzix's Mastery, Wildfire Devils...)."""
+    if not text:
+        return
+    for line in text.split("\n"):
+        low = re.sub(r"\([^)]*\)", "", line.lower())
+        is_keyword_clone = bool(_GY_KEYWORD_RE.search(low))
+        is_rules_clone = "graveyard" in low and (
+            "copy of" in low or "copies of" in low or _GY_COPY_IT_RE.search(low))
+        if is_keyword_clone or is_rules_clone:
+            profile.add_signal(Signal(
+                id="GRAVEYARD_CLONE", label="Clones/recasts cards from a graveyard",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.graveyard_clone.v1", rule_version="1.0",
+                            matched_text=low.strip()[:80], span=None,
+                            note="Graveyard + copy in one ability line — graveyard-fueled value engine."),
+            ))
+            profile.add_tag("Graveyard Clone", profile.signals[-1].trace)
+            return
 
 
 # Trigger doublers: cards that make OTHER triggered abilities trigger additional times
@@ -400,6 +486,93 @@ def detect_sac_outlet(text: str, profile: CardProfile) -> None:
                         note="Sacrificing as an activation cost — repeatable aristocrats enabler."),
         ))
         profile.add_tag("Sacrifice Outlet", profile.signals[-1].trace)
+
+
+# Lost-life payoff: cards that REWARD opponents having lost life this turn (Sygg, Bloodchief
+# Ascension, the spectacle cycle). The threshold variant ("lost 3 or more life this turn") makes
+# this a variable-number class the substring vocabulary cannot enumerate (the SAC_OUTLET lesson);
+# the naked "or more life this turn" phrase measured dirty (catches lifeGAIN payoffs — Angelic
+# Accord class). Measured against the DB: 40 cards, all genuine lost-life payoffs; the
+# player-scoped forms only ("you've lost life" self-payoffs deliberately excluded).
+_LOST_LIFE_PAYOFF_RE = re.compile(
+    r"(an opponent|a player|each opponent|each player) lost (\d+ or more )?life this turn",
+    re.IGNORECASE)
+
+
+def detect_lost_life_payoff(text: str, profile: CardProfile) -> None:
+    if not text:
+        return
+    m = _LOST_LIFE_PAYOFF_RE.search(text)
+    if m:
+        profile.add_signal(Signal(
+            id="LOST_LIFE_PAYOFF", label="Rewards opponents' life loss",
+            kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+            trace=Trace(rule_id="content.lost_life_payoff.v1", rule_version="1.0",
+                        matched_text=m.group(0)[:60], span=m.span(),
+                        note="Payoff conditioned on an opponent having lost life this turn — a lifeloss-matters plan."),
+        ))
+        profile.add_tag("Lost-Life Payoff", profile.signals[-1].trace)
+
+
+# Theft-by-exile: exiling cards from an OPPONENT'S zone and letting YOU play/cast them
+# (Elder Brain, Gonti-class impulse theft, Stolen Strategy). A conjunction with two
+# direction traps the substring vocabulary cannot express: the exiled zone must be an
+# opponent's (not your own impulse draw — Colfenor's Plans class), and the player given
+# access must be YOU (not the owner — Elkin Lair/Lightstall giveaway class, killed by
+# requiring 'you may play/cast'; 'you own' excluded for the Triple Triad self-play form).
+# Order-free within the line: Gonti's zone comes BEFORE the exile verb ('top four cards
+# of target opponent's library, exile one of them'). Reminder text stripped (Kaervek's
+# crime reminder says 'their graveyards' while he recasts his OWN). Measured against
+# the DB: 97 cards, all genuine you-play-theirs theft.
+_THEFT_EXILE_ZONE_RE = re.compile(
+    r"that player's hand|opponent's hand|that player's library|opponent's library"
+    r"|their library|their hand|opponent's graveyard|their graveyards?"
+    r"|each player's library|each player's hand")
+_THEFT_EXILE_PLAY_RE = re.compile(r"\byou may (play|cast)\b")
+
+
+def detect_theft_exile(text: str, profile: CardProfile) -> None:
+    if not text:
+        return
+    for line in text.split("\n"):
+        low = re.sub(r"\([^)]*\)", "", line.lower())
+        if ("exile" in low and _THEFT_EXILE_ZONE_RE.search(low)
+                and _THEFT_EXILE_PLAY_RE.search(low) and "you own" not in low):
+            profile.add_signal(Signal(
+                id="THEFT_EXILE", label="Plays opponents' cards via exile",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.theft_exile.v1", rule_version="1.0",
+                            matched_text=low.strip()[:60], span=None,
+                            note="Exiles from an opponent's zone and YOU may play/cast it — impulse theft."),
+            ))
+            profile.add_tag("Theft (exile)", profile.signals[-1].trace)
+            return
+
+
+# Graveyard-count scaling: effects sized by how many cards sit in YOUR graveyard (the
+# Lhurgoyf/Undergrowth class — P/T, damage, life, counters "equal to the number of ...
+# in your graveyard"). A conjunction the substring vocabulary cannot express safely:
+# "in your graveyard" alone is the over-broad phrase graveyard_recast avoids. Measured
+# against the DB: 46 cards, all genuine graveyard-count payoffs (Boneyard Wurm,
+# Splinterfright, Old Stickfingers, Nethergoyf, Haughty Djinn...).
+_GRAVEYARD_SCALING_RE = re.compile(
+    r"equal to (?:the number of|twice the number of) [^.]{0,40}in your graveyard",
+    re.IGNORECASE)
+
+
+def detect_graveyard_scaling(text: str, profile: CardProfile) -> None:
+    if not text:
+        return
+    m = _GRAVEYARD_SCALING_RE.search(text)
+    if m:
+        profile.add_signal(Signal(
+            id="GRAVEYARD_SCALING", label="Scales with your graveyard size",
+            kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+            trace=Trace(rule_id="content.graveyard_scaling.v1", rule_version="1.0",
+                        matched_text=m.group(0)[:60], span=m.span(),
+                        note="Effect sized by cards in your graveyard — wants the yard stocked."),
+        ))
+        profile.add_tag("Graveyard Scaling", profile.signals[-1].trace)
 
 
 # Control-change direction: "gain control" can be THEFT (you take theirs) or DONATION (you give

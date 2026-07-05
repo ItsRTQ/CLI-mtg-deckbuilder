@@ -46,9 +46,7 @@ def search(
     Repeated --oracle/--name/--card-type options are AND-matched and avoid the
     shell-quoting pain of long query strings. They combine with any query string.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if type_filter is not None:
         try:
@@ -177,9 +175,7 @@ def search_tags(
             print("  " + ", ".join(names))
         return
 
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if not tags:
         _msg = "Provide at least one tag, or use --list-tags to see them."
@@ -240,9 +236,7 @@ def suggest(
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
     """Suggest cards for a commander based on a specific role, theme, and package."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     if type_filter is not None:
         try:
@@ -603,9 +597,7 @@ def similar(
     Profiles the card (the functional tags it satisfies) and searches for other cards sharing
     those tags, ranked by how many they share. Defaults to the source card's color identity.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     repo = CardRepository(str(SQLITE_PATH))
     card = repo.get_card_by_exact_name(card_name)
     if not card:
@@ -649,9 +641,7 @@ def complements(
     and searches for those — e.g. a sacrifice outlet finds death-triggers and recursion; a
     +1/+1 placer finds proliferate and counter payoffs.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     repo = CardRepository(str(SQLITE_PATH))
     card = repo.get_card_by_exact_name(card_name)
     if not card:

@@ -148,7 +148,9 @@
     "mill two cards",
     "mill three cards",
     "cards from your library into your graveyard",
-    "surveil"
+    "surveil",
+    "revealed this way into your graveyard",
+    "rest into your graveyard"
   ],
   "discard_outlet": [
     "discard a card"
@@ -158,9 +160,14 @@
     "return target creature card"
   ],
   "sacrifice_outlet": [
-    "sacrifice a creature",
-    "sacrifice another creature",
-    "sacrifice a permanent"
+    "sacrifice a creature:",
+    "sacrifice another creature:",
+    "sacrifice a permanent:",
+    "you may sacrifice a creature",
+    "you may sacrifice another creature",
+    "you may sacrifice a permanent",
+    "cost to cast this spell, sacrifice a creature",
+    "cost to cast this spell, sacrifice a permanent"
   ],
   "free_sacrifice_outlet": [
     "Sacrifice a creature:",
@@ -351,7 +358,8 @@
     ", then return it to the battlefield",
     ", then return that card to the battlefield",
     "exile another target permanent you control",
-    "then return those cards to the battlefield"
+    "then return those cards to the battlefield",
+    "return that card to the battlefield under its owner's control at the beginning of the next end step"
   ],
   "trigger_doubler": [
     "triggers an additional time",
@@ -416,7 +424,8 @@
     "whenever a creature deals combat damage"
   ],
   "lifedrain": [
-    "each opponent loses"
+    "each opponent loses",
+    "target opponent loses"
   ],
   "alternate_wincon": [
     "you win the game",
@@ -430,7 +439,9 @@
   ],
   "land_recursion": [
     "play lands from your graveyard",
-    "return target land"
+    "return target land",
+    "land card from your graveyard to the battlefield",
+    "land cards from your graveyard to the battlefield"
   ],
   "land_payoff": [
     "for each land you control",

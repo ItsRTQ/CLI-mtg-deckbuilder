@@ -20,9 +20,7 @@ def commander_analyze(
     json_output: bool = typer.Option(False, "--json-output", help="Print JSON to stdout"),
 ):
     """Analyze a commander and write a reusable tactical JSON artifact."""
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
 
     repo = CardRepository(str(SQLITE_PATH))
     commander_card = repo.get_card_by_exact_name(commander)
@@ -175,9 +173,7 @@ def analyze_card(
     rule and text that triggered it), scope/symmetry, archetype support as ordinal bands, and
     warnings. No scores, no include/cut verdict — that judgment is the agent's.
     """
-    if not SQLITE_PATH.exists():
-        print("[red]Database not found. Please run 'init-data' first.[/red]")
-        raise typer.Exit(code=1)
+    require_database(SQLITE_PATH, json_output)
     repo = CardRepository(str(SQLITE_PATH))
     card = repo.get_card_by_exact_name(card_name)
     if not card:

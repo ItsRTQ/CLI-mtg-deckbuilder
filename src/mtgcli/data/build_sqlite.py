@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from mtgcli.config import RAW_CARDS_PATH, SQLITE_PATH
-from mtgcli.data.normalize_cards import normalize_card, min_known_price
+from mtgcli.data.normalize_cards import normalize_card, min_known_price, NONPLAYABLE_LAYOUTS
 
 CHUNK_SIZE = 1000
 
@@ -102,6 +102,10 @@ def build_sqlite_database() -> Dict[str, Any]:
 
     with open(RAW_CARDS_PATH, "rb") as f:
         for raw_card in ijson.items(f, "item"):
+            # Tokens/emblems/art-series/etc. are not deck cards and token names SHADOW
+            # real cards in exact-name lookups (the Timeless Witness bug).
+            if (raw_card.get("layout") or "") in NONPLAYABLE_LAYOUTS:
+                continue
             norm = normalize_card(raw_card)
             key = norm["oracle_id"]
             cards_processed += 1

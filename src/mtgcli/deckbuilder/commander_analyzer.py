@@ -738,7 +738,25 @@ def analyze_commander(
                 "Build is possible but not naturally supported by the commander text."
             )
 
-    cmd_scores_raw = score_commander(commander_card, best_archetype)
+    # Fase 2 (M2 consumer #1): compute the universal analyzer profile BEFORE scoring so
+    # commander_scores can consume its signals (provides via evidence, oracle heuristics
+    # as fallback). Guarded — an analyzer failure must never break the legacy analysis
+    # (signals stay None → score_commander behaves exactly as before). The result is
+    # reused for the `analyzer` embed at the end, so the analyzer runs once per card.
+    _ua = _up = None
+    _ua_signals = _up_signals = None
+    try:
+        from mtgcli.analyzer.analyze import analyze_card as _universal_analyze
+        _ua = _universal_analyze(commander_card)
+        _ua_signals = [s["id"] for s in _ua.get("signals", [])]
+        if partner_card:
+            _up = _universal_analyze(partner_card)
+            _up_signals = [s["id"] for s in _up.get("signals", [])]
+    except Exception:
+        _ua = _up = None
+        _ua_signals = _up_signals = None
+
+    cmd_scores_raw = score_commander(commander_card, best_archetype, signals=_ua_signals)
     provides = cmd_scores_raw.get("provides", {})
     requires = cmd_scores_raw.get("requires", {})
     rewards = cmd_scores_raw.get("rewards", {})
@@ -750,7 +768,7 @@ def analyze_commander(
     if partner_card:
         partner_name = partner_card.get("name")
         partner_color_identity = partner_card.get("color_identity", [])
-        partner_scores_raw = score_commander(partner_card, best_archetype)
+        partner_scores_raw = score_commander(partner_card, best_archetype, signals=_up_signals)
         merged = merge_partner_scores(cmd_scores_raw, partner_scores_raw)
         cmd_scores_raw = merged
         provides = merged.get("provides", {})
@@ -798,6 +816,33 @@ def analyze_commander(
         if sig not in wanted:
             wanted.insert(0, sig)
 
+    # M2 consumer #3: surface the analyzer's high-band plans as wanted patterns, each
+    # with a ready search command. The tokens come from the analyzer's own archetype
+    # vocabulary (mapping._ARCHETYPE_RULES; lowercase tokens are card_tags names), the
+    # same map deck-gaps audits against — one vocabulary, no drift. Guarded and additive.
+    if _ua is not None:
+        try:
+            from mtgcli.analyzer.mapping import _ARCHETYPE_RULES as _AR
+            for s in _ua.get("archetype_support", []):
+                if s.get("band") not in ("high", "very_high"):
+                    continue
+                arch = s.get("archetype", "")
+                if arch.endswith(" Tribal"):
+                    _tt = arch[: -len(" Tribal")].lower()
+                    pat = (f"{arch} (analyzer {s['band']}): {_tt} creatures — "
+                           f"mtg search --subtype {_tt} --type creature")
+                else:
+                    rules = _AR.get(arch, {})
+                    toks = [t for t in list(rules.get("defining", [])) + list(rules.get("supporting", []))
+                            if t.islower()]
+                    if not toks:
+                        continue
+                    pat = f"{arch} (analyzer {s['band']}): mtg search-tags {' '.join(toks[:3])}"
+                if pat not in wanted:
+                    wanted.append(pat)
+        except Exception:
+            pass
+
     notes: List[str] = []
     if power_level is not None:
         notes.append(f"Power level context: {power_level}/10")
@@ -833,6 +878,27 @@ def analyze_commander(
             "win_conversion": _describe_win_conversion(best_archetype, engine_patterns),
         },
         "archetype_fit": archetype_fits,
+        # M3 (Fase 3 prep): machine-readable deprecation notice. The legacy fields stay
+        # in place until v0.10 so no consumer breaks, but every reader can see what
+        # replaces them. BUILDER.md §7.0b carries the same instruction for agents.
+        "legacy_deprecations": {
+            "archetype_fit": {
+                "deprecated": True,
+                "replaced_by": "analyzer.archetype_support",
+                "removal_planned": "v0.10",
+                "note": "Weighted text scores; can be confidently wrong. Prefer the evidence-first analyzer bands.",
+            },
+            "commander_tags": {
+                "deprecated": True,
+                "replaced_by": "analyzer.tags + analyzer.signals",
+                "removal_planned": "v0.10",
+            },
+            "synergy_tags": {
+                "deprecated": True,
+                "replaced_by": "analyzer.tags (phrases via search-tags)",
+                "removal_planned": "v0.10",
+            },
+        },
         "best_archetype": best_archetype,
         "role_pressures": role_pressures,
         "combat_profile": combat_profile,
@@ -861,17 +927,25 @@ def analyze_commander(
     except Exception:
         result["tool_version"] = None
     try:
-        from mtgcli.analyzer.analyze import analyze_card as _universal_analyze
-        _ua = _universal_analyze(commander_card)
+        # Reuse the profile computed before scoring (M2); recompute only if that early
+        # pass failed for any reason.
+        if _ua is None:
+            from mtgcli.analyzer.analyze import analyze_card as _universal_analyze
+            _ua = _universal_analyze(commander_card)
         result["analyzer"] = {
             "schema_version": _ua.get("schema_version"),
             "archetype_support": _ua.get("archetype_support", []),
             "dominant_symmetry": _ua.get("dominant_symmetry"),
             "signals": [s["id"] for s in _ua.get("signals", [])],
+            # M3: tag names only (traces via `mtg analyze-card`) — the single-source
+            # replacement for the deprecated commander_tags/synergy_tags.
+            "tags": sorted(_ua.get("tags", {}).keys()),
             "warnings": _ua.get("warnings", []),
         }
         if partner_card:
-            _up = _universal_analyze(partner_card)
+            if _up is None:
+                from mtgcli.analyzer.analyze import analyze_card as _universal_analyze
+                _up = _universal_analyze(partner_card)
             result["analyzer"]["partner_archetype_support"] = _up.get("archetype_support", [])
             result["analyzer"]["partner_signals"] = [s["id"] for s in _up.get("signals", [])]
     except Exception:

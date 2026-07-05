@@ -29,7 +29,7 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         "weak": ["lifedrain"],
     },
     "Life Loss / Group Slug": {
-        "defining": ["group_slug"],
+        "defining": ["group_slug", "LOST_LIFE_PAYOFF"],
         "supporting": ["TRIGGER_LIFE_CHANGE", "lifedrain", "lifegain_payoff", "extort"],
         "weak": [],
     },
@@ -59,8 +59,12 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         "weak": [],
     },
     "Stax / Prison": {
-        "defining": ["ATTACK_RESTRICTION", "CAST_RESTRICTION", "UNTAP_RESTRICTION", "stax"],
-        "supporting": ["tax", "BLOCK_RESTRICTION", "TAX_COST_INCREASE"],
+        # TAX_COST_INCREASE promoted to defining (batch-13 GAAIV finding): a GENERAL cost
+        # tax IS the prison plan. Safe because the detector routes targeting-conditional
+        # taxes (the Kopala/Charix protection class) to TARGETED_TAX, which never feeds Stax.
+        "defining": ["ATTACK_RESTRICTION", "CAST_RESTRICTION", "UNTAP_RESTRICTION", "stax",
+                     "TAX_COST_INCREASE"],
+        "supporting": ["tax", "BLOCK_RESTRICTION"],
         "weak": [],
     },
     "Punisher / Asymmetric": {
@@ -89,7 +93,7 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         "weak": [],
     },
     "Theft": {
-        "defining": ["theft", "THEFT_CONTROL"],
+        "defining": ["theft", "THEFT_CONTROL", "THEFT_EXILE"],
         "supporting": [],
         "weak": [],
     },
@@ -104,8 +108,10 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         "weak": [],
     },
     "Graveyard Value / Recursion": {
-        "defining": ["graveyard_recast"],
-        "supporting": ["graveyard_recursion", "self_mill"],
+        # GRAVEYARD_CLONE (batch-16): same-line graveyard+copy conjunction — 90 cards
+        # measured, all genuine graveyard value (Feldon, Lazav, Scarab God, embalm cycle).
+        "defining": ["graveyard_recast", "GRAVEYARD_CLONE"],
+        "supporting": ["graveyard_recursion", "self_mill", "GRAVEYARD_SCALING"],
         "weak": [],
     },
     "Morph / Face-down": {
@@ -144,7 +150,9 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         "weak": [],
     },
     "Group Hug / Politics": {
-        "defining": ["group_hug", "DONATION"],
+        # MONARCH defining (batch-14): claiming/granting the crown is a politics plan —
+        # measured 13 commanders, all monarch-politics builds.
+        "defining": ["group_hug", "DONATION", "MONARCH"],
         "supporting": [],
         "weak": [],
     },
@@ -192,14 +200,28 @@ class ArchetypeSupport:
         }
 
 
+# Wide-vs-tall exclusion (batch-16 Chishiro CW): a card cannot be a one-threat Voltron plan
+# AND a board-wide army plan at once. When the evidence shows BOTH an army builder
+# (REPEATABLE_TOKEN_MAKER) and a board-wide pump (broad COUNTER_MARKER — each/target scope,
+# never the SELF variant), an aura/equipment payoff supports the WIDE-modified plan, so it
+# demotes from Voltron's defining to supporting. Measured over the 24 commanders carrying
+# aura_equipment_payoff: only the Chishiro class has both wide signals; Sram/Galea/Wyleth
+# (no army), Kemba/Stangg (tokens but no broad pump) keep their Voltron reads.
+_WIDE_ARMY_SIGNALS = {"REPEATABLE_TOKEN_MAKER", "COUNTER_MARKER"}
+
+
 def map_archetypes(evidence: set) -> List[ArchetypeSupport]:
     """Given the set of evidence tokens a card has (signal IDs + tag names), return per-archetype
     support classified into ordinal bands. No summation: a token only ever lands in its bucket."""
     out: List[ArchetypeSupport] = []
+    wide_army = _WIDE_ARMY_SIGNALS <= evidence
     for arch, rules in _ARCHETYPE_RULES.items():
         sup = ArchetypeSupport(archetype=arch)
         for tok in rules.get("defining", []):
             if tok in evidence:
+                if wide_army and arch == "Voltron" and tok == "aura_equipment_payoff":
+                    sup.supporting.append(tok)
+                    continue
                 sup.defining.append(tok)
         for tok in rules.get("supporting", []):
             if tok in evidence:

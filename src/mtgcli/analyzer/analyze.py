@@ -14,7 +14,7 @@ from mtgcli.analyzer.scope import detect_scope, dominant_symmetry
 from mtgcli.analyzer.timing import detect_replacement_effects, detect_timing
 from mtgcli.analyzer.semantics import detect_negation, detect_counter_sense
 from mtgcli.analyzer.structure import split_faces, mark_modal_flexibility, detect_linked_abilities
-from mtgcli.analyzer.content import detect_trigger_families, detect_scaling, detect_tribal, detect_keywords, detect_repeatable_token_making, detect_trigger_doubler, detect_modal_structure, detect_sac_outlet, detect_control_change, detect_power_matters, detect_provides
+from mtgcli.analyzer.content import detect_trigger_families, detect_scaling, detect_tribal, detect_keywords, detect_repeatable_token_making, detect_trigger_doubler, detect_modal_structure, detect_sac_outlet, detect_control_change, detect_power_matters, detect_provides, detect_graveyard_clone, detect_lost_life_payoff, detect_graveyard_scaling, detect_theft_exile
 from mtgcli.analyzer.mapping import map_archetypes
 
 
@@ -35,6 +35,10 @@ def _run_extraction(text: str, profile: CardProfile, card_name: str = None) -> N
     detect_control_change(text, profile)
     detect_power_matters(text, profile)
     detect_provides(text, profile)
+    detect_graveyard_clone(text, profile)
+    detect_lost_life_payoff(text, profile)
+    detect_graveyard_scaling(text, profile)
+    detect_theft_exile(text, profile)
 
 
 def analyze_card(card: Dict[str, Any]) -> Dict[str, Any]:

@@ -24,6 +24,22 @@ def _get_category_phrases(
         return phrases
     return tag_definitions.get(category, [])
 
+
+def _is_targeted_tuck_removal(oracle_text: str) -> bool:
+    """The Deglamer/Chaos Warp tuck class needs a same-line CONJUNCTION the substring
+    vocabulary cannot express: "shuffles it into" is worded identically for targeted
+    removal ("Choose target artifact or enchantment. Its owner shuffles it into their
+    library" — Deglamer) and for a card's own drawback ("At the beginning of the end
+    step, its owner shuffles it into their library" — Lightning Shrieker). The decider
+    is whether the SAME oracle line names a target. Measured against the DB: 13 cards
+    with target+shuffle in one line, all genuine removal; 8 without "target", all
+    self-shuffle/drawback."""
+    for line in oracle_text.split("\n"):
+        if "shuffles it into" in line and "target" in line:
+            return True
+    return False
+
+
 def check_theme_packages(deck_cards: List[Dict[str, Any]], theme: str) -> Dict[str, Any]:
     """
     Checks if the deck matches specific theme package requirements.
@@ -123,7 +139,11 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
                 if phrase in name or phrase in type_line or phrase in oracle_text:
                     matches = True
                     break
-            
+
+            # Conjunction rule: targeted tuck (see _is_targeted_tuck_removal).
+            if not matches and category == "removal" and _is_targeted_tuck_removal(oracle_text):
+                matches = True
+
             if matches:
                 if category in core_categories:
                     stats[category] += quantity

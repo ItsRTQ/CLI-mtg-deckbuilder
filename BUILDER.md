@@ -47,7 +47,9 @@ agents/deck_explainer.md
 9. `synergy` is not a role. Never use `--role synergy`. Use `--synergy` on a real role.
 10. Commander-zone cards are metadata, not `main_deck` cards.
 11. Category counts and skeletons are guidance, not hard locks.
-12. Budget is a maximum constraint, not a spending target.
+12. A stated budget is a SPENDING PLAN as well as a ceiling: draft TO it (target
+    85–100% utilization) and never past it. Landing far under budget is a drafting
+    failure, not prudence (§11).
 13. Before starting the build ask the user "Do you want to clear output folder? "(Yes/No - answere only) if user selects yes run(.venv/bin/mtg temp-clean --full --yes) to clear output folder using the mtg tool. if user select no, then skip and continue to build
 
 ---
@@ -539,20 +541,31 @@ Rules:
 
 ## 11. Budget Contract
 
-Budget is a maximum constraint, not a spending target.
-
-Budget is also a preference boundary. Some users have a hard budget and cannot go over. Others are fine going over if the upgrade gives major value to the gameplan, win condition, engine, ramp, commander protection, or consistency.
+**A budget is a spending plan, not just a cap.** The user chose that number expecting a
+deck of roughly that quality — build TO it from the FIRST draft, not up to it through a
+review afterwards. The ceiling is still absolute (never exceed a hard budget), but
+inside the ceiling the money is there to be spent on the deck's plan.
 
 ```text
-Deck synergy > spending the full budget.
-Under budget is valid — but a budget is also a POWER signal: the user chose that number
-  expecting cards of roughly that quality.
-Utilization floor: the finished deck should use at least ~60% of the stated budget.
-  Landing more than 40% under budget is NOT a win — it usually means the build defaulted
-  to the cheapest functional card in every slot. When that happens, the Budget Upgrade
-  Review (below) is REQUIRED, not optional: walk the unused budget back into the deck's
-  weakest slots (mana base quality, draw engines, protection, win-condition certainty).
-Default overage allowance is 10%.
+DRAFT-TO-BUDGET (the primary rule):
+  Target 85–100% utilization in the first draft. Landing far under budget is a
+  drafting failure — it means the cheapest functional card was picked in slots where
+  a strictly better card was affordable.
+Allocate while drafting, not after: think in package budgets (e.g. mana base ~20-30%,
+  draw engines ~15%, the commander's core plan ~30%, interaction/protection ~15%).
+  When two cards fill the same slot, take the strongest one the slot's share affords —
+  not the cheapest one that functions.
+Per-card price instinct: do NOT self-impose tiny caps. On a $75 budget a $2/card cap
+  is self-sabotage. A key slot (win condition, draw engine, signature synergy piece)
+  may reasonably eat 10–20% of the budget alone; the --by-card high-cost flag (>20%)
+  exists for VISIBILITY, not prohibition. Derive search caps from the budget
+  (--max-price ≈ budget × 0.15–0.20 for key-slot shortlists), not from habit.
+Quality bar unchanged: an expensive card that does not strongly improve the deck is
+  still not an upgrade — spend on the PLAN, not on price tags.
+Utilization floor (the FAILSAFE, not the mechanism): if the finished deck still sits
+  under ~60% of budget, the Budget Upgrade Review below is REQUIRED before finalizing.
+  If drafting followed this contract, the review should rarely trigger.
+Default overage allowance is 10% (soft budgets only).
 Unknown price means unknown, not free and not forbidden.
 ```
 
@@ -561,8 +574,6 @@ Use:
 ```bash
 mtg budget output/deck.json --budget <amount> --overage 10 --json-output
 ```
-
-Do not add expensive cards only to spend budget. Optional upgrades can be listed separately.
 
 ### Budget Tolerance Modes
 

@@ -89,8 +89,10 @@ tests/test_commander_analyzer.py
 tests/test_constraints.py
 tests/test_db_missing_json.py
 tests/test_deck_check_ramp.py
+tests/test_deck_check_removal.py
 tests/test_deck_io.py
 tests/test_deck_pipeline.py
+tests/test_deck_swap_quantity.py
 tests/test_dedupe.py
 tests/test_enrichment.py
 tests/test_explore.py

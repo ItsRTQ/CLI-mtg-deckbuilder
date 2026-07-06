@@ -436,18 +436,30 @@ def deck_swap(
             print(f"  - {e}")
         raise typer.Exit(code=1)
 
-    for entry, new_name in parsed:
-        applied.append({"out": entry["name"], "in": new_name, "quantity": entry.get("quantity", 1)})
-        entry["name"] = new_name
-
-    # Singleton guard: the resulting deck must not contain a duplicate non-basic card.
-    # (A regex replace would happily create two copies of an incoming card already in the deck.)
     from mtgcli.deckbuilder.pricing import BASIC_LANDS
+    for entry, new_name in parsed:
+        qty = entry.get("quantity", 1)
+        if qty > 1 and new_name not in BASIC_LANDS:
+            # Swapping out of a multi-copy entry (17x Island -> Buried Ruin must NOT
+            # rename all 17 — the Mendicant build friction): take ONE copy out of the
+            # stack and add the incoming card as its own singleton entry.
+            entry["quantity"] = qty - 1
+            entries.append({"name": new_name, "quantity": 1})
+            applied.append({"out": entry["name"], "in": new_name, "quantity": 1})
+        else:
+            applied.append({"out": entry["name"], "in": new_name, "quantity": qty})
+            entry["name"] = new_name
+
+    # Singleton guard: the resulting deck must not contain a duplicate non-basic card —
+    # neither as duplicate entries nor as a single entry with quantity > 1.
+    # (A regex replace would happily create two copies of an incoming card already in the deck.)
     seen, dupes = set(), set()
     for e in entries:
         n = e.get("name", "")
         if n in BASIC_LANDS:
             continue
+        if e.get("quantity", 1) > 1:
+            dupes.add(n)
         key = n.lower()
         if key in seen:
             dupes.add(n)

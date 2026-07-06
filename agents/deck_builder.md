@@ -14,7 +14,11 @@ Do not invent cards. Do not create helper scripts.
 4. Detect archetype, detail, constraints, and build mode.
 5. Run `category-counts` with commander analysis.
 6. Optionally run `explore` / `combos` for context.
-7. Search/suggest candidates by role and package.
+7. Search/suggest candidates by role and package. **If a budget is set, draft TO it
+   (target 85–100% utilization): allocate package budgets while drafting and take the
+   strongest card each slot's share affords — never self-impose per-card caps far below
+   what the budget allows (BUILDER.md §11). Derive `--max-price` for key-slot
+   shortlists from the budget (~15–20% of it), not from habit.**
 8. Rank candidates.
 9. Build the nonland shell.
 10. Write `output/decklist.txt`.
@@ -23,7 +27,7 @@ Do not invent cards. Do not create helper scripts.
 13. Validate.
 14. Fix errors.
 15. Run deck-check and budget checks.
-16. If under budget threshold, run Budget Upgrade Review: show under-budget upgrades and optional over-budget high-impact options, then ask the user what to apply (see BUILDER.md Section 11).
+16. If under budget threshold (<~60% utilization), run Budget Upgrade Review: show under-budget upgrades and optional over-budget high-impact options, then ask the user what to apply (see BUILDER.md Section 11). The review is the FAILSAFE — if step 7 drafted to budget, it should rarely trigger.
 17. Apply selected upgrades, then re-run validate, deck-check, and budget-check.
 18. Write `output/deck_explanation.md`.
 19. Final-build only after the Budget Upgrade Review decision is resolved and validation passes.

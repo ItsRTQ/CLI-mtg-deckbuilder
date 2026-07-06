@@ -44,7 +44,9 @@ _TRIGGER_FAMILIES = [
     ("you_cast_spell", ["you cast"]),
     # "you attack" covers the player-scope form "whenever you attack" (Raffine, Adeline,
     # Inti — 156 cards measured), which the bare "attacks" keyword misses.
-    ("attacks_or_combat", ["attacks", "you attack", "deals combat damage", "blocks"]),
+    # "you control attack" covers plural board subjects ("creatures/tokens you control
+    # attack a player" — the batch #23 Neyali form).
+    ("attacks_or_combat", ["attacks", "you attack", "you control attack", "deals combat damage", "blocks"]),
     ("sacrifice", ["sacrifice"]),
     ("draw_or_discard", ["draw", "discard"]),
     ("life_change", ["gain life", "lose life", "loses life", "gains life"]),

@@ -26,6 +26,15 @@ _CREATURE_TYPES = {
     "kavu", "minotaur", "orc", "kithkin", "kor", "rebel", "ally", "werewolf", "cephalid", "frog",
     "fish", "crab", "wall", "plant", "fox", "rabbit", "bear", "boar", "ox", "goat", "bat", "devil",
     "imp", "gremlin", "gnome", "homunculus", "leviathan", "kraken", "octopus", "serpent", "whale",
+    # batch #20: Gallia's Satyrs and Reaper King's Scarecrows were invisible — the
+    # whitelist was missing a swath of real types. All entries are genuine creature
+    # types (no oracle-noun collisions like "token"/"card").
+    "satyr", "scarecrow", "skeleton", "centaur", "cyclops", "dryad", "unicorn", "pegasus",
+    "griffin", "drake", "lizard", "illusion", "eldrazi", "phyrexian", "aetherborn", "vedalken",
+    "viashino", "salamander", "otter", "mouse", "raccoon", "badger", "monkey", "ape",
+    "crocodile", "turtle", "wraith", "specter", "shade", "nightmare", "archon", "praetor",
+    "basilisk", "cockatrice", "gargoyle", "chimera", "manticore", "naga", "gorgon", "harpy",
+    "siren", "nymph", "pilot", "artificer", "scout", "archer", "barbarian", "mystic", "pilgrim",
 }
 
 # tribal references: "another Dinosaur", "other Dinosaurs", "Dinosaur creatures", "Dinosaurs you control"
@@ -47,6 +56,22 @@ _TRIBAL_PATTERNS = [
     r"\bone or more ([a-z]+?)s\b",
     # tribal cost reduction / cast payoffs: "Hydra spells you cast cost {4} less" (Gargos-style)
     r"\b([a-z]+)\s+spells?\s+you\s+cast\b",
+    # or-conjunction type pairs: "a Wolf or Werewolf you control" (Tovolar-style, batch #19).
+    # Two single-group patterns so each half hits the whitelist check independently.
+    r"\ba\s+([a-z]+)\s+or\s+[a-z]+\s+you control\b",
+    r"\ba\s+[a-z]+\s+or\s+([a-z]+)\s+you control\b",
+    # tribal tutor form: "search your library for a Sliver card" (Sliver Overlord, batch #19);
+    # non-type words (land, aura...) are filtered by the whitelist.
+    r"search your library for an? ([a-z]+) card\b",
+    # anthem with explicit 'creatures': "Other Scarecrow creatures you control get +1/+1"
+    # (Reaper King, batch #20) — the plain "other Xs" pattern needs the trailing s.
+    r"\bother\s+([a-z]+)\s+creatures\b",
+    # "another <Type> you control" trigger form (Reaper King's enters trigger, batch #20).
+    r"\banother\s+(?:nontoken\s+)?([a-z]+)\s+you control\b",
+    # plural pair-anthem: "Skeletons and Zombies you control get +1/+1" (Gisa, batch #22;
+    # 29 measured pairs). Two single-group patterns, one per half.
+    r"\b([a-z]+)s and [a-z]+s you control\b",
+    r"\b[a-z]+s and ([a-z]+)s you control\b",
 ]
 
 # power/toughness scaling that extract_scaling misses
@@ -62,28 +87,74 @@ def detect_trigger_families(text: str, profile: CardProfile, card_name: str = No
     low = (text or "").lower()
     _board_attack = ("you control attack", "creatures you control attack", "you control deals combat damage",
                      "whenever you attack", "one or more creatures", "attacking creature",
-                     "creatures attack")
+                     "creatures attack",
+                     # batch #23 Neyali gap: token armies attack too
+                     "tokens you control attack")
     for family in extract_trigger_events(text or ""):
+        # Direction check FIRST (batch #22 Isperia CW): "whenever a creature attacks YOU"
+        # is an INCOMING attack — a pillowfort/deterrent trigger, never your own attack
+        # theme. Measured: 19 cards, all defense (Isperia, Marchesa's Decree, Revenge of
+        # Ravens). Own-board forms ("whenever you attack") are unaffected via _board_attack.
+        if (family == "attacks_or_combat"
+                and re.search(r"attacks you\b", low)
+                and not any(p in low for p in _board_attack)):
+            profile.add_signal(Signal(
+                id="INCOMING_ATTACK_TRIGGER",
+                label="Triggers when opponents attack YOU (defense, not an attack theme)",
+                kind=EvidenceKind.RULE_RELATION,
+                confidence=Confidence.STRONG,
+                timing="triggered",
+                trace=Trace(rule_id="content.trigger.incoming_attack.v1", rule_version="1.0",
+                            matched_text=family, span=None,
+                            note="Opponents attacking you is a pillowfort payoff, not your combat plan."),
+            ))
+            continue
         # Scope check for the attack family: "whenever <CARDNAME> attacks" is the commander's
         # own engine event (Korvold sacrifices when HE attacks), not an attack-triggers THEME
         # (Isshin/Toski reward the whole board attacking). Self-only -> weaker separate signal.
         if family == "attacks_or_combat" and not any(p in low for p in _board_attack):
-            self_subjects = ["this creature attacks", "whenever this creature attacks"]
+            # Batch #19 CW class: the self-scope forms must also cover the SABOTEUR
+            # trigger ("Whenever <name> deals combat damage to a player, <value>") —
+            # Nine-Fingers Keene (digs Gates) and Yidris (grants cascade) are engine
+            # events exactly like Zur, not attack themes. Board forms ("you control
+            # deals combat damage") are already excluded by _board_attack above.
+            self_subjects = ["this creature attacks", "whenever this creature attacks",
+                             "this creature deals combat damage to a player"]
             if card_name:
                 short = card_name.split(",")[0].strip().lower()
-                self_subjects += [f"{short} attacks", f"{short} enters or attacks"]
+                self_subjects += [f"{short} attacks", f"{short} enters or attacks",
+                                  f"{short} deals combat damage to a player"]
                 # no-comma legends are referenced by their FIRST name in oracle text
                 # ("Zur the Enchanter" -> "Whenever Zur attacks"); skip articles.
                 first = card_name.split()[0].strip().lower()
                 if first not in ("the", "a", "an") and len(first) > 2:
-                    self_subjects += [f"{first} attacks", f"{first} enters or attacks"]
-            # A self-attack trigger whose EFFECT feeds combat (puts creatures attacking, untaps,
-            # grants extra combat) is still an attack THEME (Kaalia); a non-combat effect
-            # (tutoring, sacrificing) is an engine event (Zur, Korvold).
-            _combat_effect = ("attacking", "untap", "extra combat", "combat phase", "gains haste")
+                    self_subjects += [f"{first} attacks", f"{first} enters or attacks",
+                                      f"{first} deals combat damage to a player"]
+            # A self-attack trigger whose EFFECT feeds combat (puts creatures attacking, untaps
+            # CREATURES, grants extra combat) is still an attack THEME (Kaalia, Godo); a
+            # non-combat effect (tutoring, sacrificing) is an engine event (Zur, Korvold).
+            # Batch #19: the untap exemption is DIRECTIONAL — "untap each snow permanent"
+            # (Jorn) is mana/value, not combat (measured: 101 creature-untaps vs 94 other).
+            # CREATURE deployment in the effect (Lathril's Elf tokens, Gishath's
+            # Dinosaurs onto the battlefield) still feeds the combat plan — the engine
+            # ruling applies only to NONCREATURE value (Keene's Gates, Yidris' cascade,
+            # Jorn's snow untaps, Zur's enchantments).
+            _combat_effect = ("attacking", "untap it", "untap them", "untap those",
+                              "untap all creatures", "untap each creature",
+                              "untap target creature", "untap that creature",
+                              "untap all attacking", "extra combat", "combat phase",
+                              "gains haste", "creature token")
             trigger_line = next((l for l in low.split("\n")
                                  if any(s in l for s in self_subjects)), "")
-            if any(s in low for s in self_subjects) and not any(k in trigger_line for k in _combat_effect):
+            # "creature card" counts as deployment only when it reaches the BATTLEFIELD
+            # (Gishath). Batch #20 Otrimi CW: "return target creature card ... to your
+            # hand" is card advantage — an engine event, not combat.
+            _deploys_creature_card = ("creature card" in trigger_line
+                                      and ("onto the battlefield" in trigger_line
+                                           or "to the battlefield" in trigger_line))
+            if (any(s in low for s in self_subjects)
+                    and not any(k in trigger_line for k in _combat_effect)
+                    and not _deploys_creature_card):
                 profile.add_signal(Signal(
                     id="SELF_ATTACK_TRIGGER",
                     label="Triggers when THIS creature attacks (own engine, not a theme)",
@@ -274,7 +345,11 @@ def detect_keywords(text: str, profile: CardProfile, type_line: str = "") -> Non
 _REPEAT_MARKERS = ("whenever", "at the beginning of")
 _ACTIVATED_RE = re.compile(r"(?:\}\s*:|^(?:\+\d+|0)\s*:|\btap\b[^:]*:)", re.IGNORECASE | re.MULTILINE)
 # Tokens handed to OPPONENTS are a downside/political effect, not your engine.
-_OPPONENT_TOKEN_RE = re.compile(r"(?:that player|each opponent|an opponent|defending player)\s+creates", re.IGNORECASE)
+# "target opponent creates" (batch #18 CW: Phelddagrif's Hippo gifts read Go Wide) —
+# measured 23, all opponent-gifts (Hunted cycle, Clackbridge Troll, Forbidden Orchard).
+# "target player creates" deliberately NOT added: usually self-targeted modal support
+# (Dark Salvation creates YOUR Zombies).
+_OPPONENT_TOKEN_RE = re.compile(r"(?:that player|each opponent|an opponent|target opponent|defending player)\s+creates", re.IGNORECASE)
 
 
 def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
@@ -288,7 +363,16 @@ def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
     # Clause = one oracle LINE. Each ability is one line in oracle text; sentences within a
     # line belong to the same ability (e.g. "{T}: Draw a card. Create a token." is ONE
     # activated ability), so splitting by sentence would break the conjunction.
-    clauses = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    # Modal BULLETS (batch #23 Caesar gap) belong to their header ability: "Whenever you
+    # attack ... choose two —" + "• Create two 1/1 ... tokens" is ONE ability, so bullet
+    # lines are merged into the preceding header line before the conjunction check.
+    raw_lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    clauses = []
+    for ln in raw_lines:
+        if ln.startswith("•") and clauses:
+            clauses[-1] = clauses[-1] + " " + ln
+        else:
+            clauses.append(ln)
 
     for clause in clauses:
         low = clause.lower()
@@ -318,8 +402,13 @@ def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
         makes_value = any(f"{k} token" in low for k in _value_kinds)
         makes_creature = "creature token" in low
         # Utility bodies (0/X: Eggs, Walls) are sacrifice fodder / blockers, not an army.
+        # EXCEPT the counter-body class (batch #15 Zaxara gap): a 0/0 token that gets
+        # +1/+1 counters in the same clause is a real (often huge) body, not fodder —
+        # measured 30 cards, all genuine (the Fractal cycle, Zaxara's Hydras, Gimbal's
+        # Gremlins); the 184 true-fodder makers (Eggs, Walls) don't put counters on it.
         import re as _re
-        if makes_creature and _re.search(r"create[^.]*?\b0/\d", low):
+        gets_counters = _re.search(r"\+1/\+1 counters? on (?:it|them|each)", low)
+        if makes_creature and _re.search(r"create[^.]*?\b0/\d", low) and not gets_counters:
             profile.add_signal(Signal(
                 id="UTILITY_TOKEN_MAKER", label="Repeatable utility-token production (0/X fodder)",
                 kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
@@ -529,6 +618,9 @@ _THEFT_EXILE_ZONE_RE = re.compile(
     r"|their library|their hand|opponent's graveyard|their graveyards?"
     r"|each player's library|each player's hand")
 _THEFT_EXILE_PLAY_RE = re.compile(r"\byou may (play|cast)\b")
+_THEFT_TOPDECK_ZONE_RE = re.compile(
+    r"top cards? of (their|that player's|each player's|target opponent's"
+    r"|an opponent's|each opponent's) librar(y|ies)")
 
 
 def detect_theft_exile(text: str, profile: CardProfile) -> None:
@@ -546,6 +638,108 @@ def detect_theft_exile(text: str, profile: CardProfile) -> None:
                             note="Exiles from an opponent's zone and YOU may play/cast it — impulse theft."),
             ))
             profile.add_tag("Theft (exile)", profile.signals[-1].trace)
+            return
+    # Top-of-library form (the Xanathar class, batch #17 gap): "you may play the top
+    # card of their library" grants YOU access to an opponent's topdeck with no exile
+    # involved. Same-line conjunction: opponent-zone top card + "you may play/cast".
+    # Measured against the DB: 37 cards, all genuine you-play-theirs (Xanathar, Gonti
+    # Canny Acquisitor, Grenzo Havoc Raiser, Ragavan, Etali, Daxos of Meletis...).
+    for line in text.split("\n"):
+        low = re.sub(r"\([^)]*\)", "", line.lower())
+        if (_THEFT_TOPDECK_ZONE_RE.search(low)
+                and _THEFT_EXILE_PLAY_RE.search(low) and "you own" not in low):
+            profile.add_signal(Signal(
+                id="THEFT_TOPDECK", label="Plays opponents' topdeck",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.theft_topdeck.v1", rule_version="1.0",
+                            matched_text=low.strip()[:60], span=None,
+                            note="Grants YOU play/cast access to an opponent's top card — topdeck theft."),
+            ))
+            profile.add_tag("Theft (topdeck)", profile.signals[-1].trace)
+            break
+    # Multi-line form (the Nightveil Specter class): the exile trigger sits on one line
+    # ("deals combat damage ... that player exiles the top card of their library") and
+    # the play permission on another ("You may play cards exiled with ~"). Card-level
+    # conjunction: an opponent-zone exile line AND an 'exiled with' play-permission line.
+    # This replaces the theft tag's naked "exiled with" phrase, which measured dirty
+    # (191 cards: ~76 own-card impulse like Colfenor's Plans, ~77 O-Ring removal).
+    # Measured against the DB: 12 cards, all genuine you-play-theirs (Nightveil Specter,
+    # Jeleva, Kheru Mind-Eater, Muse Vessel, Court of Locthwain, Valki//Tibalt...).
+    whole = re.sub(r"\([^)]*\)", "", text.lower())
+    if "you own" in whole:
+        return
+    lines = whole.split("\n")
+    has_opp_exile = any(
+        "exile" in l and _THEFT_EXILE_ZONE_RE.search(l) for l in lines)
+    has_play_exiled_with = any(
+        "exiled with" in l
+        and (_THEFT_EXILE_PLAY_RE.search(l) or "play lands and cast spells" in l
+             or "may be cast" in l)
+        for l in lines)
+    if has_opp_exile and has_play_exiled_with:
+        profile.add_signal(Signal(
+            id="THEFT_EXILE", label="Plays opponents' cards via exile",
+            kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+            trace=Trace(rule_id="content.theft_exile.v2", rule_version="1.0",
+                        matched_text="exiled with (multi-line)", span=None,
+                        note="Exiles from an opponent's zone on one line, plays the exiled cards on another — the Nightveil Specter class."),
+        ))
+        profile.add_tag("Theft (exile)", profile.signals[-1].trace)
+
+
+# Conditional cast-rider (batch #22, the Raggadragga+Hallar class — 23 measured): a
+# "whenever you cast a spell, IF <rider>" trigger targets whatever the rider names
+# (mana thresholds, kicked, bargained, treasure-mana), NOT generic spell density —
+# so the spell_payoff comma-form hit must demote from Spellslinger defining. Riders
+# that name instant/sorcery/noncreature spells (Alania's "first instant spell") keep
+# the genuine spellslinger read.
+_CAST_RIDER_RE = re.compile(r"whenever you cast a spell, if ([^.]{0,80})")
+
+
+def detect_conditional_cast_rider(text: str, profile: CardProfile) -> None:
+    if not text:
+        return
+    for line in text.lower().split("\n"):
+        m = _CAST_RIDER_RE.search(line)
+        if m and not re.search(r"instant|sorcery|noncreature", m.group(1)):
+            profile.add_signal(Signal(
+                id="CONDITIONAL_CAST_RIDER",
+                label="Cast trigger gated by a non-spell-type rider",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.cast_rider.v1", rule_version="1.0",
+                            matched_text=m.group(0)[:70], span=None,
+                            note="The 'if <rider>' condition retargets the payoff (big mana / kicker / bargain...) — not generic spellslinger density."),
+            ))
+            return
+
+
+# Exile-mill (the Circu class, batch #18 known-gap closed in the pre-build fix round):
+# exiling the top of a TARGETED player's library is library attrition — mill by another
+# zone. The conjunction needs a NEGATIVE condition the tag vocabulary cannot express:
+# the same family with a play permission is impulse THEFT (Gonti/Etali), and the
+# each-player forms are dominated by theft/hug (Pako, Share the Spoils). Measured:
+# 4 cards, all genuine (Ashiok, Circu, Scrib Nibblers, Mindreaver).
+_EXILE_MILL_RE = re.compile(
+    r"exile the top .{0,25}cards? of target (player|opponent)")
+_EXILE_MILL_PLAY_RE = re.compile(r"may play|may cast|may be cast|may look")
+
+
+def detect_exile_mill(text: str, profile: CardProfile) -> None:
+    if not text:
+        return
+    low = re.sub(r"\([^)]*\)", "", text.lower())
+    if _EXILE_MILL_PLAY_RE.search(low):
+        return  # access granted somewhere on the card: theft, not mill
+    for line in low.split("\n"):
+        if _EXILE_MILL_RE.search(line):
+            profile.add_signal(Signal(
+                id="EXILE_MILL", label="Exiles opponents' library top (mill by exile)",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.exile_mill.v1", rule_version="1.0",
+                            matched_text=line.strip()[:60], span=None,
+                            note="Targeted top-of-library exile with NO play permission — library attrition, not impulse theft."),
+            ))
+            profile.add_tag("Mill (exile)", profile.signals[-1].trace)
             return
 
 
@@ -629,7 +823,7 @@ def detect_control_change(text: str, profile: CardProfile) -> None:
 # Big-power matters ("power 4 or greater"): a stompy signal ONLY in a positive/synergy context
 # (your creatures, cost reduction, pumps). Removal that targets big creatures ("destroy target
 # creature with power 4 or greater") mentions the same phrase and must NOT read as stompy.
-_POWER_MATTERS_RE = re.compile(r"power [3-9] or greater|power (?:is )?greater than|x is (?:that creature's|its) power", re.IGNORECASE)
+_POWER_MATTERS_RE = re.compile(r"power [3-9] or greater|power (?:is )?greater than|x is (?:that creature's|its) power|greatest power among", re.IGNORECASE)
 _POWER_POSITIVE_RE = re.compile(r"you control|you cast|cost \{?\d|gets? \+|gains?|draw a card|add ", re.IGNORECASE)
 _POWER_REMOVAL_RE = re.compile(r"destroy|exile|deals damage to target|fights", re.IGNORECASE)
 

@@ -2,6 +2,372 @@
 
 ## 0.8.0
 
+### Changed
+- **Budget Contract rewritten from "safety-first" to "draft-TO-budget" (user finding:
+  the builder was forcing itself to save money).** Evidence across all three full
+  builds: Galadriel 59.5%, Felothar 69%, Mendicant first draft 48% — the agent
+  systematically anchored cheap because the FIRST thing the contract said was "Budget
+  is a maximum constraint, not a spending target", gave explicit permission to land low
+  ("Under budget is valid", "Do not add expensive cards only to spend budget"), and
+  offered no per-card price guidance (so the agent invented tiny caps: $1–3/card on a
+  $75 budget). The 60% floor + Upgrade Review was a two-pass patch that walked money
+  back AFTER drafting cheap. New model (BUILDER §2 rule 12 + §11, CLAUDE.md step 7,
+  agents/deck_builder.md steps 7/16, redundancy intentional): a budget is a SPENDING
+  PLAN as well as a ceiling — target 85–100% utilization in the FIRST draft, allocate
+  package budgets while drafting (mana base ~20-30%, core plan ~30%...), take the
+  strongest card each slot's share affords, derive `--max-price` from the budget
+  (~15–20% for key slots) instead of habit, and treat the >20% high-cost flag as
+  visibility, not prohibition. Unchanged: the ceiling is absolute (hard budgets never
+  exceeded), the quality bar stays (an expensive card that doesn't improve the deck is
+  not an upgrade), and the 60% floor + Upgrade Review remains as the FAILSAFE — it
+  should rarely trigger if drafting follows the contract. Docs-only; suite 1143 green.
+  (`BUILDER.md`, `CLAUDE.md`, `agents/deck_builder.md`)
+
+### Added
+- **Full build #2 (post-batch-#25 milestone): Mendicant Core, Guidelight (virgin, WU
+  artifacts + speed, user-picked) — READY at $68.62/$75 HARD (91.5% utilization), and
+  the Budget Contract exercised END-TO-END exactly as designed.** The arc: draft
+  $81.21 (the high-cost flag caught Sea Gate Restoration eating 51.6% of budget) →
+  trim → $36.03 (48%, BELOW the 60% floor) → **the M5 utilization-floor rule fired in
+  production for the first time: Budget Upgrade Review REQUIRED** → 9-upgrade package
+  presented with prices/labels per §11, user chose B+Inventors' Fair → $68.62 READY.
+  validate caught 2 draft color violations (Hexplate R, Armix B — fixed via deck-swap);
+  verify-early 64/64; deck-gaps plan check + preflight green.
+  (`final-builds/Mendicant-Core-Guidelight-Artifacts-Speed-T2-v1/`,
+  `logs/testbuild-mendicant-fullbuild-2.json`)
+
+### Fixed
+- **deck-swap on a multi-copy basic-land entry renamed the WHOLE stack (full build #2
+  friction #1).** "Island=Buried Ruin" turned 17 Islands into 17 Buried Ruins — a
+  singleton violation validate caught only after the write, because deck-swap's
+  singleton guard checked duplicate ENTRIES but not quantity > 1 within one entry.
+  Fixed both halves: swapping out of a multi-copy entry now takes ONE copy (decrement
+  + add the incoming card as its own entry; renames stay whole-entry for
+  basic-to-basic), and the guard now also rejects any non-basic entry with quantity
+  > 1. 3 regression tests; suite 1143 green. Friction #2 (calibration, annotated): the
+  speed mechanic ("Start your engines!") has no class — Mendicant's `Life Loss: high`
+  comes from the REMINDER text and happens to be strategically right (speed wants
+  opponents losing life), but it produced a spurious deck-gaps plan_gap that had to be
+  consciously justified. (`cli/commands/deck.py`, `tests/test_deck_swap_quantity.py`)
+
+### Fixed
+- **Post-#25 fix round: the entire #23–#25 measurable-gap queue closed — 7 NEW
+  archetypes, 6 extensions, 2 structural fixes.** NEW: **Targeted Spell Payoff /
+  Heroic** (the Gargos/Anax/Ivy family — Gargos, the project's original calibration
+  class, finally reads his own plan), **Dice Rolling**, **Flash / Instant Speed**,
+  **Storm** (keyword form "storm ("; naked substring rejected — 19 Windstorm-class
+  self-reference FPs), **Ninjutsu / Sneak**, **Adventures Matter**, **Cycling**.
+  Extensions: exploit/escape_gy/investigate as supporting tokens, singular land-GY form
+  (Slogurk Lands high), "greatest power among" (PS Zegana Stompy high), directional
+  permanent-card reanimation, punctuated imperative mill forms. Structural: modal-BULLET
+  lines merge into their header ability (Caesar Go Wide high — recurring layout cause
+  #2 closed for the token conjunction) and "you control attack" joins the trigger
+  family at the oracle_hooks single source (Neyali Attack high). The golden net earned
+  its keep twice: Bruvac's historical pin caught the naked "mill a card" matching his
+  REMINDER text (punctuated forms shipped instead — strictly safer than the original
+  unpunctuated vocabulary), and all 318 pins verified every change. Sixteen pins
+  tightened; suite 1140 green. Still open: Mothman's Mill band, the general
+  qualifier-interruption mechanism, tags-see-reminder (deliberate).
+  (`analyzer/content.py`, `analyzer/mapping.py`, `deckbuilder/oracle_hooks.py`,
+  `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `logs/post-25-fixround.json`)
+
+### Added
+- **Calibration batch #25 (blind-first): PASS — right 5, partial 4, empty 1, CW 0 —
+  fifth post-gate PASS, third consecutive.** Rights: Zevlor, Balmor, Eriette (the #22
+  Pillowfort archetype validating fresh — Pillowfort + Life Loss + Stax triple, all
+  true), Bright-Palm (the Vorel counter-doubling class), Mr. House (dice robots are a
+  real army). Partials honest: Lonis (clue-steal reads genuine THEFT_CONTROL;
+  investigate class = gap), Mothman (passive "cards are milled" form), Old Rutstein
+  (imperative "mill a card" — the family now has 3 members), Ivy (the
+  **targeted-spell-payoff/heroic family** — Gargos/Anax/Ivy, 3+ members, ripest
+  archetype candidate; spell_copy correctly narrow, no Spellslinger lie). Gorion honest
+  empty (adventure class). Process: an invented commander name ("Zimone, Wisdom
+  Faucet") was caught by the not-found path before use. Zero changes per PASS
+  protocol; ten sentinels → 318, sanity "319 passed"; suite 1140 green.
+  (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-25.json`)
+
+### Added
+- **Calibration batch #24 (blind-first): PASS — right 4, partial 4, empty 2, CW 0 —
+  fourth post-gate PASS, second consecutive.** Rights: Gavi (cycling commander read via
+  the session-2 draw_trigger_payoff + token engine), Kamiz (sneak-attack: Attack high +
+  Voltron medium, both true), Tazri (the #18 Party archetype validating fresh), Gyrus
+  (Attack + Clones + GY Value triple-high — and the blind-flagged ephemeral-variant
+  risk did NOT materialize; pinned must_not Go Wide as guard). Partials/empties all
+  honest with mechanisms identified: ninjutsu (Satoru), heroic ability-word (Anax),
+  exploit (Sidisi UV), escape + land-put-from-hand (Uro — whose value "enters or
+  attacks" the Zur rule correctly suppressed, pinned as control), "greatest power
+  among" (PS Zegana), one-shot ETB (Malfegor). Zero changes per PASS protocol; ten
+  sentinels → 308, sanity "309 passed"; suite 1130 green.
+  (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-24.json`)
+
+### Added
+- **Calibration batch #23 (blind-first): PASS — right 4, partial 5, empty 1, CW 0 —
+  the third post-gate PASS.** Rights: Caesar (sac-on-attack; his tokens sit at low
+  because modal BULLETS break the same-line conjunction — the recurring layout cause,
+  now queued measurable), Otharri ("tapped and attacking" = combat-feed + token engine),
+  Baeloth (the #19 Goad + Treasures archetypes validating on a fresh commander), Shanid
+  (Legendary Matters validating). Partials all honest with the exact miss mechanism
+  identified: Neyali (token-attack form — "one or more TOKENS you control attack"),
+  Slogurk (singular "a land card IS put" vs the plural Gitrog phrase), Aeve (storm
+  keyword; his Ooze Tribal read is right), Tayam (PERMANENT-card reanimation variant),
+  Wyll (dice class). Errant and Giada honest empty — the flash-enabler class now has 2
+  members and becomes measurable. Theft direction guards held on both self-impulse
+  commanders. Zero changes per PASS protocol; 7 measurable known-gaps queued. Ten
+  sentinels → 298, sanity "299 passed"; suite 1120 green.
+  (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-23.json`)
+
+### Added
+- **Calibration batch #22 (blind-first): FAIL (CW 2, one predicted) — the
+  conditional-rider class fixed structurally, closing the batch-20 standing gap.**
+  CW 1 (Isperia, predicted): "whenever a creature attacks YOU" banded Attack Triggers —
+  direction inversion; fixed with the INCOMING_ATTACK_TRIGGER guard (19/19 pillowfort)
+  + NEW archetype **Pillowfort / Defense**. CW 2 (Hallar): the SECOND conditional-rider
+  commander, revoking the "1-card class" ruling — measured 23 "cast a spell, if
+  <rider>" cards; fixed with the CONDITIONAL_CAST_RIDER detector + a mapper exclusion
+  (wide-vs-tall precedent): non-spell-type riders demote spell_payoff to supporting.
+  **Raggadragga's standing known-gap is closed** (Spellslinger high→low); controls
+  Birgi (no rider) and Alania (instant rider) keep genuine highs. Coverage: NEW
+  archetype **Sagas Matter** ("lore counter" rejected — would band all 239 printed
+  Sagas) — Tom Bombadil empty→high; plural pair-anthem tribal patterns (29 pairs) —
+  Gisa reads Zombie+Skeleton Tribal; graveyard_recast += "from among cards in your
+  graveyard" — Kagha medium→high. Millicent the lone right: quadruple-high, all true.
+  New known-gap family documented: tags see reminder text (Raff — deliberate: several
+  tags rely on it; a per-tag strip list only if it ever produces a real lie). Eleven
+  sentinels + 2 updates → 288, sanity "289 passed"; suite 1110 green.
+  (`analyzer/content.py`, `analyzer/analyze.py`, `analyzer/mapping.py`,
+  `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `logs/calibration-batch-22.json`)
+
+### Added
+- **Calibration batch #21 (blind-first): PASS — right 6, partial 3, empty 1, CW 0 —
+  the second post-gate PASS.** Rights: Moraug (landfall extra-combat — the M5
+  ability-word strip + extra_combat), Osgir (GRAVEYARD_CLONE caught the PLURAL "create
+  two tokens that are copies" the singular tag would miss), Karlach, Dina (very_high
+  drain), Birgi (ritual storm — the comma-form spell_payoff is TRUE here, confirming
+  the Raggadragga gap is the rider, not the phrase), Myrkul (Aristocrats + Clones).
+  Partials honest: Mirko (NEW general known-gap: **qualifier-interruption** — "creature
+  card WITH POWER LESS THAN MIRKO'S from your graveyard" breaks the contiguous
+  reanimation phrase; the batch-16 nontoken-skip family), Ranar (foretell class
+  unread), Strefan (tribal cheat-from-hand form + LOST_LIFE relative clause). Nylea
+  honest empty (devotion class — future candidate). Zero analyzer changes per PASS
+  protocol; ten improvement-friendly sentinels → 277, sanity "278 passed"; suite 1099
+  green. (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-21.json`)
+
+### Added
+- **Full build #1 (post-batch-#20 milestone): Felothar the Steadfast (virgin, WBG
+  toughness/defenders, user-picked) — READY at $103.78/$150 (69% utilization), ZERO
+  tool errors, exactly 1 friction (meets the ≤2 bar) — fixed root-cause same-session.**
+  Full BUILDER.md flow: analyze → category-counts → function shortlists → verify-early
+  (65/65, zero invented names) → deck-write/fill/validate → deck-check (no issues) →
+  budget --by-card (no card >20%) → deck-gaps (zero gaps on a deliberately on-plan
+  deck) → preflight READY first try → final-build
+  (`final-builds/Felothar-the-Steadfast-Toughness-Defenders-T3-v1/`). The friction:
+  the analyzer read only `Aristocrats: medium` — Felothar's PRIMARY (assigns-combat-
+  damage-by-toughness) was invisible; `toughness_matters` covered only the batch-11
+  Arcades forms ("with defender" + toughness-lifegain). FIXED: + "damage equal to its
+  toughness" (24 measured — Arcades/Doran/Felothar/Bedrock Tortoise class) and the
+  didn't-have-defender forms (49+5); "attack as though" rejected (Instill Energy haste
+  FP). Felothar now reads Toughness/Defenders high + Aristocrats medium — his exact
+  deck. Two pilot errors owned, not tool bugs: 4 logged "failures" were SIGPIPE from
+  piping CLI output through `head` (exit 0 without the pipe), and the budget JSON parse
+  guessed wrong keys (the real shape is `known_price_total`/`budget_status`, properly
+  documented in the output itself). 2 sentinels → 267, sanity "268 passed"; suite 1089
+  green. Audits: `logs/testbuild-felothar-fullbuild-1.json`,
+  `logs/felothar-friction-fixround.json`. (`data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`)
+
+### Fixed
+- **Pre-build fix round: the batch #17–#20 leftovers swept — every open gap fixed or
+  measured-rejected.** Fixed: (1) the stax tag's dead "costs more" phrase removed (0 DB
+  matches) and "can't cast more than" split directionally ("each player..." 8 stays —
+  Rule of Law control; "you can't..." 4 excluded — the session-2 Colfenor's Plans false
+  Stax is dead); (2) new **EXILE_MILL** detector — targeted top-of-library exile with
+  no play permission (4/4 measured: Ashiok, Circu, Scrib Nibblers, Mindreaver) → Mill
+  defining; Circu reads his true Mill + Stax co-primary, the each-player forms rejected
+  as theft/hug-dirty (Pako, Share the Spoils), Gonti/Etali unaffected; (3) broad-phrase
+  audit: the enchantress "draw a card" landmine is inert (no archetype consumes it).
+  Measured-rejected: Yennett free-cast (526, direction-less), Bruna attach (1-card
+  forms), dorks-matter, Imodane's pinger phrase (mixed), untap-tempo, day-night.
+  265 sentinels, sanity "266 passed"; suite 1087 green.
+  (`analyzer/content.py`, `analyzer/analyze.py`, `analyzer/mapping.py`,
+  `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `logs/pre-build-fixround.json`)
+
+### Added
+- **Calibration batch #20 (blind-first): FAIL (CW 2, one predicted) — direction traps
+  in my own week-old boundary, plus the tribal whitelist gap.** Rights: Elsha, Kalemne
+  (Creature Spells Matter validating on the experience class), Imodane (Group Slug +
+  Spellslinger both true). CW 1, PREDICTED blind: Otrimi's "return target creature card
+  to your HAND" hit the batch-19 "creature card" combat exemption — now a compound
+  (battlefield required; Gishath control green); the same card exposed the reanimation
+  tag's NAKED "return target creature card" (284, ~139 non-battlefield) → replaced with
+  battlefield-directional forms, killing his false Reanimator high (Sefris intact).
+  CW 2, deferred honestly: Raggadragga's Spellslinger high comes from a 7-mana rider on
+  "whenever you cast a spell," — the rider subclass measures EXACTLY 1 card, so per the
+  Jetmir precedent it's pinned as the **conditional-rider awareness** known-gap, not
+  patched. Coverage: whitelist +47 real creature types (Gallia's Satyrs and Reaper
+  King's Scarecrows were invisible), 2 new tribal patterns ("other X creatures",
+  "another X you control"), "for each aura attached" → aura_equipment_payoff (Uril
+  Voltron high — the Bruna-class sibling), `attacks_alone` (exalted family, 95) as
+  Voltron SUPPORTING with Noble Hierarch pinned as the no-lie guard, NEW archetype
+  **Mutate** (39). Eleven sentinels → 263, sanity "264 passed"; suite 1085 green.
+  (`analyzer/content.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `logs/calibration-batch-20.json`)
+
+### Added
+- **Calibration batch #19 (blind-first, niche-mechanics spectrum): FAIL (CW 3, one
+  class) — the saboteur self-trigger family fixed, plus 5 niche archetypes.** Tally:
+  right 3 (Sefris, Marisi, Grolnok), partial 2, empty 2 (both honest — Yennett proved
+  the Zur rule works; Lynde's curses are a 2-card class, rejected), CW 3: Jorn, Keene
+  and Yidris all read `Attack Triggers: high` from SELF-combat triggers with VALUE
+  effects. Two sub-bugs in one class: the self-scope check missed the saboteur form
+  ("<name> deals combat damage to a player" — Keene/Yidris), and the untap combat-feed
+  exemption was directionless ("untap each snow permanent" is mana, not attackers —
+  measured 101 creature-untaps vs 94 other). The golden net then caught Lathril/Gishath
+  in seconds and drew the exact boundary: creature DEPLOYMENT in the effect feeds
+  combat (Kaalia/Lathril/Gishath keep high); noncreature value is an engine event.
+  Ragavan improved: true Theft+Treasures instead of a false attack band. Same round:
+  NEW archetypes **Snow Matters** ("snow permanent" 24; snow-land/snow-creature forms
+  rejected with measured FPs), **Gates Matter**, **Dungeons / Venture**, **Cascade**,
+  **Goad / Forced Combat**; NEW tribal patterns for or-conjunction pairs ("a Wolf or
+  Werewolf you control" — Tovolar) and tutor forms ("search your library for a Sliver
+  card" — Sliver Overlord). Twelve sentinels incl. Godo (directional-untap control) and
+  Ragavan (improvement pin) → 252 sentinels, sanity "253 passed"; suite 1074 green.
+  (`analyzer/content.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `logs/calibration-batch-19.json`)
+
+### Added
+- **Coverage fix round post-#18: the #17/#18 known-gap backlog closed in one measured
+  pass — 4 NEW archetypes, 2 defining extensions, 1 detector form.** NEW: *Enchantments
+  Matter* (the missing parallel of Artifacts Matter — 6 measured phrases + recursion
+  supporting; "enchantment spell" rejected with 8 counterspell FPs, Annul pinned as
+  guard; the legacy `enchantress` tag avoided — it carries a naked "draw a card"
+  landmine, annotated), *Energy* ("{e}" 146), *Forced Discard* (opponent-discard class,
+  15+68+1 — distinct from self-discard/Wheels), *Clones / Copies* ("token that's a copy"
+  352 + "as a copy of" 75; "copy target" rejected — Fork/Twincast is Spellslinger; Krark
+  pinned as must_not guard for the excluded "copy that spell" form, so Volo stays
+  honest-empty). Extensions: *THEFT_TOPDECK* detector form (same-line top-of-their-
+  library + you-may-play/cast, 37 measured — Xanathar finally reads Theft beside his
+  true Stax) and *Vehicles defining += vehicle_payoff* (Greasefang reads Vehicles high).
+  Batch commanders now read their full plans: Anikthea Enchantments+Clones+GY triple,
+  Satya Energy+Clones+Attack triple, Tinybones Forced Discard high. Controls: Sythis
+  Enchantments high, all 238 prior pins green. Measurement bug caught live: regex
+  `libraries?` never matches singular "library" (s-optional trap) — a 0-hit measure was
+  debugged before anything shipped. 5 pins updated + 2 guard sentinels → 240 sentinels,
+  sanity "241 passed"; suite 1062 green. Still open: exile-mill detector, Bruna
+  aura-attach, untap-tempo, desert, Volo's copy-that-spell form.
+  (`analyzer/content.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `logs/coverage-fixround-post-18.json`)
+
+### Added
+- **Calibration batch #18 (blind-first self-run): FAIL (CW 1) — the guard-alternation
+  class discovered, plus two new archetypes.** Tally: right 4 (Guff, Lathliss, Satya,
+  Karametra — the day-old Creature Spells Matter archetype validated on a virgin
+  commander), partial 5, CW 1: **Phelddagrif read `Go Wide: high` from Hippos he GIFTS
+  opponents** — "target opponent creates" was missing from `_OPPONENT_TOKEN_RE` (a new
+  failure family: a scope guard existed but its alternation was incomplete; audit
+  alternations when adding guard classes). Fix round, all measured: the guard gains
+  "target opponent creates" (23, all gifts; "target player creates" rejected — Dark
+  Salvation-class self-target), `group_hug` gains "target opponent may draw" (4/4 —
+  Phelddagrif now reads Group Hug high), NEW archetype **Poison / Infect** (the poison
+  tag — 182 "poison counter" cards — existed but was never mapped; Fynn empty→high, a
+  pure mapping fix), NEW archetype **Party** ("in your party", 31 — Burakos Party +
+  Treasures co-primary), `lifedrain` gains "defending player loses" (31, afflict class).
+  Rejected measured-dirty: "target opponent gains" (24 gains-control FPs), exile-mill
+  phrases (impulse-theft dominated — Tibalt would read Mill; needs a detector with
+  play-permission exclusion, known-gap), desert-landfall (1-card class). Generalization
+  positives: nontoken tribal→Lathliss, ephemeral guard→Satya, Zur rule→Burakos. Controls
+  held: Krenko Go Wide high, Hunted Horror low. Process note: the blind-phase audit log
+  was lost — pytest cleared `output/on-going-report.json`; run `mtg report` BEFORE the
+  test suite. Eleven sentinels (238-card set, sanity "239 passed"); suite 1060 green.
+  (`analyzer/content.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-18.json`)
+
+### Added
+- **Calibration batch #17 (post-gate, blind-first self-run): PASS — right 4, partial 5,
+  empty 1, CW 0.** First batch of the extended-testing plan (17 of 30). Rights: Syr Gwyn
+  (Voltron via aura_equipment_payoff + board attack trigger), Zaffai (Spellslinger; Go
+  Wide high accepted — the 4/4s are a plan-aligned win route, not a deterrent token),
+  Vorel (Counters Matter via COUNTER_MARKER reading the DOUBLING manipulation — beat the
+  blind prediction of empty), Chainer NA (Graveyard Value via graveyard_recast +
+  Reanimator medium). Partials all honest: Xanathar (Stax high true, Theft unread —
+  "play the top card of their library" has no phrase), Greasefang (Vehicle reanimation
+  invisible: "return target VEHICLE card from your graveyard" matches neither
+  reanimation's creature-phrasings nor VEHICLE), Derevi (Attack Triggers high defensible
+  per the Toski board-scope precedent; untap-tempo engine has no archetype), Anikthea
+  (GRAVEYARD_CLONE generalized from batch #16; Enchantments Matter archetype missing),
+  Preston (directional lows; SAC_OUTLET genuine). Tinybones honest empty (opponent-
+  discard payoff class unread; "each opponent WITH NO CARDS IN HAND loses" breaks the
+  lifedrain substring). Per PASS protocol zero analyzer changes; 5 new known-gaps
+  recorded in MIGRATION. Ten sentinels pinned improvement-friendly — one pin lesson:
+  `expected_archetypes` must hold only bands the card reads TODAY (a gap goes in the
+  note, not in expected; the Xanathar Theft pin failed the net and was corrected).
+  227 sentinels, sanity "228 passed"; suite 1049 green.
+  (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-17.json`)
+
+### Fixed
+- **The Deglamer tuck class — deck-check learns the substring-undecidable removal form
+  via a same-line conjunction.** "shuffles it into their library" is worded identically
+  for targeted removal ("Choose target artifact or enchantment. Its owner shuffles it
+  into their library" — Deglamer/Unravel the Aether/Blink/Riftsweeper) and for a card's
+  own drawback ("At the beginning of the end step, its owner shuffles it into their
+  library" — Lightning Shrieker); no substring can split them. New
+  `_is_targeted_tuck_removal` conjunction in deck_check: "target" + "shuffles it into"
+  on the SAME oracle line → removal (measured: 13/13 genuine removal with, 8/8
+  self-shuffle without). Design decision recorded (CHECK-LIST): the general "uncertain
+  bucket" pattern — (1) if a rule can decide, write the rule; (2) if it can't, flag the
+  match uncertain (low Confidence + machine-readable list in deck-check) for the agent
+  to verify manually, gated on decision-relevance so it costs ~zero tokens; (3) never
+  count doubt as certainty — is agreed but deliberately NOT built until the first truly
+  undecidable class appears. 7 regression tests; suite 1039 green.
+  (`deckbuilder/deck_check.py`, `tests/test_deck_check_removal.py`)
+
+### Fixed
+- **Known-gaps session 2: the ENTIRE remaining batch backlog closed — 12 gap classes
+  fixed, 5 new archetypes, all measured-first.** (1) *morph_facedown FP:* the naked
+  "face down" tag (517 matches: 305 morphish, 145 exile-face-down, 67 hidden-info)
+  rebuilt with directional forms (turn-face-up + keyword-cost forms + "face-down
+  creature"; union 189, only 4 clone-name FPs excluded) — Gonti/Kotose no longer read
+  Morph, Kadena/Ixidor keep high. (2) *theft "exiled with" (191 dirty) removed;*
+  THEFT_EXILE v2 adds the card-level multi-line conjunction (opponent-zone exile line +
+  "exiled with" play line; 12 measured, all genuine) — Nightveil/Jeleva/Kheru keep Theft,
+  Colfenor's Plans false-high dead. (3) *Creature Spells Matter* (new archetype,
+  `creature_cast_payoff`: 72+28+4 measured) — Animar/Chulane empty→high, Thalia taxers
+  excluded. (4) *X Spells Matter* (new archetype, `x_spell_payoff`: cast/cost anchors
+  exclude Gaddock Teeg-class hate) — Zaxara/Rosheen high. (5) *Counter-body guard:* a 0/0
+  token receiving +1/+1 counters in the same clause is a real body (30 measured, Fractal
+  cycle), not UTILITY_TOKEN_MAKER fodder — Zaxara's false Aristocrats dead, Atla's Eggs
+  (184 true fodder) intact. (6) *`discard_payoff`* ("whenever you discard", 48) defining
+  Wheels — closes Rielle (batch #15) AND Anje madness (batch #16) with one phrase.
+  (7) *Amass / Army* (new archetype, "amass" 60 + "army you control" 52) — Sauron.
+  (8) *Pingers / Damage Matters* (new archetype, `pinger_payoff` union 19; deliberately
+  NOT the broad `damage_payoff` tag whose combat phrase is saboteur territory) —
+  Ghyrson/Taii Wakeen empty→high. (9) *`draw_trigger_payoff`* (48+51) defining Wheels —
+  Locust God co-primary, Sheoldred high. (10) *dethrone* (keyword, 10) Counters
+  SUPPORTING — Marchesa BR low→medium, honestly not defining. (11) *"creature token
+  dies"* (2, zero FP) in death_trigger — Grismold Aristocrats+Go Wide co-primary.
+  (12) *deck-check Bolt/Chaos Warp vocab:* `removal`/`creature_removal` gain "damage to
+  any target" (733) / "damage to target creature" (530) / "owner of target" (22 tuck) —
+  Bolt and Chaos Warp finally count as removal, Healing Salve still doesn't. Process
+  catch: a duplicate `damage_payoff` JSON key (would have silently shadowed the original
+  tag — last-key-wins) caught by an Edit-tool uniqueness error and renamed
+  `pinger_payoff`. NEW annotated (not fixed): the stax tag matches SELF-restrictions
+  ("You can't cast more than one spell" — Colfenor's Plans reads a false Stax high; the
+  batch-3 scope check exists only in the signal layer), and the Deglamer tuck class is
+  substring-undecidable (self-shuffle vs targeted shuffle share identical wording).
+  Golden: 9 pins tightened + 7 new sentinels → 217 sentinels, sanity "218 passed";
+  suite 1032 green. Remaining detection gap from the batch backlog: ONLY the clone/copy
+  value archetype (Volo honest empty). (`analyzer/content.py`, `analyzer/mapping.py`,
+  `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `docs/MIGRATION-archetypes.md`)
+
 ### Fixed
 - **Known-gaps session: the annotated backlog worked — one CW regression killed, three
   detector classes added, two stale annotations reconciled, one data-drift regression

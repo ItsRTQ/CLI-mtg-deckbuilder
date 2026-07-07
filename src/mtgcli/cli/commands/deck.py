@@ -4,7 +4,7 @@ suggest-lands, deck-check, deck-swap, preflight, deck-gaps.
 Bodies split verbatim from the former monolithic ``cli.py``.
 """
 from mtgcli.cli._shared import *  # noqa: F401,F403 -- shared imports, helpers, app
-from mtgcli.cli._shared import _apply_max_price  # noqa: F401 -- underscore not re-exported by *
+from mtgcli.cli._shared import _apply_max_price, _emit_json_error  # noqa: F401 -- underscore not re-exported by *
 
 @app.command()
 def validate(
@@ -344,6 +344,12 @@ def deck_check(
             print("\n[bold]Core Stats:[/bold]")
             for cat, count in report["stats"].items():
                 print(f"- {cat.replace('_', ' ').title()}: {count}")
+
+            if report.get("staple_density"):
+                sd = report["staple_density"]
+                print(f"\n[dim]Staple density (consider-only, popularity ≠ power): "
+                      f"median rank ~{sd['median_rank']}, {sd['pct_top_2000']}% top-2000 "
+                      f"→ {sd['read']}; synergy-dense decks read low by design.[/dim]")
             
             if "theme_check" in report:
                 print("\n[bold]Theme Package Analysis:[/bold]")
@@ -476,7 +482,20 @@ def deck_swap(
             text = "\n".join(f"{e.get('quantity', 1)} {e['name']}" for e in entries) + "\n"
             dest.write_text(text, encoding="utf-8")
         else:
-            payload = {"commander": commander_name, "main_deck": entries} if commander_name else {"main_deck": entries}
+            # Preserve every top-level key of the original JSON (combos, agent_note,
+            # config, annotations...) — rebuilding {commander, main_deck} from scratch
+            # silently DROPPED them (caught by the Fase-4 extra-keys survival test).
+            payload: Dict[str, Any] = {}
+            if deck.suffix.lower() != ".txt":
+                try:
+                    _orig = read_json(deck)
+                    if isinstance(_orig, dict):
+                        payload = dict(_orig)
+                except Exception:
+                    payload = {}
+            if commander_name and "commander" not in payload and "commanders" not in payload:
+                payload["commander"] = commander_name
+            payload["main_deck"] = entries
             write_json(dest, payload)
 
     if json_output:
@@ -644,13 +663,22 @@ def deck_gaps(
     tag_defs = _json.load(open(_SD / "card_tags.json", encoding="utf-8"))
     role_defs = _load_role_definitions()
 
-    def _count_matching(phrases):
-        n = 0
+    from mtgcli.utils.phrase_match import any_phrase_matches as _any_pm
+
+    def _matching(phrases):
+        """(count, names) of deck cards matching any phrase — names let deck-gaps SHOW
+        what it counted (full build #3 friction: 'only 4 cards serve it' without saying
+        which 4 made the fix-or-justify decision guesswork)."""
+        n, names = 0, []
         for c in deck_cards:
             text = " ".join([c.get("name", "") or "", c.get("type_line", "") or "", c.get("oracle_text", "") or ""]).lower()
-            if any(p.lower() in text for p in phrases):
+            if _any_pm(phrases, text):
                 n += c.get("quantity", 1)
-        return n
+                names.append(c.get("name", ""))
+        return n, names
+
+    def _count_matching(phrases):
+        return _matching(phrases)[0]
 
     cc = calculate_category_counts(commander, archetype, partner_name=partner,
                                    power_level=power_level, db_path=str(SQLITE_PATH))
@@ -694,33 +722,32 @@ def deck_gaps(
     _colors = "".join((cmd_card or {}).get("color_identity", []))
     if cmd_card:
         try:
-            from mtgcli.analyzer.analyze import analyze_card as _ua_analyze
-            from mtgcli.analyzer.mapping import _ARCHETYPE_RULES
-            _ua = _ua_analyze(cmd_card)
-            _high = [s for s in _ua.get("archetype_support", [])
-                     if s.get("band") in ("high", "very_high")]
-            analyzer_support = [{"archetype": s["archetype"], "band": s["band"]} for s in _high]
+            # Single source with deck-power's synergy density: deckbuilder.plan_coverage
+            # (the multi-consumer drift lesson — one band-matching implementation).
+            from mtgcli.deckbuilder.plan_coverage import plan_coverage
+            _pc = plan_coverage(cmd_card, deck_cards, tag_defs)
+            analyzer_support = []
             _PLAN_MIN = 5  # fewer than this many cards serving a detected plan = thin
-            for s in _high:
-                arch = s["archetype"]
+            for b in (_pc["bands"] if _pc else []):
+                arch = b["archetype"]
                 if arch.endswith(" Tribal"):
                     ttype = arch[: -len(" Tribal")].lower()
-                    have = sum(c.get("quantity", 1) for c in deck_cards
-                               if ttype in (c.get("type_line") or "").lower())
                     fill = f"mtg search --subtype {ttype} --type creature --colors {_colors}"
+                elif not b["plan_tags"]:
+                    analyzer_support.append({"archetype": arch, "band": b["band"]})
+                    continue
                 else:
-                    rules = _ARCHETYPE_RULES.get(arch, {})
-                    plan_tags = [t for t in list(rules.get("defining", [])) + list(rules.get("supporting", []))
-                                 if t in tag_defs]
-                    if not plan_tags:
-                        continue
-                    have = _count_matching([p for t in plan_tags for p in tag_defs[t]])
-                    fill = f"mtg search-tags {' '.join(plan_tags[:3])} --colors {_colors}"
-                if have < _PLAN_MIN:
+                    fill = f"mtg search-tags {' '.join(b['plan_tags'][:3])} --colors {_colors}"
+                # Every audited band exposes WHICH cards were counted, gap or not — the
+                # fix-or-justify decision needs the list, not just the number.
+                analyzer_support.append({"archetype": arch, "band": b["band"],
+                                         "have": b["have"], "cards": b["cards"]})
+                if b["have"] < _PLAN_MIN:
                     plan_gaps.append({
                         "archetype": arch,
-                        "band": s["band"],
-                        "have": have,
+                        "band": b["band"],
+                        "have": b["have"],
+                        "cards": b["cards"],
                         "want_at_least": _PLAN_MIN,
                         "fill_command": fill,
                     })
@@ -750,6 +777,584 @@ def deck_gaps(
             for pg in plan_gaps:
                 print(f"  [yellow]![/yellow] Analyzer reads [bold]{pg['archetype']}: {pg['band']}[/bold] "
                       f"but only {pg['have']} deck cards serve it (want ≥ {pg['want_at_least']})")
+                _cards = pg.get("cards") or []
+                if _cards:
+                    shown = ", ".join(_cards[:8]) + (f", +{len(_cards) - 8} more" if len(_cards) > 8 else "")
+                    print(f"      counted: [dim]{shown}[/dim]")
                 print(f"      fill: [dim]{pg['fill_command']}[/dim]")
 
 
+
+
+@app.command()
+def deck_power(
+    commander: str = typer.Option(..., "--commander", help="Name of the commander"),
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON or .txt decklist"),
+    bracket: Optional[str] = typer.Option(None, "--bracket", help="Target official bracket (1-5) to check compliance against; omit (n/a) to skip the verdict"),
+    no_fetch: bool = typer.Option(False, "--no-fetch", help="Skip the external combo fetch (offline mode; noted combos still count)"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """The two categorizers: official BRACKET compliance (deterministic rules) and a
+    TIER score (synergy + combos + game changers; 0.0-10.0 in 0.5 bands, F below 5.0).
+
+    The tier is CONSIDER-ONLY — a heuristic efficiency read, never a gate. Combo
+    sources: the agent's build notes (`mtg note --type combo`) plus the external
+    fetch (degrades gracefully offline).
+    """
+    require_database(SQLITE_PATH, json_output)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+
+    import json as _json
+    from mtgcli.config import SEED_DATA_DIR as _SD
+    from mtgcli.deckbuilder.build_notes import combo_notes
+    from mtgcli.deckbuilder.deck_power import (
+        bracket_compliance, compute_tier, cross_check_combos,
+    )
+    from mtgcli.deckbuilder.plan_coverage import plan_coverage
+    from mtgcli.utils.deck_io import load_deck_file
+
+    repo = CardRepository(str(SQLITE_PATH))
+    cmd_card = repo.get_card_by_exact_name(commander)
+    if not cmd_card:
+        print(f"[red]Commander not found: {commander}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        deck_entries = load_deck_file(deck_path)["main_deck"]
+    except Exception as e:
+        print(f"[red]Failed to read deck file: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    deck_cards = []
+    for entry in deck_entries:
+        name = entry.get("name") if isinstance(entry, dict) else str(entry)
+        if not name:
+            continue
+        card = repo.get_card_by_exact_name(name)
+        if card:
+            card["quantity"] = entry.get("quantity", 1) if isinstance(entry, dict) else 1
+            deck_cards.append(card)
+
+    tag_defs = _json.load(open(_SD / "card_tags.json", encoding="utf-8"))
+    deck_names = {c.get("name", "") for c in deck_cards}
+
+    # Combos: external fetch (graceful) + the agent's noted combos.
+    fetched = []
+    external_status = "skipped" if no_fetch else "unavailable"
+    if not no_fetch:
+        try:
+            from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
+            from mtgcli.combos.parser import parse_combos
+            fetched = parse_combos(fetch_combo_data(build_combo_url(commander)))
+            external_status = "ok"
+        except Exception:
+            fetched = []
+    combos = cross_check_combos(fetched, combo_notes(), deck_names, cmd_card.get("name", commander))
+
+    # Synergy density (guarded: analyzer failure only drops the component).
+    coverage = None
+    try:
+        coverage = plan_coverage(cmd_card, deck_cards, tag_defs)
+    except Exception:
+        coverage = None
+    density = coverage["synergy_density"] if coverage else None
+
+    gc_cards = [c.get("name", "") for c in deck_cards if c.get("game_changer")]
+
+    # Fase 4: an ANNOTATED deck (purposes on entries) gets the consistency tier —
+    # exact probabilities over the agent's judgment (models.Deck.tier()); an
+    # unannotated deck falls back to the legacy census-based tier.
+    consistency = None
+    if any(isinstance(e, dict) and e.get("purpose") for e in deck_entries):
+        try:
+            from mtgcli.models import Deck as _DeckModel
+            consistency = _DeckModel.load(deck_path, repo=repo).tier()
+        except Exception:
+            consistency = None
+    tier = compute_tier(density, combos["complete"], len(gc_cards))
+    if bracket is None:
+        # the build contract may travel in the deck itself (deck-add --set-config)
+        try:
+            _cfg = read_json(deck_path).get("config") or {}
+            if str(_cfg.get("bracket", "")).strip().lower() not in ("", "n/a", "na", "none"):
+                bracket = str(_cfg["bracket"])
+        except Exception:
+            pass
+    brackets = bracket_compliance(deck_cards, combos["complete"], tag_defs, target=bracket)
+
+    # Draw odds (user framing, 2026-07-06): exact hypergeometric probabilities are
+    # interpretable where raw density is not. Counts are QUANTITY-weighted over the
+    # whole deck (draws include lands); the commander is NOT drawable (command zone),
+    # so combo pieces that are the commander stay out of k.
+    from mtgcli.deckbuilder.deck_power import draw_odds
+    deck_size = sum(c.get("quantity", 1) for c in deck_cards)
+    _qty = {c.get("name", ""): c.get("quantity", 1) for c in deck_cards}
+    k_syn = sum(_qty.get(n, 0) for n in (coverage["covered_cards"] if coverage else []))
+    _cmd_low = cmd_card.get("name", commander).lower()
+    combo_piece_names = {p for cb in combos["complete"] for p in cb.get("cards", [])
+                         if p.lower() != _cmd_low and p in _qty}
+    k_combo = sum(_qty[p] for p in combo_piece_names)
+    k_gc = sum(_qty.get(n, 0) for n in gc_cards)
+    odds = {
+        "synergy": draw_odds(k_syn, deck_size) if coverage else None,
+        "combo_pieces": draw_odds(k_combo, deck_size),
+        "game_changers": draw_odds(k_gc, deck_size),
+    }
+
+    result = {
+        "commander": cmd_card.get("name", commander),
+        "bracket": brackets,
+        "tier": tier,
+        "consistency_tier": consistency,
+        "draw_odds": odds,
+        "combos": {**combos, "external_status": external_status},
+        "plan_coverage": ({"synergy_density": coverage["synergy_density"],
+                           "nonland_count": coverage["nonland_count"],
+                           "bands": [{k: b[k] for k in ("archetype", "band", "have")}
+                                     for b in coverage["bands"]]}
+                          if coverage else None),
+    }
+
+    if json_output:
+        print_json(result)
+        return
+
+    print(f"[bold blue]Deck power report — {result['commander']}[/bold blue]")
+    if consistency and consistency.get("tier") is not None:
+        cc = consistency["components"]
+        print(f"\n[bold]Consistency tier (consider-only): {consistency['band']}  "
+              f"({consistency['tier']}/10 — core {consistency['core']})[/bold]")
+        w = cc["wincon_access"]
+        print(f"  wincon access: Q={w['q']} @T{w['turn']} "
+              f"({len(w['routes'])} route(s), {w['tutors_as_wildcards']} tutor wildcards)")
+        for rt in w["routes"][:5]:
+            print(f"    - ({rt['kind']}) {', '.join(rt['cards'])} — P={rt['p_assemble']} × s={rt['strength']}")
+        for br in w.get("broken_routes", [])[:3]:
+            print(f"    - [yellow]BROKEN ({br['kind']}): missing {', '.join(br['missing'])}[/yellow]")
+        fb = cc["function_bundle"]
+        fns = ", ".join(f"{k}@T{v['turn']}={v['p']}" for k, v in fb["functions"].items())
+        print(f"  functions: p={fb['p']} ({fns})")
+        print(f"  curve: {cc['curve']['score']}/10 | bonus: arsenal +{cc['bonus']['arsenal']}, "
+              f"GC +{cc['bonus']['gc']} ({cc['bonus']['gc_count']})")
+        print(f"  [dim]{consistency['notes'][0]}[/dim]")
+    else:
+        if consistency and consistency.get("tier") is None:
+            print(f"\n[yellow]Consistency tier: unavailable — {consistency.get('reason')}[/yellow]")
+        print(f"\n[bold]Tier (legacy census, consider-only): {tier['band']}  ({tier['score']}/10)[/bold]")
+        comp = tier["components"]
+        print(f"  synergy: {comp['synergy']['points']} pts (density "
+              f"{comp['synergy']['density'] if comp['synergy']['density'] is not None else 'n/a'})")
+        print(f"  combos:  {comp['combos']['points']} pts {comp['combos']['counts'] or '(none)'}")
+        print(f"  game changers: {comp['game_changers']['points']} pts ({comp['game_changers']['count']})")
+        print(f"  [dim]{tier['notes'][0]}[/dim]")
+
+    print("\n[bold]Draw odds[/bold] [dim](exact hypergeometric; commander not drawable)[/dim]")
+    for label, key in (("plan/synergy cards", "synergy"), ("combo pieces", "combo_pieces"),
+                       ("game changers", "game_changers")):
+        o = odds.get(key)
+        if o is None:
+            print(f"  {label}: n/a")
+            continue
+        print(f"  {label}: {o['count']}/{o['deck_size']} — {o['per_draw_pct']}% per draw, "
+              f"{o['opening_at_least_one_pct']}% chance in opening 7 "
+              f"(expected {o['opening_expected']})")
+
+    b = brackets
+    print(f"\n[bold]Bracket compliance:[/bold] computed minimum bracket {b['computed_min_bracket']}")
+    print(f"  game changers: {b['game_changers']['count']}"
+          + (f" ({', '.join(b['game_changers']['cards'][:5])})" if b['game_changers']['cards'] else ""))
+    print(f"  mass land denial: {len(b['mass_land_denial'])}"
+          + (f" ({', '.join(b['mass_land_denial'][:4])})" if b['mass_land_denial'] else ""))
+    print(f"  extra-turn cards: {len(b['extra_turn_cards'])}"
+          + (f" ({', '.join(b['extra_turn_cards'][:4])})" if b['extra_turn_cards'] else ""))
+    print(f"  two-card infinite/auto-win combos: {len(b['two_card_combos'])}")
+    print(f"  tutors (informational): {b['tutors']['count']}")
+    if "compliant" in b:
+        verdict = "[green]COMPLIANT[/green]" if b["compliant"] else "[red]NOT COMPLIANT[/red]"
+        print(f"  target bracket {b['target_bracket']}: {verdict}")
+        for r in b.get("reasons", []):
+            print(f"    - [yellow]{r}[/yellow]")
+
+    c = combos
+    print(f"\n[bold]Combos[/bold] [dim](external: {external_status}; noted via `mtg note`)[/dim]")
+    print(f"  complete: {len(c['complete'])}")
+    for cb in c["complete"][:8]:
+        # parens, not brackets: rich eats [class]-style tokens as markup
+        print(f"    - ({cb['class']}) {', '.join(cb['cards'])} [dim]({cb['source']})[/dim]")
+    print(f"  one card away: {len(c['near_misses'])}")
+    for cb in c["near_misses"][:5]:
+        print(f"    - missing [bold]{cb['missing']}[/bold]: {', '.join(cb['cards'])} [dim]({cb['class']})[/dim]")
+
+
+@app.command()
+def deck_add(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the annotated deck JSON (created on first use)"),
+    commander: Optional[str] = typer.Option(None, "--commander", help="Commander name (required on FIRST use; read from the file afterwards)"),
+    partner: Optional[str] = typer.Option(None, "--partner", help="Partner/background commander (first use only)"),
+    cards: str = typer.Option(..., "--cards", help="Card names separated by ';' (names contain commas). Basics may repeat or use 'N Name' (e.g. '12 Mountain')"),
+    purpose: str = typer.Option(..., "--purpose", help="Purpose(s) for THIS batch, comma-separated (the package IS the role): ramp,synergy"),
+    note: Optional[str] = typer.Option(None, "--note", help="Optional agent_note applied to every card in the batch"),
+    set_config: Optional[List[str]] = typer.Option(None, "--set-config", help="key=value build-contract entries (budget=150, budget_mode=soft, bracket=n/a...) — stored IN the deck"),
+    deck_note: Optional[str] = typer.Option(None, "--deck-note", help="The deck's theme/gameplan note (set/overwrite)"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """THE drafting primitive: add a PACKAGE of cards through the tool instead of
+    agent memory. Batch and ATOMIC (any invalid card rejects the whole package),
+    validates at entry (exists / color identity / singleton / size), annotates the
+    purpose at entry, and prints the batch price + RUNNING deck total (the
+    draft-TO-budget mechanism, full build #3 lesson).
+    """
+    require_database(SQLITE_PATH, json_output)
+
+    import re as _re
+    from mtgcli.models import Card as _Card, CardNotFoundError as _CNF, Deck as _Deck, DeckError as _DE
+
+    # parse the batch: "Name; Name; 12 Mountain"
+    raw_items = [c.strip() for c in cards.split(";") if c.strip()]
+    if not raw_items:
+        _msg = "Provide at least one card in --cards (';'-separated)."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+    purposes = [p.strip() for p in purpose.split(",") if p.strip()]
+
+    repo = CardRepository(str(SQLITE_PATH))
+
+    # load or create the deck
+    if deck_path.exists():
+        try:
+            deck_obj = _Deck.load(deck_path, repo=repo)
+        except Exception as e:
+            print(f"[red]Failed to load deck: {e}[/red]")
+            raise typer.Exit(code=1)
+    else:
+        if not commander:
+            _msg = "First use: --commander is required to create the deck."
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": _msg}})
+            else:
+                print(f"[red]{_msg}[/red]")
+            raise typer.Exit(code=1)
+        try:
+            cmds = [_Card(commander, ["WINCON"], repo=repo)]
+            if partner:
+                cmds.append(_Card(partner, ["WINCON"], repo=repo))
+        except _CNF as e:
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": str(e)}})
+            else:
+                print(f"[red]{e}[/red]")
+            raise typer.Exit(code=1)
+        deck_obj = _Deck(cmds)
+
+    if deck_note:
+        deck_obj.agent_note = deck_note
+    for kv in (set_config or []):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            deck_obj.config[k.strip()] = v.strip()
+
+    # build the Card batch (fail loud per contract, whole batch rejected)
+    batch, errors = [], []
+    for item in raw_items:
+        m = _re.match(r"^(\d+)\s+(.*)$", item)
+        qty, name = (int(m.group(1)), m.group(2)) if m else (1, item)
+        try:
+            batch.append(_Card(name, purposes, agent_note=note, quantity=qty, repo=repo))
+        except (_CNF, ValueError) as e:
+            errors.append(str(e))
+    if errors:
+        _msg = "Batch rejected (nothing added):\n  - " + "\n  - ".join(errors)
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        deck_obj.add(batch)
+    except _DE as e:
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": str(e)}})
+        else:
+            print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+
+    deck_obj.save(deck_path)
+    batch_price = round(sum((c.usd_price or 0.0) * c.quantity for c in batch), 2)
+    total = deck_obj.total_price()
+    result = {
+        "added": [{"name": c.name, "quantity": c.quantity, "usd_price": c.usd_price} for c in batch],
+        "purpose": [p.upper() for p in purposes],
+        "batch_price": batch_price,
+        "deck_total_price": total,
+        "deck_size": deck_obj.size(),
+        "max_size": deck_obj.max_size,
+        "by_purpose": deck_obj.total_by_purpose(),
+    }
+    budget = deck_obj.config.get("budget")
+    if budget:
+        try:
+            result["budget"] = float(budget)
+            result["budget_utilization_pct"] = round(100 * total / float(budget), 1)
+        except (TypeError, ValueError):
+            pass
+    if json_output:
+        print_json(result)
+    else:
+        print(f"[green]Added {len(batch)} card(s) as {', '.join(result['purpose'])} "
+              f"— batch ${batch_price:.2f}[/green]")
+        for c in batch:
+            p = f"${c.usd_price:.2f}" if c.usd_price is not None else "$?"
+            print(f"  + {c.quantity}x {c.name} [dim]{p}[/dim]")
+        util = f" ({result['budget_utilization_pct']}% of ${result['budget']:.0f})" \
+            if "budget_utilization_pct" in result else ""
+        print(f"[bold]Deck: {deck_obj.size()}/{deck_obj.max_size} cards — running total "
+              f"${total:.2f}{util}[/bold]")
+
+
+# Census tag -> purpose map for deck-annotate --auto (uses the EXISTING measured
+# vocabulary; lands only count as RAMP via the ramp_rules single source).
+_TAG_TO_PURPOSE = {
+    "mana_rock": "RAMP", "mana_dork": "RAMP", "ritual": "RAMP", "land_ramp": "RAMP",
+    "extra_land_drop": "RAMP", "treasure": "RAMP",
+    "card_draw": "DRAW", "cantrip": "DRAW", "loot": "DRAW",
+    "removal": "REMOVAL", "creature_removal": "REMOVAL", "spot_removal": "REMOVAL",
+    "board_wipe": "WIPE",
+    "tutor": "SEARCH",
+    "protection": "PROTECTION",
+}
+
+
+@app.command()
+def deck_annotate(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the annotated deck JSON"),
+    auto: bool = typer.Option(False, "--auto", help="Seed derivable purposes from the measured census (tags + commander plan coverage) — ADDs, never removes"),
+    cards: Optional[str] = typer.Option(None, "--cards", help="';'-separated card names to refine"),
+    purpose_add: Optional[str] = typer.Option(None, "--purpose-add", help="Comma-separated purposes to ADD to --cards"),
+    note: Optional[str] = typer.Option(None, "--note", help="agent_note to set on --cards"),
+    sync_notes: bool = typer.Option(False, "--sync-notes", help="Pull combo notes from the build notebook (mtg note --type combo) into the deck's combos block + mark COMBO_PIECE purposes"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """The single end-of-draft annotation pass: --auto seeds ~85% of purposes for
+    free from the measured census; --cards/--purpose-add refines what only judgment
+    sees (commander-granted synergy, wincons); --sync-notes persists the notebook's
+    combos into the deck. Merges only — the agent's existing judgment survives."""
+    require_database(SQLITE_PATH, json_output)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+    if not (auto or sync_notes or (cards and purpose_add) or (cards and note)):
+        _msg = "Nothing to do: use --auto, --sync-notes, or --cards with --purpose-add/--note."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    import json as _json
+    from mtgcli.config import SEED_DATA_DIR as _SD
+    from mtgcli.models import Deck as _Deck
+
+    repo = CardRepository(str(SQLITE_PATH))
+    try:
+        deck_obj = _Deck.load(deck_path, repo=repo)
+    except Exception as e:
+        print(f"[red]Failed to load deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    changes: Dict[str, List[str]] = {}
+
+    if auto:
+        from mtgcli.deckbuilder.card_profile import matched_tags
+        from mtgcli.deckbuilder.plan_coverage import plan_coverage
+        from mtgcli.deckbuilder.ramp_rules import land_matches_allowed_ramp_tags
+        tag_defs = _json.load(open(_SD / "card_tags.json", encoding="utf-8"))
+        covered = set()
+        try:
+            pc = plan_coverage(deck_obj.commanders[0]._row, [c._row | {"quantity": c.quantity}
+                                                             for c in deck_obj.cards], tag_defs)
+            covered = {n.lower() for n in (pc or {}).get("covered_cards", [])}
+        except Exception:
+            covered = set()
+        for card in deck_obj.cards:
+            adds = set()
+            is_land = "land" in card.type_line.lower()
+            for tag in matched_tags(card._row, tag_defs):
+                p = _TAG_TO_PURPOSE.get(tag)
+                if not p:
+                    continue
+                if p == "RAMP" and is_land and not land_matches_allowed_ramp_tags(card._row, tag_defs):
+                    continue  # basics never count as ramp (the single-source rule)
+                adds.add(p)
+            if card.name.lower() in covered:
+                adds.add("SYNERGY")
+            new = [p for p in sorted(adds) if p not in card.purpose]
+            if new:
+                card.add_purposes(new)
+                changes[card.name] = changes.get(card.name, []) + new
+
+    if cards and (purpose_add or note):
+        names = [n.strip() for n in cards.split(";") if n.strip()]
+        targets = {n.lower() for n in names}
+        found = {c.name.lower() for c in deck_obj.cards if c.name.lower() in targets}
+        missing = [n for n in names if n.lower() not in found]
+        if missing:
+            _msg = "Not in deck (nothing annotated): " + ", ".join(missing)
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": _msg}})
+            else:
+                print(f"[red]{_msg}[/red]")
+            raise typer.Exit(code=1)
+        adds = [p.strip() for p in (purpose_add or "").split(",") if p.strip()]
+        for card in deck_obj.cards:
+            if card.name.lower() in targets:
+                if adds:
+                    new = [p.upper() for p in adds if p.upper() not in card.purpose]
+                    if new:
+                        card.add_purposes(new)
+                        changes[card.name] = changes.get(card.name, []) + new
+                if note:
+                    card._agent_note = note
+
+    synced = []
+    if sync_notes:
+        from mtgcli.deckbuilder.build_notes import combo_notes
+        deck_names = {c.name.lower() for c in deck_obj.cards}
+        existing = {frozenset(x.lower() for x in cb["cards_needed"])
+                    for cls in deck_obj.combos.values() for cb in cls}
+        for n in combo_notes():
+            key = frozenset(c.lower() for c in n.get("cards", []))
+            if key in existing:
+                continue
+            deck_obj.add_combo(n.get("combo_class", "non_infinite"),
+                               n.get("cards", []), n.get("text", ""))
+            synced.append(n.get("cards", []))
+            for card in deck_obj.cards:
+                if card.name.lower() in key and "COMBO_PIECE" not in card.purpose:
+                    card.add_purposes(["COMBO_PIECE"])
+                    changes[card.name] = changes.get(card.name, []) + ["COMBO_PIECE"]
+
+    deck_obj.save(deck_path)
+    unannotated = [c.name for c in deck_obj.cards if not c.purpose]
+    result = {"changes": changes, "combos_synced": synced,
+              "by_purpose": deck_obj.total_by_purpose(),
+              "unannotated": unannotated}
+    if json_output:
+        print_json(result)
+    else:
+        print(f"[green]Annotated {len(changes)} card(s); {len(synced)} combo(s) synced.[/green]")
+        for name, adds in list(changes.items())[:15]:
+            print(f"  {name}: +{', '.join(adds)}")
+        if len(changes) > 15:
+            print(f"  ... +{len(changes) - 15} more")
+        print(f"by purpose: {result['by_purpose']}")
+        if unannotated:
+            print(f"[yellow]unannotated ({len(unannotated)}): {', '.join(unannotated[:10])}"
+                  + (" ..." if len(unannotated) > 10 else "") + "[/yellow]")
+
+
+@app.command()
+def deck_view(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the annotated deck JSON"),
+    card: Optional[str] = typer.Option(None, "--card", help="Show ONE card's build-facing summary (the CARD object print) instead of the deck"),
+    by_purpose: bool = typer.Option(False, "--by-purpose", help="Group the list by purpose instead of Moxfield type order"),
+    json_output: bool = typer.Option(False, "--json-output", help="Full deck dict + metrics as JSON"),
+):
+    """View the annotated DECK object: commanders, config, metrics (size, price,
+    purposes, types, curve + score), combos, and the Moxfield-format list — or a
+    single CARD's build summary with --card."""
+    require_database(SQLITE_PATH, json_output)
+
+    if not deck_path.exists():
+        print(f"[red]Deck file not found: {deck_path}[/red]")
+        raise typer.Exit(code=1)
+
+    from mtgcli.models import Deck as _Deck
+
+    repo = CardRepository(str(SQLITE_PATH))
+    try:
+        deck_obj = _Deck.load(deck_path, repo=repo)
+    except Exception as e:
+        print(f"[red]Failed to load deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    if card:
+        target = next((c for c in deck_obj.cards + deck_obj.commanders
+                       if c.name.lower() == card.lower()), None)
+        if target is None:
+            _msg = f"'{card}' is not in this deck."
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": _msg}})
+            else:
+                print(f"[red]{_msg}[/red]")
+            raise typer.Exit(code=1)
+        if json_output:
+            print_json({**target.to_dict(), "type_line": target.type_line,
+                        "oracle_text": target.oracle_text, "mana_cost": target.mana_cost,
+                        "usd_price": target.usd_price, "edhrec_rank": target.edhrec_rank,
+                        "keywords": target.keywords, "produced_mana": target.produced_mana,
+                        "loyalty": target.loyalty, "all_parts": target.all_parts,
+                        "game_changer": target.game_changer})
+        else:
+            print(str(target))
+        return
+
+    metrics = {
+        "size": deck_obj.size(), "max_size": deck_obj.max_size,
+        "total_price": deck_obj.total_price(),
+        "by_purpose": deck_obj.total_by_purpose(),
+        "card_types": deck_obj.card_type_counts(),
+        "mana_curve": deck_obj.mana_curve(),
+        "mana_curve_score": deck_obj.mana_curve_score(),
+    }
+    if json_output:
+        print_json({**deck_obj.to_dict(), "metrics": metrics})
+        return
+
+    cmds = " + ".join(c.name for c in deck_obj.commanders)
+    print(f"[bold blue]{cmds}[/bold blue]")
+    if deck_obj.agent_note:
+        print(f"[dim]{deck_obj.agent_note}[/dim]")
+    if deck_obj.config:
+        print("config: " + ", ".join(f"{k}={v}" for k, v in deck_obj.config.items()))
+    util = ""
+    budget = deck_obj.config.get("budget")
+    if budget:
+        try:
+            util = f" ({round(100 * metrics['total_price'] / float(budget), 1)}% of ${float(budget):.0f})"
+        except (TypeError, ValueError):
+            pass
+    print(f"\n{metrics['size']}/{metrics['max_size']} cards — ${metrics['total_price']:.2f}{util}")
+    print("by purpose: " + ", ".join(f"{k}={v}" for k, v in metrics["by_purpose"].items()))
+    print(deck_obj.card_types())
+    curve = " ".join(f"{k}:{v}" for k, v in metrics["mana_curve"].items())
+    print(f"curve: {curve}  (score {metrics['mana_curve_score']})")
+
+    combos_flat = [(cls, cb) for cls, lst in deck_obj.combos.items() for cb in lst]
+    if combos_flat:
+        print("\n[bold]Combos[/bold]")
+        for cls, cb in combos_flat:
+            how = f" — {cb['how_to']}" if cb.get("how_to") else ""
+            print(f"  ({cls}) {', '.join(cb['cards_needed'])}{how}")
+
+    print()
+    if by_purpose:
+        groups: Dict[str, List[str]] = {}
+        for c in deck_obj.cards:
+            key = c.purpose[0] if c.purpose else "UNANNOTATED"
+            groups.setdefault(key, []).append(f"{c.quantity} {c.name}"
+                                              + (f" [dim]({', '.join(c.purpose)})[/dim]"
+                                                 if len(c.purpose) > 1 else ""))
+        for key in sorted(groups):
+            print(f"[bold]{key}[/bold] ({len(groups[key])})")
+            for line in sorted(groups[key]):
+                print(f"  {line}")
+    else:
+        print(str(deck_obj))

@@ -194,6 +194,262 @@ sentinels).
   ("creature spells can't be countered") defines no archetype without forcing (Jetmir
   precedent).
 
+## The qualifier-interruption GENERAL mechanism (2026-07-06): wildcard tag phrases
+
+The standing structural gap (5 sightings — Mirko #21 the founding member, Hallar #22,
+Kumena #30, Athreos #28, and Angelic Accord as the FIRST production case in full build
+#3, where deck-gaps undercounted a genuinely-covered category) is CLOSED as a
+mechanism, not another literal variant:
+
+- **`utils/phrase_match.py`** — single source of truth for tag-phrase matching. A
+  phrase may carry the ``" * "`` wildcard: literal parts in order with a BOUNDED
+  same-clause gap (40 chars, never crossing `.`/`;`/newline). An unbounded gap would
+  recreate the naked-substring false positives this project keeps killing; the bound
+  covers every measured sighting ("you own" 7, "4 or more" 9, "with power less than
+  Mirko's" 29) with margin.
+- **All SIX phrase consumers ported** (cards/search.py SQL via `phrase_to_like`
+  %-mapping + Python rank re-check, deck_check ×2, card_profile — which feeds the
+  analyzer's matched_tags —, suggestion_scorer, ramp_rules, deck-gaps `_matching`):
+  the multi-consumer drift class is structurally closed for phrase matching. Plain
+  phrases behave byte-for-byte as before — zero behavior change until a wildcard
+  phrase ships.
+- **First wildcard phrases, measured:** reanimation "creature card * from your
+  graveyard to/onto the battlefield" (273+2, all genuine — **Mirko reads Reanimator
+  very_high**, Alesha's power-2-or-less form is a free improvement, Otrimi's to-HAND
+  control still excluded because the phrase anchors the battlefield tail) and
+  lifegain_payoff "you gained * life this turn" (57/57 — **Angelic Accord reads
+  Lifegain Matters high**; Ragost's deck-gaps count went 4→6).
+
+Same round: deck-gaps' plan check now returns and prints WHICH cards it counted
+(`analyzer_support[].cards`, `plan_gaps[].cards`, human "counted: ..." line) — the
+fix-or-justify decision no longer requires guessing. Mirko pin updated + Angelic
+Accord/Alesha sentinels (376-card set, sanity "377 passed"); suite 1218 green.
+Audit: logs/polish-media-items.json.
+
+## Post-30 fix round (2026-07-06, user-requested): the mature 2-member queue closed
+
+Two NEW archetypes, six measured tag extensions, one STRUCTURAL tribal fix, two
+measured rejects (suite 1199 green, 374 sentinels, sanity "375 passed"; audit:
+logs/post-30-fixround.json):
+
+NEW archetypes: **Devotion** ("devotion to" 67/67 clean — Nylea's #21 honest empty
+CLOSED; Klothys and Athreos read their god clauses; Gray Merchant pinned as the
+payoff-side control) and **Coin Flips** (payoff forms only: "wins a coin flip" 4 +
+"flip you win" 4 — Yusri/Okaun/Zndrsplt; the naked "flip a coin" 81 REJECTED like
+the d20-roller class).
+
+Extensions (all measured): spell_payoff += "instant and sorcery spells you cast
+cost" (22/22 all LESS-direction — **the Electromancer gap closed: Vadrik #26 and
+Baral #29 read Spellslinger high**); clone_copy += "becomes a copy of" (73 clones —
+**Volrath #26 and Brudiclad #29 read Clones high**; the Krark "copy that spell"
+guard untouched); group_hug += "attacking player draws" (2/2 incentive — Breena
+reads the Goad + Politics + Counters triple); death_trigger += "another creature
+you own dies" (1/1 qualifier variant — Athreos reads Aristocrats high); land_payoff
++= "land you control is put into a graveyard" (2/2 with Long Feng — Titania reads
+Lands + Go Wide, her full truth); investigate += "you sacrifice a clue" (14/14
+payoffs).
+
+STRUCTURAL (the real Thelon root cause, batch #30): the tribal capture's lazy
+`+?` with optional `s?` ate the trailing s of s-ENDING types ("Fungus"→"fungu",
+"Pegasus"→"pegasu") and -ves plurals captured "elve"/"wolve" — none ever hit the
+whitelist. Word resolution now tries raw / s-stripped / s-restored / ves→f
+candidates (Thelon reads Fungus Tribal high; Elvish Archdruid-class anthems
+improve). Plus a NEW global-anthem pattern "(all|each) <Type> get" — whitelist-
+filtered (26 regex hits, tribal-clean: Slivers, Saprolings, Nightmares, Squirrels;
+"all CREATURES get" / "each ATTACKING creature" excluded by the whitelist).
+
+REJECTED measured-dirty: "target opponent draws" (4/8 are leave-the-battlefield
+drawback RIDERS — the Thought-Knot Seer class, pinned as guard; Bumbleflower's hug
+half stays honest-missing on the naked form) and naked "flip a coin". DEFERRED:
+the general qualifier-interruption mechanism (regex-tags — 4+ members, but every
+member so far closed via a cheap measured variant; revisit if a member appears
+that variants can't express). Twelve pins updated to lock the new truths + 2 new
+guards (374 sentinels).
+
+## Calibration batch #30 (post-gate, blind-first, 2026-07-06): FAIL — fixed; THE
+## 30-BATCH PLAN IS COMPLETE
+
+Tally: right 5 (Kotori — **Vehicles validating fresh** on the crew-enabler form —,
+Klothys — symmetric-pinger slug + punisher warning —, Kumena — the clean "each
+Merfolk you control" in mode 3 fired tribal despite the untapped-qualifier in modes
+1–2, beating the blind —, Eloise — Aristocrats + clue value engine —, Edgar, Charmed
+Groom — Vampire Tribal + Go Wide, and the DFC control of the batch: the Coffin's
+bloodline counter read COUNTER_MARKER_SELF, so the per-face card_name plumbing
+works), partial 2 (Titania — the land-GY family's 3rd form "a land you control is
+put into a graveyard from the battlefield" —, Thelon — global symmetric anthem "Each
+Fungus creature gets" misses the tribal patterns; his Counters high is true), empty
+2 (Michiko — generic incoming-DAMAGE form, the 3rd incoming variant —, Yusri —
+coin-flip class), **CW 1 → FAIL** (unpredicted — the blind watched Grimgrin's
+destroy-effect boundary, not his untap drawback):
+- **Grimgrin:** `Stax: high` from "Grimgrin enters tapped and doesn't untap during
+  your untap step" — his OWN drawback, at BOTH layers: UNTAP_RESTRICTION was missing
+  from the SELF_RESTRICTION guard's signal list (the #18 audit-the-alternation
+  lesson applied to a guard's SIGNAL list), and the stax TAG carried a naked
+  "doesn't untap" (the scope-check-only-in-signal-layer annotation finally producing
+  a real lie). Fixed at both: the guard now covers UNTAP_RESTRICTION (self subject
+  before + "during your untap step" after — so Winter Orb's "their controllers'" and
+  Frost Titan's "its controller's" keep their true Stax) with _self_subjects
+  extended to this artifact/land/enchantment (the Mana Vault class); the tag split
+  directionally ("doesn't untap during its controller" 179 + "don't untap during
+  their controllers" 35 stay; the your-untap-step drawback form 54 out). Controls:
+  Winter Orb, Frost Titan, Meekstone, Mana Vault, Medomai, Peacekeeper — all green.
+  Grimgrin reads Aristocrats medium (SAC_OUTLET), his truth.
+New known-gaps: coin-flip class (Yusri), generic incoming-damage (Michiko — 3rd
+incoming form), land-GY 3rd form (Titania), global symmetric anthem (Thelon),
+devotion 2nd member (Klothys). Twelve sentinels — 10 batch + Winter Orb/Mana Vault
+untap-split controls (372-card set, sanity "373 passed"); suite 1197 green. Audits:
+logs/calibration-batch-30.json, logs/calibration-batch-30-fixround.json.
+
+**Plan status: 30/30 batches complete.** Post-gate record: 7 PASS / 7 FAIL-fixed,
+every CW root-caused and pinned same-session; zero unfixed lies across the entire
+run. The mature two-member gap queue for the next fix round: Electromancer typed
+cost-reduction (Vadrik + Baral), "becomes a copy" (Volrath + Brudiclad), gift-draw
+(Bumbleflower + Breena), qualifier-interruption general mechanism (4 members),
+investigate-defining (Lonis + Eloise), devotion (Nylea + Klothys).
+
+## Calibration batch #29 (post-gate, blind-first, 2026-07-06): FAIL — the attack
+## DIRECTION family completed (all four directions), plus the #11 name class at a
+## second site
+
+Tally: right 3 (Beckett Brass — Pirate + Theft + Attack triple true —, Wort —
+conspire copy-slinger via the typed instant/sorcery form —, Cadira — deployment side
+of #19), partial 4 (Baral — **2nd ELECTROMANCER member confirmed**, the #26 typed
+cost-reduction gap is now firmly measurable —, Brudiclad — **2nd "becomes a copy"
+member** —, Go-Shintai — Shrine identity unread —, Atraxa PV — the proliferate-only
+class: 4 honest lows, no defining), empty 0, **CW 3 → FAIL** — all three ONE family
+(attack/restriction direction-scope), two predicted blind as high risk:
+- **Medomai (CW 1):** `Stax: high` from "Medomai can't attack during extra turns" —
+  his OWN drawback. The SELF_RESTRICTION guard built its subject via split(",")[0],
+  which keeps the FULL name for no-comma legends while oracle text uses the first
+  name — the batch-11 name class at a SECOND site (semantics.detect_negation).
+  Fixed: first-name subject fallback (articles skipped). Gadrak/Peacekeeper controls
+  green. Extra-turns class = new known-gap.
+- **Breena (CW 2, predicted):** `Attack Triggers: high` from "Whenever a player
+  attacks one of your opponents" — the THIRD-PARTY direction (the table attacking
+  your opponents = politics incentive). The attack family now knows all FOUR
+  directions: self / board / incoming-you / third-party. Fixed: new
+  THIRD_PARTY_ATTACK_INCENTIVE signal → Goad / Forced Combat defining (measured 14,
+  all incentive class: Calculating Lich, Maeve, Gahiji, Combat Calligrapher, Death
+  Kiss; Mazzy borderline accepted — raw text is table-scope). Breena reads Goad +
+  Counters, her truth. Marisi/Cadira controls green.
+- **Teysa EoG (CW 3, predicted):** `Attack: high` + `Go Wide: high` from "Whenever a
+  creature deals combat damage to YOU, destroy it. Create a Spirit" — the
+  saboteur-INVERSE incoming form escaped the #22 guard ("attacks you"), and her
+  compensation Spirits fed the token conjunction. Fixed: incoming regex extended
+  with "deals combat damage to you" (measured 7/7 defensive: Hixus, Contested War
+  Zone, Harsh Justice) + incoming-compensation guard in the token conjunction
+  (measured 2/2: Teysa's Spirits, Search the Premises' Clue). She reads Pillowfort
+  high. Isperia control green.
+New known-gaps: extra-turns class (Medomai), Shrine identity (Go-Shintai — Shrine is
+an enchantment type outside the creature whitelist), proliferate-only commanders
+under-banded (Atraxa PV — proliferate defines nothing), gift-draw 2nd member
+(Breena's "that attacking player draws" joins Bumbleflower's), "becomes a copy" 2nd
+member (Brudiclad joins Volrath), Electromancer 2nd member (Baral joins Vadrik —
+ripest two-member gap in the queue). Ten sentinels — 3 CW pins with signal asserts
+(360-card set, sanity "361 passed"); suite 1185 green. Audits:
+logs/calibration-batch-29.json, logs/calibration-batch-29-fixround.json.
+
+## Calibration batch #28 (post-gate, blind-first, 2026-07-06): PASS
+
+Tally: right 5 (Vadmir — **Crimes Matter (#27) validating fresh**, his self counters
+correctly SELF —, Trelasarra — **Lifegain Matters (#27) validating fresh** —, Fain —
+**MODAL_TOOLBOX validating fresh** on a virgin member of the measured 4-commander
+class: menu warning fired, per-mode bands are options —, Neheb the Worthy — Minotaur
+Tribal; his saboteur discard is VALUE, no Attack band —, Runo//Krothuss — DFC split
+working; copies entering TAPPED AND ATTACKING = the deployment side of the #19
+boundary, Attack high TRUE, plus Clones), partial 3 (Light-Paws, Marina Vendrell,
+Ms. Bumbleflower), empty 2 (Ulamog CH, Athreos — both honest), **CW 0** → the SEVENTH
+post-gate PASS. The #19 attack boundary held on BOTH sides in one batch (value-side:
+Neheb, Ulamog; deployment-side: Krothuss). Zero changes per PASS protocol. New
+known-gaps, all measurable:
+- Aura-cast-enters payoff (Light-Paws: "Whenever an Aura you control enters, if you
+  cast it" — not in aura_equipment_payoff).
+- Rooms/doors class (Marina: "lock or unlock a door", "Room you control") +
+  enchantment-dig-to-hand form ("put all enchantment cards from among them into your
+  hand").
+- Gift-draw hug form (Bumbleflower: "target opponent DRAWS a card" imperative —
+  group_hug only carries "target opponent may draw"; alternation gap).
+- **Qualifier-interruption 4th member** (Athreos: "another creature YOU OWN dies") —
+  the general regex-tag mechanism (Mirko/Tayam/Hallar) gains pressure.
+- Defending-player exile-mill (Ulamog: "defending player exiles the top twenty
+  cards") + eldrazi-titan battlecruiser class (no annihilator text).
+- Symmetric each-player discard (Neheb's hellbent half — small).
+Ten sentinels (350-card set, sanity "351 passed"); suite 1175 green.
+Audit: logs/calibration-batch-28.json.
+
+## Calibration batch #27 (post-gate, blind-first, 2026-07-06): FAIL — fixed, plus
+## two new archetypes
+
+Tally: right 6 (Anthousa — **Targeted Spell Payoff / Heroic validating fresh** on the
+heroic ability-word form; her Warrior Tribal high from animated-land token types is a
+plan-aligned watch-item —, Satsuki — **Sagas Matter validating fresh**, with Counters
+via lore-counter MANIPULATION, the Vorel class: proliferate genuinely accelerates
+Sagas —, Higure — **Ninjutsu / Sneak validating fresh** + Ninja Tribal via the #19
+tutor pattern; his saboteur self-trigger correctly did NOT band Attack, the #19/#20
+boundary held —, Henzie — Creature Spells + Aristocrats both true; the blitz REMINDER's
+death-value read is the tags-see-reminder family landing defensible again —, Phylath —
+Landfall high via the M5 ability-word strip —, Inalla — Wizard Tribal + Clones + Life
+Loss triple true; the EPHEMERAL guard kept Go Wide out), partial 2 (Aragorn KoG —
+**MONARCH validating fresh**; his attack-enabler half unread —, Amalia), empty 1
+(Marchesa, Dealer of Death — honest), **CW 1 → FAIL**:
+- **Jhoira of the Ghitu:** `Counters Matter: high` from sense.counter_marker.v1
+  matching "put four time counters on" — but suspend time counters are a COUNTDOWN
+  (fewer = the card casts sooner): proliferate is actively ANTI-plan. The
+  counter-direction family (Grenzo #12, batch-19 untap) in the counter-sense layer.
+  **FIXED structurally: new COUNTER_CLOCK sense** — a put-time-counters form whose
+  same line (reminder-stripped) carries suspend-countdown context (gains/has/have
+  suspend, is suspended, "last time counter is removed" — the alternation audited per
+  the #18 lesson, catching Alaundo's TEXTUAL grant and Curse of the Cabal) never feeds
+  Counters Matter. Measured over all 39 "put ... time counter(s) on" cards: 12/12
+  countdown-grants excluded, 27 accumulators kept (Rose Tyler, Kate Stewart, As
+  Foretold — where MORE counters is the plan). Controls held: Kate Stewart (accumulator
+  keep side, pinned), Rose Tyler (SELF), Vorel (doubling), Satsuki (lore manipulation).
+Coverage same round: NEW archetype **Crimes Matter** (the crime class hit its 2nd
+commander-member — conditional-rider revocation precedent; `crime_payoff`: "you commit
+a crime" 19 + "you've committed a crime" 7, all your-crime payoffs, the opponent form
+excluded — Marchesa DoD empty→high, Magda the Hoardmaster reads Crimes + Treasures);
+NEW archetype **Lifegain Matters** (pure MAPPING fix, Fynn/Poison precedent — the
+`lifegain_payoff` tag existed with "whenever you gain life" 88 but fed no archetype;
+generic `lifegain` stays out per the Tatyova lesson — Amalia reads her truth, Vito
+reads Lifegain high + drain medium, both true). New known-gaps: suspend archetype
+(Jhoira honest-empty — payoff-form vocab would be reminder-dirty), can't-block-as-
+offense (Aragorn: BLOCK_RESTRICTION inside your own attack trigger's effect is
+combat-feed, not stax — measurable), blitz keyword class (Henzie), explore keyword
+(Amalia). Twelve sentinels — 10 batch + 2 clock-split controls (340-card set, sanity
+"341 passed"); suite 1165 green. Audits: logs/calibration-batch-27.json,
+logs/calibration-batch-27-fixround.json.
+
+## Calibration batch #26 (post-gate, blind-first, 2026-07-06): PASS
+
+Tally: right 6 (Beluna Grandsquall — **Adventures Matter validating fresh** —, Farideh —
+**Dice Rolling validating fresh**, the ability-word prefix stripped by the M5 fix —,
+Yeva — **Flash / Instant Speed validating fresh on the enabler form** that motivated the
+archetype —, Daxos the Returned — Enchantments + Go Wide double-high, experience counters
+read via SCALES_WITH with no false Counters band —, Rakdos, Lord of Riots — Creature
+Spells + Life Loss double-high; LOST_LIFE_PAYOFF caught the cast condition "an opponent
+lost life this turn", beating the blind prediction of medium —, Volrath — Minus Counters
+high), partial 4 (Ishkanah, Kathril, Yasharn, Vadrik — all honest, mechanism identified),
+empty 0, **CW 0** → the SIXTH post-gate PASS, fourth consecutive. Three of the seven
+post-#25 archetypes validated on virgin commanders in one batch. Blind calibration:
+predicted right ~6 / partial ~4 / CW 0-1 — landed exactly (Vadrik and Volrath swapped
+right/partial). Guards that held: Ishkanah's one-shot ETB tokens correctly NOT Go Wide;
+Kathril's final +1/+1 correctly COUNTER_MARKER_SELF; Beluna's imperative "Mill seven
+cards" (self-fill to hand) never read opponent Mill. Zero analyzer changes per PASS
+protocol. New known-gaps, ALL measurable:
+- **Typed spell cost-reduction → Spellslinger** (Vadrik: "Instant and sorcery spells you
+  cast cost {X} less" only fires the generic cost_reducer tag — the Goblin Electromancer
+  family; the ripest gap of the batch).
+- Delirium class (Ishkanah: "four or more card types among cards in your graveyard" —
+  GY-card-types payoff family).
+- Anti-sac/pay-life stax form (Yasharn: "Players can't pay life or sacrifice nonland
+  permanents" — symmetric hatebear, not in the post-#9 stax vocab; predicted blind).
+- Keyword-counter class (Kathril: named ability counters placed from GY keywords +
+  GY-as-resource dependency).
+- Clone form "becomes a copy of" (Volrath — outside the Clones phrases; watch the Krark
+  guard if extending; predicted blind).
+Ten sentinels (328-card set, sanity "329 passed"); suite 1153 green.
+Audit: logs/calibration-batch-26.json.
+
 ## Full build #2 calibration note (2026-07-05): the speed mechanic
 
 Mendicant Core, Guidelight (Aetherdrift "Start your engines!") read `Artifacts Matter:

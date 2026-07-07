@@ -48,22 +48,47 @@ _COUNTER_MARKER_PATTERNS = [
     r"\bwith (a|x|\d+|.{0,12}?) counters? on it",
     r"\b\w+ counter on",   # e.g. "slime counter on", "loyalty counter on"
 ]
+# Suspend-style countdown context: time counters granted WITH a cast-when-empty clock
+# (same line). Fewer counters = the card casts sooner, so proliferate/counter payoffs are
+# actively ANTI-plan — this is a clock, not a counters strategy (batch-27 Jhoira of the
+# Ghitu CW). Measured over all 39 "put ... time counter(s) on" cards: 12/12 countdown-grants
+# excluded (Jhoira, Alaundo, The Tenth Doctor, Frie, Suspend...), 27 accumulator/payoff
+# cards kept (Rose Tyler, Kate Stewart, As Foretold class — where MORE counters is the plan).
+_SUSPEND_COUNTDOWN_RE = re.compile(
+    r"gains? suspend|has suspend|have suspend|is suspended|last time counter is removed"
+)
 
 
 def detect_negation(text: str, profile: CardProfile, card_name: str = None) -> None:
     if not text:
         return
     low = text.lower()
-    _self_subjects = ["this creature", "this permanent"]
+    _self_subjects = ["this creature", "this permanent", "this artifact", "this land",
+                      "this enchantment"]
     if card_name:
         _self_subjects.append(card_name.split(",")[0].strip().lower())
+        # No-comma legends are referenced by their FIRST name in oracle text
+        # ("Medomai the Ageless" -> "Medomai can't attack during extra turns") — the
+        # batch-11 name class at a second site (batch-29 Medomai CW: his own drawback
+        # read Stax high because the comma-split subject never matched); skip articles.
+        first = card_name.split()[0].strip().lower()
+        if first not in ("the", "a", "an") and len(first) > 2:
+            _self_subjects.append(first)
     for pattern, sig_id, label, tag, polarity, note in _NEGATION_RULES:
         for m in re.finditer(pattern, low):
             # Scope check: "<CARDNAME> can't attack unless..." is the card's OWN drawback,
-            # not a stax effect on opponents.
-            if sig_id in ("ATTACK_RESTRICTION", "BLOCK_RESTRICTION"):
+            # not a stax effect on opponents. Batch-30 Grimgrin CW: UNTAP_RESTRICTION was
+            # missing from this list (the #18 audit-the-alternation lesson applied to a
+            # guard's SIGNAL list) — "Grimgrin ... doesn't untap during your untap step"
+            # read Stax high. For UNTAP the self-drawback additionally requires "during
+            # your untap step" right AFTER the match: real stax says "their controllers'"
+            # (Winter Orb) or "its controller's" (Frost Titan) and must keep its read.
+            if sig_id in ("ATTACK_RESTRICTION", "BLOCK_RESTRICTION", "UNTAP_RESTRICTION"):
                 before = low[max(0, m.start() - 40):m.start()]
-                if any(subj in before for subj in _self_subjects):
+                after = low[m.end():m.end() + 40].lstrip()
+                untap_self_ok = (sig_id != "UNTAP_RESTRICTION"
+                                 or after.startswith("during your untap step"))
+                if untap_self_ok and any(subj in before for subj in _self_subjects):
                     profile.add_signal(Signal(
                         id="SELF_RESTRICTION", label="Own drawback (self restriction)",
                         kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
@@ -125,6 +150,24 @@ def detect_counter_sense(text: str, profile: CardProfile, card_name: str = None)
         m = re.search(pattern, low)
         if not m:
             continue
+        # Countdown clock check FIRST: a time counter placed as part of granting a
+        # suspend-style countdown (same line, reminder stripped — mirroring the batch-27
+        # measurement) is a clock, never a counters strategy.
+        line_start = low.rfind("\n", 0, m.start()) + 1
+        line_end = low.find("\n", m.start())
+        if line_end == -1:
+            line_end = len(low)
+        line_rules = re.sub(r"\([^)]*\)", "", low[line_start:line_end])
+        if "time counter" in line_rules and _SUSPEND_COUNTDOWN_RE.search(line_rules):
+            profile.add_signal(Signal(
+                id="COUNTER_CLOCK", label="Suspend countdown clock (time counters)",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="sense.counter_clock.v1", rule_version="1.0",
+                            matched_text=m.group(0), span=m.span(),
+                            note="Time counters granting a suspend countdown: fewer = casts sooner; "
+                                 "proliferate is anti-plan, so this is NOT a counters strategy."),
+            ))
+            break
         tail = low[m.start():m.start() + 70]
         is_broad = any(p in tail for p in broad_phrases)
         is_incidental = any(p in tail for p in incidental_phrases)

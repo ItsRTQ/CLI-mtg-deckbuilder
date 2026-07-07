@@ -68,6 +68,12 @@ _TRIBAL_PATTERNS = [
     r"\bother\s+([a-z]+)\s+creatures\b",
     # "another <Type> you control" trigger form (Reaper King's enters trigger, batch #20).
     r"\banother\s+(?:nontoken\s+)?([a-z]+)\s+you control\b",
+    # global symmetric anthem: "All Slivers get +1/+1" / "Each Fungus creature gets ..."
+    # (Thelon, batch #30) — no "you control" and possibly no "creature" word. Measured 26
+    # regex hits, tribal-clean after the whitelist (Slivers/Saprolings/Nightmares/
+    # Squirrels); non-type words (all CREATURES get, each ATTACKING creature, each LAND)
+    # are filtered by the whitelist.
+    r"\b(?:all|each)\s+(?:nontoken\s+)?([A-Za-z]+?)s?\s+(?:creatures?\s+)?gets?\b",
     # plural pair-anthem: "Skeletons and Zombies you control get +1/+1" (Gisa, batch #22;
     # 29 measured pairs). Two single-group patterns, one per half.
     r"\b([a-z]+)s and [a-z]+s you control\b",
@@ -96,17 +102,40 @@ def detect_trigger_families(text: str, profile: CardProfile, card_name: str = No
         # theme. Measured: 19 cards, all defense (Isperia, Marchesa's Decree, Revenge of
         # Ravens). Own-board forms ("whenever you attack") are unaffected via _board_attack.
         if (family == "attacks_or_combat"
-                and re.search(r"attacks you\b", low)
+                and re.search(r"attacks you\b|deals combat damage to you\b", low)
                 and not any(p in low for p in _board_attack)):
+            # Batch-29 Teysa EoG CW: the saboteur-inverse form ("a creature deals combat
+            # damage to YOU") is the same incoming direction — measured 7/7 defensive
+            # (Hixus, Contested War Zone, Harsh Justice).
             profile.add_signal(Signal(
                 id="INCOMING_ATTACK_TRIGGER",
                 label="Triggers when opponents attack YOU (defense, not an attack theme)",
                 kind=EvidenceKind.RULE_RELATION,
                 confidence=Confidence.STRONG,
                 timing="triggered",
-                trace=Trace(rule_id="content.trigger.incoming_attack.v1", rule_version="1.0",
+                trace=Trace(rule_id="content.trigger.incoming_attack.v1", rule_version="1.1",
                             matched_text=family, span=None,
                             note="Opponents attacking you is a pillowfort payoff, not your combat plan."),
+            ))
+            continue
+        # Batch-29 Breena CW: the THIRD-PARTY direction — "whenever a player / a creature
+        # attacks one of your opponents" rewards the TABLE attacking your opponents (a
+        # politics/goad incentive), not your own aggro. Measured 14 cards, all incentive
+        # class (Breena, Calculating Lich, Maeve, Gahiji, Combat Calligrapher, Death
+        # Kiss); zero carry your-board forms, so _board_attack keeps true attack themes.
+        if (family == "attacks_or_combat"
+                and "attacks one of your opponents" in low
+                and not any(p in low for p in _board_attack)):
+            profile.add_signal(Signal(
+                id="THIRD_PARTY_ATTACK_INCENTIVE",
+                label="Rewards attacks against your opponents (goad/politics incentive)",
+                kind=EvidenceKind.RULE_RELATION,
+                confidence=Confidence.STRONG,
+                timing="triggered",
+                trace=Trace(rule_id="content.trigger.third_party_attack.v1", rule_version="1.0",
+                            matched_text=family, span=None,
+                            note="The table attacking your opponents is a forced-combat/politics "
+                                 "incentive, not your own attack theme."),
             ))
             continue
         # Scope check for the attack family: "whenever <CARDNAME> attacks" is the commander's
@@ -215,13 +244,24 @@ def detect_tribal(text: str, profile: CardProfile) -> None:
     seen = set()
     for pattern in _TRIBAL_PATTERNS:
         for m in re.finditer(pattern, low):
-            word = m.group(1).rstrip("s")
+            # Word resolution (batch-30 Thelon class): the lazy capture + optional "s?"
+            # eats the real trailing s of s-ENDING types ("Fungus" -> "fungu", "Pegasus"
+            # -> "pegasu"), and -ves plurals capture "elve"/"wolve" — neither ever hit
+            # the whitelist. Try the raw capture, the s-stripped form, the s-restored
+            # form, and the ves->f singular.
+            raw = m.group(1)
+            candidates = [raw.rstrip("s"), raw, raw + "s"]
+            if raw.endswith("ve"):
+                candidates.append(raw[:-2] + "f")
+            word = next((w for w in candidates if w in _CREATURE_TYPES), None)
+            if word is None:
+                continue
             # Negation guard: "non-Human creatures you control" must NOT read as Human tribal
             # (Mikaeus HATES humans). Check the character(s) immediately before the match.
             pre = low[max(0, m.start(1) - 4):m.start(1)]
             if pre.endswith("non-") or pre.endswith("non "):
                 continue
-            if word in _CREATURE_TYPES and word not in seen:
+            if word not in seen:
                 seen.add(word)
                 profile.add_signal(Signal(
                     id=f"TRIBAL_{word.upper()}",
@@ -391,6 +431,11 @@ def detect_repeatable_token_making(text: str, profile: CardProfile) -> None:
         # Measured: 15 cards, all parity/catch-up effects (Beza, Linvala, Sunset Revelry).
         if re.search(r"if an opponent|unless an opponent|if you have (?:less|fewer)|if you control fewer", low):
             continue
+        # Incoming-compensation tokens (batch-29 Teysa EoG): a token created by a trigger
+        # that fires when YOU are attacked/damaged is defensive compensation, not an army
+        # plan. Measured: 2/2 (Teysa EoG's Spirits, Search the Premises' Clue).
+        if re.search(r"attacks you\b|deals combat damage to you\b", low):
+            continue
         repeatable = any(m in low for m in _REPEAT_MARKERS) or bool(_ACTIVATED_RE.search(clause))
         if not repeatable:
             continue
@@ -530,6 +575,20 @@ def detect_trigger_doubler(text: str, profile: CardProfile) -> None:
                 trace=Trace(rule_id="content.trigger_doubler.etb.v1", rule_version="1.0",
                             matched_text=line.strip()[:80], span=None,
                             note="Doubler conditioned on entering — feeds ETB value/blink."),
+            ))
+        # Cast context (the Fase-0.2 known-gap, closed 2026-07-06): "casting a spell
+        # causes a triggered ability ... triggers an additional time" doubles CAST
+        # triggers — a spellslinger engine. Per-line check keeps reminder-text "cast"
+        # on OTHER lines out (measured: Veyran, Echoes of Eternity, Gandalf the White
+        # in; Harmonic Prodigy and Fractured Realm — cast only in another line's
+        # reminder — out).
+        if "cast" in low:
+            profile.add_signal(Signal(
+                id="DOUBLES_CAST_TRIGGERS", label="Doubles cast triggers",
+                kind=EvidenceKind.RULE_RELATION, confidence=Confidence.STRONG,
+                trace=Trace(rule_id="content.trigger_doubler.cast.v1", rule_version="1.0",
+                            matched_text=line.strip()[:80], span=None,
+                            note="Doubler conditioned on casting spells — feeds a spellslinger engine."),
             ))
         return
 

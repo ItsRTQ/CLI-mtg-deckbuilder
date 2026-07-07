@@ -4,7 +4,7 @@ similar, complements.
 Bodies split verbatim from the former monolithic ``cli.py``.
 """
 from mtgcli.cli._shared import *  # noqa: F401,F403 -- shared imports, helpers, app
-from mtgcli.cli._shared import _apply_max_price, _emit_json_error  # noqa: F401 -- underscore not re-exported by *
+from mtgcli.cli._shared import _apply_max_price, _apply_max_rank, _emit_json_error  # noqa: F401 -- underscore not re-exported by *
 
 @app.command(epilog="""
 Examples:
@@ -38,6 +38,7 @@ def search(
     trigger: Optional[str] = typer.Option(None, "--trigger", help="Find cards with a trigger of this event family (e.g. permanent_dies, attacks_or_combat, you_cast_spell). See --list-triggers."),
     list_triggers: bool = typer.Option(False, "--list-triggers", help="List the available --trigger event families and exit."),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price (budget builds)"),
+    max_rank: Optional[float] = typer.Option(None, "--max-rank", help="Maximum EDHREC rank (popularity, consider-only — unknown ranks are kept)"),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
     json_output: bool = typer.Option(False, "--json-output", help="Output results as JSON")
 ):
@@ -81,11 +82,15 @@ def search(
             print(f"[red]Unknown trigger family '{trigger}'.[/red]")
             print(f"[yellow]Available: {', '.join(sorted(valid))}[/yellow]")
             raise typer.Exit(code=1)
+        # Post-filters (price/rank) run AFTER retrieval: oversample so they don't
+        # starve the result list (--max-rank 500 on a limit-5 fetch returned nothing).
+        _fetch = limit if (max_price is None and max_rank is None) else max(limit * 10, 200)
         results = search_by_trigger(
             trigger, colors=colors, type_filter=type_filter,
-            max_mana_value=int(mv_lte) if mv_lte is not None else None, limit=limit,
+            max_mana_value=int(mv_lte) if mv_lte is not None else None, limit=_fetch,
         )
         results = _apply_max_price(results, max_price)
+        results = _apply_max_rank(results, max_rank)[:limit]
         if not results:
             print(f"[yellow]No cards found with trigger family '{trigger}' and those filters[/yellow]")
             return
@@ -94,7 +99,7 @@ def search(
         else:
             print(f"[bold blue]{len(results)} cards with trigger '{trigger}':[/bold blue]")
             for card in results:
-                print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}")
+                print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}{fmt_price(card)}")
         return
 
     # Build structured filters from repeatable options (AND-merged with query).
@@ -122,11 +127,14 @@ def search(
         raise typer.Exit(code=1)
 
     try:
+        # Oversample when post-filters are active (see the trigger branch note).
+        _fetch = limit if (max_price is None and max_rank is None) else max(limit * 10, 200)
         results = search_commander_legal_cards(
-            query=query, colors=colors, limit=limit,
+            query=query, colors=colors, limit=_fetch,
             type_filter=type_filter, extra_filters=extra_filters,
         )
         results = _apply_max_price(results, max_price)
+        results = _apply_max_rank(results, max_rank)[:limit]
     except QueryConflictError as e:
         print(f"[red]{e}[/red]")
         raise typer.Exit(code=1)
@@ -140,7 +148,7 @@ def search(
     else:
         print(f"[bold blue]Found {len(results)} cards:[/bold blue]")
         for card in results:
-            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}")
+            print(f"- {card['name']} {card['mana_cost']} | {card['type_line']}{fmt_price(card)}")
 
 
 
@@ -150,6 +158,7 @@ def search_tags(
     colors: Optional[str] = typer.Option(None, "--colors", help="Filter by color identity (e.g. RG)"),
     type_filter: Optional[str] = typer.Option(None, "--type", help="Filter by broad card type via type_line (e.g. creature, artifact, instant)"),
     max_price: Optional[float] = typer.Option(None, "--max-price", help="Maximum USD price"),
+    max_rank: Optional[float] = typer.Option(None, "--max-rank", help="Maximum EDHREC rank (popularity, consider-only — unknown ranks are kept)"),
     mv_lte: Optional[float] = typer.Option(None, "--mv-lte", help="Mana value <= number"),
     list_tags: bool = typer.Option(False, "--list-tags", help="List all available functional tags and exit."),
     limit: int = typer.Option(20, "--limit", help="Limit number of results"),
@@ -200,11 +209,15 @@ def search_tags(
                       f"For creature types like 'Rogue', use --subtype instead.[/yellow]")
             raise typer.Exit(code=1)
 
+    # --max-price is SQL-level inside search_by_tags; --max-rank is a post-filter, so
+    # oversample to avoid starving the ranked list (rank order = tag_match_count).
+    _fetch = limit if max_rank is None else max(limit * 10, 200)
     results = search_by_tags(
-        tags=tags, colors=colors, limit=limit, type_filter=type_filter,
+        tags=tags, colors=colors, limit=_fetch, type_filter=type_filter,
         max_price=max_price, max_mana_value=int(mv_lte) if mv_lte is not None else None,
         rank=True,
     )
+    results = _apply_max_rank(results, max_rank)[:limit]
 
     if not results:
         print(f"[yellow]No cards found matching tags: {', '.join(tags)}[/yellow]")
@@ -216,7 +229,7 @@ def search_tags(
         print(f"[bold blue]{len(results)} cards for tags {', '.join(tags)} (ranked by facets matched):[/bold blue]")
         for card in results:
             n = card.get("tag_match_count", 0)
-            print(f"- [{n}x] {card['name']} {card['mana_cost']} | {card['type_line']}")
+            print(f"- [{n}x] {card['name']} {card['mana_cost']} | {card['type_line']}{fmt_price(card)}")
 
 
 
@@ -622,7 +635,7 @@ def similar(
     else:
         print(f"[bold blue]Cards similar to {card['name']}[/bold blue] [dim](function: {', '.join(tags)})[/dim]")
         for c in results:
-            print(f"- [{c.get('tag_match_count', 0)}x] {c['name']} {c['mana_cost']} | {c['type_line']}")
+            print(f"- [{c.get('tag_match_count', 0)}x] {c['name']} {c['mana_cost']} | {c['type_line']}{fmt_price(c)}")
 
 
 
@@ -667,6 +680,6 @@ def complements(
     else:
         print(f"[bold blue]Cards that complement {card['name']}[/bold blue] [dim](looking for: {', '.join(comp_tags)})[/dim]")
         for c in results:
-            print(f"- [{c.get('tag_match_count', 0)}x] {c['name']} {c['mana_cost']} | {c['type_line']}")
+            print(f"- [{c.get('tag_match_count', 0)}x] {c['name']} {c['mana_cost']} | {c['type_line']}{fmt_price(c)}")
 
 

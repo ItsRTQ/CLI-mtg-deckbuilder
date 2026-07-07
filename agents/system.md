@@ -35,7 +35,10 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
 5. Do not save to `final-builds/` unless validation passes.
 6. Do not create helper scripts (`build_*.py`, `temp_*.py`) that generate or decide deck content. Read-only inspection of CLI output (piping `--json-output` to `jq` / `json.tool` to filter or pretty-print) is allowed.
 7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent docs during normal deckbuilding.
-8. Use official CLI commands instead of manual scripts: `deck-write`, `deck-fill-lands`, `validate`, `deck-check`, `export`, `final-build`, and `preflight`. To edit the list, use `deck-swap` (validates before writing) — never a `sed`/`python` replace. To read without scripting, use `cards-batch --verify`, `card --field`, `category-counts --table`, and `budget --by-card`. For analysis, use `analyze-card` (evidence-based card read), `deck-gaps` (audit vs commander plan), `similar` / `complements` (functional neighbors). Every command supports `--json-output`, and `--log` (any command) appends to the audit trail consolidated by `mtg report`.
+8. Use official CLI commands instead of manual scripts: `deck-add` (the drafting
+   primitive: batch per package, validates at entry, purposes + running budget),
+   `deck-annotate`, `deck-view`, `deck-write`, `deck-fill-lands`, `validate`,
+   `deck-check`, `deck-power`, `export`, `final-build`, and `preflight`. To edit the list, use `deck-swap` (validates before writing) — never a `sed`/`python` replace. To read without scripting, use `cards-batch --verify`, `card --field`, `category-counts --table`, `budget --by-card`, and `prices-batch --name "A" --name "B"` (cost hand-picked candidates BEFORE summing — never draft on memory prices; search results print each card's price). For analysis, use `analyze-card` (evidence-based card read), `deck-gaps` (audit vs commander plan), `similar` / `complements` (functional neighbors). Every command supports `--json-output`, and `--log` (any command) appends to the audit trail consolidated by `mtg report`.
 9. `synergy` is not a role. Use `--synergy` on a real role.
 10. Commander-zone cards are metadata, not `main_deck` cards.
 11. `commander_analysis.json` carries two archetype reads: prefer `analyzer.archetype_support`
@@ -58,6 +61,7 @@ output/deck_explanation.md
 output/validation_report.json
 output/commander_analysis.json
 output/commander_combos.json
+output/build-notes.json
 final-builds/<build-name>/
 ```
 
@@ -69,18 +73,22 @@ Use the tools in this order:
 
 ```text
 understand commander
-collect preferences
+collect preferences (incl. bracket target or n/a)
 plan packages
 search/suggest candidates
 rank cards
-build shell
-write deck JSON
+draft THROUGH the tool: deck-add per PACKAGE (--purpose at entry; --set-config
+  puts the build contract IN the deck; watch the running budget %)
+note combos AND rejected candidates with `mtg note` AS you spot them
+deck-annotate at the end of the draft (--auto, refine, --sync-notes)
+deck-view (inspect the annotated deck)
 fill lands
 deck-gaps (audit vs plan)
+deck-power (bracket compliance if targeted; consistency tier is consider-only)
 validate
 fix
 explain
-final-build
+final-build (ships deck_list.json — the annotated judgment travels)
 ```
 
 Do not skip validation. Do not treat suggestions as automatic includes.
@@ -106,6 +114,11 @@ otherwise be silently swallowed by a lazy parse. Non-zero exit codes accompany e
 Not-found card lookups return `{"found": false, "suggestions": [...]}` with FUZZY
 suggestions (in-word typos recover: "Krenkooo" → Krenko, Mob Boss) — offer the suggestion
 instead of retrying blind variations.
+
+The inverse also holds: a NON-ZERO exit whose JSON carries no `"error"` key is a
+DOCUMENTED WORKFLOW STATE, not a failure (a not-found lookup, `cards-batch --verify`
+with missing names). `mtg report --summary` classifies these as `status_exits`,
+separate from real `failures` — read audits accordingly.
 
 ### Bad candidates
 

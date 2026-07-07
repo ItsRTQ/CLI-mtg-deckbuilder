@@ -10,7 +10,6 @@ Design notes:
   otherwise the raw text — so machine-readable output stays machine-readable in the log.
 """
 import json
-import sys
 from datetime import datetime, timezone
 from io import StringIO
 from typing import Any, Dict, List
@@ -61,14 +60,39 @@ def append_log(command: str, full_command: str, raw_response: str, exit_code: in
     return seq
 
 
+def _is_status_exit(entry: Dict[str, Any]) -> bool:
+    """A non-zero exit that is a DOCUMENTED WORKFLOW STATE, not an error.
+
+    Several commands exit 1 to signal a state the agent is expected to act on:
+    `budget` when over budget, `cards-batch --verify` when names are missing,
+    `card` on a not-found lookup. Counting those beside real errors buried the
+    signal in full-build audits (Ragost: 8 "failures", only 6 real). Rule:
+      - JSON response WITHOUT an "error" key = status (the JSON error contract
+        guarantees every real error carries {"error": {...}}).
+      - Human-mode `budget` whose output is the normal summary = status.
+    Everything else non-zero (usage/validation/crash/SIGPIPE-truncated) stays a failure.
+    """
+    resp = entry.get("response")
+    if isinstance(resp, dict):
+        return "error" not in resp
+    if isinstance(resp, list):
+        return True  # well-formed JSON list output (e.g. batch results) — not an error shape
+    if entry.get("command") == "budget" and isinstance(resp, str) and "Budget Summary" in resp:
+        return True
+    return False
+
+
 def summarize_log(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Derive calibration metrics from the raw log (does not change capture).
 
-    Returns command call-counts, the cards passed to `analyze-card` (direct candidates for
-    miss review), and any commands that exited non-zero (real friction)."""
+    Returns command call-counts, the cards passed to `analyze-card` (direct candidates
+    for miss review), commands that exited non-zero with a REAL error (failures), and
+    non-zero DOCUMENTED-STATE exits (status_exits: budget over, verify-missing,
+    not-found) — kept apart so audits read signal, not noise."""
     command_counts: Dict[str, int] = {}
     analyze_cards: List[str] = []
     failures: List[Dict[str, Any]] = []
+    status_exits: List[Dict[str, Any]] = []
 
     for e in entries:
         cmd = e.get("command", "")
@@ -76,20 +100,19 @@ def summarize_log(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
         if cmd == "analyze-card":
             # the card is the first non-option token after the command in full_command
-            toks = e.get("full_command", "").split()
-            # drop 'mtg', the command, and options; take the quoted/first bare arg
             after = e.get("full_command", "").split("analyze-card", 1)[-1].strip()
             card = _first_arg(after)
             if card:
                 analyze_cards.append(card)
 
         if e.get("exit_code", 0) not in (0, None):
-            failures.append({
+            item = {
                 "seq": e.get("seq"),
                 "command": cmd,
                 "full_command": e.get("full_command"),
                 "exit_code": e.get("exit_code"),
-            })
+            }
+            (status_exits if _is_status_exit(e) else failures).append(item)
 
     return {
         "total_commands": len(entries),
@@ -98,6 +121,8 @@ def summarize_log(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         "analyze_card_count": len(analyze_cards),
         "failures": failures,
         "failure_count": len(failures),
+        "status_exits": status_exits,
+        "status_exit_count": len(status_exits),
     }
 
 

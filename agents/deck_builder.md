@@ -18,13 +18,31 @@ Do not invent cards. Do not create helper scripts.
    (target 85–100% utilization): allocate package budgets while drafting and take the
    strongest card each slot's share affords — never self-impose per-card caps far below
    what the budget allows (BUILDER.md §11). Derive `--max-price` for key-slot
-   shortlists from the budget (~15–20% of it), not from habit.**
+   shortlists from the budget (~15–20% of it), not from habit.** Price visibility at
+   pick time (full build #3 lesson): search-family results print each card's price;
+   for hand-picked staples run `mtg prices-batch --name "A" --name "B"` (known-price
+   total included) BEFORE adding them — NEVER sum a draft on memory prices (measured
+   off by 5x). At high brackets `--max-rank <N>` surfaces format staples — popularity
+   is CONSIDER-ONLY, never an include-verdict.
 8. Rank candidates.
-9. Build the nonland shell.
-10. Write `output/decklist.txt`.
-11. Convert using `deck-write --structured`.
+9. **Draft THROUGH the tool, package by package** (`mtg deck-add --cards "A;B;..."
+   --purpose <role>` — the package IS the role): validates at entry (exists / color
+   identity / singleton / size), and prints the batch price + RUNNING TOTAL with
+   budget % — watch it land in the 85–100% window as you draft. First call carries
+   `--set-config budget=... budget_mode=... bracket=...` (the contract lives IN the
+   deck) and `--deck-note` (theme/gameplan). Basics: `--cards "12 Mountain"`.
+   The old decklist.txt + `deck-write --structured` path still works but loses
+   entry-time validation, running budget, and purposes.
+10. WHILE drafting: `mtg note --type combo` the moment you SEE a combo, and
+    `mtg note --type decision` for REJECTED candidates (that evaluation is what the
+    Budget Upgrade Review re-pays when it isn't recorded).
+11. One annotation pass at the END of the draft: `deck-annotate --auto` (census
+    seeds ~85%), `--cards/--purpose-add/--note` for what only judgment sees
+    (commander-granted synergy, wincons), `--sync-notes` (combos → deck).
+    Inspect with `deck-view` (`--by-purpose`, `--card "Name"`).
 12. Fill basics with `deck-fill-lands`.
-13. Validate.
+13. Validate; run `deck-power` (consistency tier; bracket verdict if the config
+    targets one — must be COMPLIANT before finalizing).
 14. Fix errors.
 15. Run deck-check and budget checks.
 16. If under budget threshold (<~60% utilization), run Budget Upgrade Review: show under-budget upgrades and optional over-budget high-impact options, then ask the user what to apply (see BUILDER.md Section 11). The review is the FAILSAFE — if step 7 drafted to budget, it should rarely trigger.
@@ -148,9 +166,11 @@ mtg deck-gaps --deck output/deck.json --commander "<name>" --archetype <arch>
 ```
 
 It reports thin categories with ready fill-commands, and a **Commander plan check**: for each
-high/very_high analyzer band it counts the deck cards serving that plan (`plan_gaps` in JSON,
-each with a fill command). A plan gap means the deck ignores its commander's detected plan —
-fix it or consciously justify it before finalizing. Treat all output as candidates to judge,
+high/very_high analyzer band it counts the deck cards serving that plan AND LISTS THEM
+(`analyzer_support[].cards` and `plan_gaps[].cards` in JSON; human output prints a
+"counted: ..." line). A plan gap means the deck ignores its commander's detected plan —
+fix it or consciously justify it before finalizing, using the counted list to decide with
+data instead of guessing which cards were seen. Treat all output as candidates to judge,
 not automatic includes.
 
 Use role suggestions:

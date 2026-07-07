@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.deckbuilder.oracle_hooks import extract_hooks, extract_trigger_events
+from mtgcli.utils.phrase_match import any_phrase_matches
 
 
 @lru_cache(maxsize=1)
@@ -35,7 +36,7 @@ def matched_tags(card: Dict[str, Any], tag_definitions: Optional[Dict[str, List[
         card.get("type_line", "") or "",
         card.get("oracle_text", "") or "",
     ]).lower()
-    return [tag for tag, phrases in tags.items() if any(p.lower() in text for p in phrases)]
+    return [tag for tag, phrases in tags.items() if any_phrase_matches(phrases, text)]
 
 
 def card_function_profile(card: Dict[str, Any]) -> Dict[str, Any]:

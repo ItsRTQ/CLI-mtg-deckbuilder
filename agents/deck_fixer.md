@@ -136,7 +136,7 @@ Make every swap through the CLI, never by editing the list manually:
 ```bash
 mtg deck-swap --deck output/deck.json --swap "<out>=<in>" --commander "<name>"   # validates before writing
 mtg similar "<card being cut>"          # find functional replacements for a cut
-mtg deck-gaps --deck ... --commander ...  # re-audit after fixes: category gaps AND plan_gaps (analyzer plan check) closed?
+mtg deck-gaps --deck ... --commander ...  # re-audit after fixes: category gaps AND plan_gaps closed? (each band LISTS its counted cards — verify the fix actually registered)
 ```
 
 The fix loop ends at `mtg preflight` printing READY — never on memory of having checked.

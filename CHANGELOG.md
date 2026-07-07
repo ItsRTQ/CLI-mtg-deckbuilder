@@ -2,6 +2,492 @@
 
 ## 0.8.0
 
+### Added
+- **Full build #4 = the Consistency Engine's ACCEPTANCE TEST: Kiki-Jiki, Mirror
+  Breaker (virgin, mono-R combo-first, salt alta, tutors-first, $150 soft,
+  bracket n/a — the new §5 bracket question's production debut) — READY at
+  $149.04 (99.4% utilization, a PERFECT draft-TO-budget landing) and TIER +S
+  (9.78/10), earned:** 9 auto-win routes (6 with the commander always
+  available), Q_wincon 0.998 with 5 tutor wildcards, functions 0.83–0.94, curve
+  8.19. **Ragost F (4.61, no combos/tutors) vs Kiki +S — the tier discriminates
+  exactly along the user's axis.** The new flow validated itself: deck-add's
+  guardian caught TWO color violations AT ENTRY (Hyrax Tower Scout is G,
+  Village Bell-Ringer is W — the class of error that reached `validate` in
+  build #2); the running total exposed a budget explosion INSTANTLY
+  ($197/131% when Purphoros turned out to be $27 vs a ~$5 memory) and the trim
+  landed 99.4%; pre-draft `prices-batch --name` discarded Deflecting Swat (44%
+  of budget) and Jeska's Will (26%) before they were touched; 6 combos noted
+  the moment they were seen and synced into the deck; validate 0 errors and
+  preflight READY first try; the build folder ships deck_list.json. Live
+  calibration catch: **Kiki reads `Legendary Matters: high` from "target
+  NONlegendary creature" — a negation with no guard in LEGENDARY_MATTERS**
+  (queued). Acceptance frictions (backlog): no `deck-remove` CLI command (the
+  Deck object has it), and deck-swap's OUT side doesn't match DFC front-face
+  names — both noted with `mtg note` DURING the build, as designed.
+  (`final-builds/Kiki-Jiki-Mirror-Breaker-Twin-Lines-Combo-T1-v1/`,
+  `logs/testbuild-kiki-fullbuild-4.json`)
+
+### Changed
+- **Consistency-engine Fase 5 (A+B): cleanup + the big agents-sync.** Cleanup:
+  pyflakes sweep, three real items removed (an unused Optional import, dead
+  `toks`/`sys` in logging_util) — the _shared/models re-export warnings are the
+  deliberate star-import surface, untouched. Agents-sync (intentional redundancy
+  preserved): **BUILDER gains §6.0 — the annotated-deck flow as the PRIMARY
+  workflow** (deck-add per package with the contract in `--set-config` → note
+  combos AND rejected candidates as spotted → one deck-annotate pass →
+  deck-view → deck-power → the classic close; the legacy decklist.txt path stays
+  documented with what it loses); CLAUDE.md steps 5-6 rewritten to match;
+  agents/system.md rule 8 + the full build mindset (final-build ships
+  deck_list.json); agents/deck_builder.md steps 9-13 (draft THROUGH the tool,
+  the rejected-candidates note rule, annotate at the end, deck-power before
+  finalizing). Docs + 3 code lines; suite 1302 green. Remaining: test build #4
+  as the plan's acceptance. (`BUILDER.md`, `CLAUDE.md`,
+  `agents/{system,deck_builder}.md`, `models/consistency.py`, `logging_util.py`,
+  `logs/fase5-cleanup-agents-sync.json`)
+
+### Added
+- **Consistency-engine Fase 4: the tooling — `mtg deck-add`, `mtg deck-annotate`,
+  and deck-power wired to the consistency tier.** (1) **Survival fix
+  (prerequisite):** `deck-swap` rebuilt `{commander, main_deck}` from scratch and
+  silently DROPPED every other top-level key (combos, agent_note, config) — the
+  exact silent-death bug the Fase-2 design feared, caught by the survival test
+  (fill-lands preserved everything); it now carries the original JSON whole, and
+  the swapped-in card inherits the slot's purpose. (2) **`deck-add`** — THE
+  drafting primitive (drafting was 100% agent memory): batch per PACKAGE, ATOMIC
+  through the Deck object's guardians (exists / color identity / singleton /
+  size), `"12 Mountain"` syntax for basics, `--purpose` at entry (the package IS
+  the role), `--set-config` (the build CONTRACT — budget/mode/bracket — travels
+  IN the deck via Deck.config, killing the mid-build compaction risk and
+  replacing the planned sidecar file), and **batch price + running total with
+  budget %** — draft-TO-budget made mechanical (live: 1.8%→12.4%→43.7%→60.5%
+  package by package). (3) **`deck-annotate`** — `--auto` seeds derivable
+  purposes from the measured census (merge-only; lands count as RAMP only via
+  the ramp_rules single source), `--cards/--purpose-add/--note` batch
+  refinement, `--sync-notes` pulls the notebook's combos into the deck (dedup)
+  and marks COMBO_PIECE. (4) **deck-power** prints the CONSISTENCY tier (routes,
+  broken routes, per-turn functions, curve) when the deck is annotated, falls
+  back to the legacy census tier with a notice otherwise, and reads the bracket
+  target from Deck.config. Smoke pin 36→38. The new CLI tests immediately caught
+  a NameError of the historical split class (deck.py missing `_emit_json_error`)
+  — fixed. Plus **`mtg deck-view`** (user-spotted gap: scores existed but nothing
+  SHOWED the annotated deck): commanders + config + budget utilization, metrics
+  (by_purpose, primary-type counts, curve + score), combos, Moxfield-format list
+  or `--by-purpose` grouping, and `--card "Name"` printing the CARD object's
+  build-facing summary (with its agent_note); JSON mode returns the full dict +
+  metrics. Smoke pin 34→39 across the phase. And **`final-build` now ships
+  `deck_list.json`** in the build folder (user request): the ANNOTATED deck JSON
+  — purposes, agent notes, config and combos travel with the finished build
+  beside the .txt list and the explanation guide. 10 CLI tests; suite 1302
+  green. (`cli/commands/{deck,misc}.py`, `models/{card,deck}.py`,
+  `tests/{test_fase4_commands,test_cli_smoke}.py`, `logs/fase4-tooling.json`,
+  `logs/fase4-deck-view.json`, `logs/fase4-final-build-ships-json.json`)
+
+### Added
+- **Consistency-engine Fase 3: the tier math (`models/consistency.py` +
+  `data/seed/tier_weights.json`).** TIER = deck consistency, exact hypergeometrics
+  over the agent's annotation: **CORE is a weighted GEOMETRIC mean** (consistency
+  is conjunctive — `10 × Q_wincon^0.45 × P_bundle^0.30 × curve^0.25`; a deck with
+  no wincon access is F by structure, the user's GC-pile thesis test-pinned) plus
+  a small capped ADDITIVE bonus (arsenal routes, raw GCs — low per user).
+  Q_wincon weights each win route by CLASS quality (auto-win infinite 1.0 >
+  infinite 0.85 > value wincon 0.6 > non-infinite 0.55 — reaching Toxrill ≠
+  reaching an auto-win); assembly probability is the exact multi-piece joint with
+  **tutors (SEARCH) as wildcards** (two-group sum, not a heuristic); DRAW velocity
+  multiplies through n_seen(T) instead of scoring separately; function bundle at
+  Magic-argumentable turn targets (RAMP@T2 — the user's table definition incl.
+  Cultivate-class land search —, DRAW/REMOVAL@T3, SYNERGY@T4, wincon@T7). Every
+  constant is DECLARED in the seed file with provenance. Reliability guards: zero
+  declared routes → tier None with a reason (never a fake F); **broken routes
+  (pieces not in the deck) are reported as the "one card away" signal and never
+  scored — a real bug caught on the first live run** (Heliod+Ballista scored
+  0.296 with Ballista absent; the honest tier dropped 8.95→8.15). `Deck.tier()`
+  exposes the full report (components, weights, notes). 11 hand-pinned tests;
+  suite 1290 green. (`models/{consistency,deck}.py`,
+  `data/seed/tier_weights.json`, `tests/test_consistency.py`)
+
+### Added
+- **Consistency-engine Fase 2: the CARD and DECK build-context objects
+  (`src/mtgcli/models/`, user design).** **CARD**: agent judgment (purpose — one
+  or MANY from a controlled vocabulary; optional agent_note) + DB-hydrated facts
+  (oracle, P/T, loyalty, keywords, produced_mana, edhrec_rank, all_parts GROUPED
+  by component and self-filtered, image_src, mana cost/value, color identity,
+  price, game_changer — GC auto-adds itself as a purpose from the flag). Names
+  arrive PRE-VERIFIED; a miss fails loud Krenkooo-style (fuzzy did-you-mean + fix
+  instructions). `__str__` is the build-facing summary (type from type_line,
+  stats, oracle, note-wins-over-purpose). **DECK**: composition (deliberately NOT
+  a List subclass); 1-2 commanders (partner/background; max_size 99/98); mutation
+  only through batch-friendly ATOMIC `add()`/`remove()` guarding size
+  (quantity-aware, commanders excluded), singleton (basics MERGE quantities) and
+  color identity; deck-level combos grouped by class ({infinite, non_infinite,
+  utility, auto_win} of {cards_needed, how_to}); metrics per spec —
+  total_by_purpose, total_price, card_types (Moxfield-style PRIMARY type),
+  mana_curve and the user's TVD-based `mana_curve_score` (10 = ideal shape;
+  IDEAL_CURVE is the one declared judgment constant; None on an empty deck, never
+  a fake 10); print = card count + Moxfield-format list. Both objects are
+  EPHEMERAL: serialization persists judgment only (facts re-hydrate from the DB
+  on load — the user keeps the DB fresh). 26 regression tests; suite 1279 green.
+  (`models/{__init__,card,deck}.py`, `tests/{test_card_model,test_deck_model}.py`)
+
+### Added
+- **Consistency-engine Fase 1: five new ingest fields wired through the whole
+  pipeline (DB rebuild left to the user's manual reset).** `keywords` (Scryfall's
+  parsed keyword list — the analyzer currently regexes oracle text for keywords
+  that arrive structured here), `loyalty` (face-aware, the get_power_toughness
+  pattern), `produced_mana` (None when absent), `all_parts` (slimmed to
+  component/name/type_line/id — PARKED for v0.9.0) and `image_url` (front-face
+  normal with DFC face-fallback — PARKED for v0.9.0). The printings merge is
+  hardened: first-printing-wins left gaps for per-printing fields (image_url) when
+  the first printing lacked them — now fills from any later printing. The existing
+  migration guard ALTERs the new columns into an old DB on rebuild; a fresh build
+  creates them directly. Schema sync 31==31==31; 6 unit tests on fakes (zero DB
+  dependency); suite 1253 green. (`data/{normalize_cards,build_sqlite}.py`,
+  `tests/test_fase1_ingest_fields.py`, `logs/fase1-ingest-wiring.json`)
+
+### Added
+- **Draw-odds panel in `deck-power` (user framing: probabilities are interpretable
+  where raw density is not).** Exact hypergeometric — per-draw %, P(≥1 in the
+  opening 7), expected count — for plan/synergy cards, combo pieces and game
+  changers. Counts are quantity-weighted over the WHOLE deck (draws include lands,
+  more honest than density-over-nonland) and the commander is excluded from k
+  (command zone, not drawable). Ragost live: plan cards 18/99 → 18.2% per draw,
+  76.6% opening-hand chance, 1.27 expected. Honest framing kept in the output: a
+  representation change, not new information — k is still the text-visible census.
+  2 regression tests (math pinned against `math.comb`); suite 1247 green.
+  (`deckbuilder/deck_power.py`, `cli/commands/deck.py`, `tests/test_deck_power.py`,
+  `logs/feature-draw-odds.json`)
+
+### Added
+- **The two categorizers (user design): `mtg deck-power` (bracket compliance +
+  tier) and `mtg note` (building notes) — plus the `game_changer` ingest.**
+  (1) **Bracket compliance** — deterministic official-criteria checks: Game
+  Changers (WotC's flag, newly ingested — 53 cards; new column + a MIGRATION GUARD
+  in build_sqlite that ALTERs missing columns into an existing DB on rebuild), mass
+  land denial, extra-turn cards, complete 2-card infinite/auto-win combos, tutors
+  (informational) → computed minimum bracket (1-2 / 3 / 4-5) and a COMPLIANT
+  verdict against `--bracket <target>`. BUILDER's core question 1 now asks for the
+  BRACKET with an `n/a — I don't care` default (brackets are a social contract, not
+  a requirement); user-feedback.md carries the bracket→power-level mapping.
+  (2) **Tier** — 0.0–10.0 in 0.5 bands per user spec (+S ≥9.5 … D 5.0, F below):
+  synergy density + classed combos (auto_win > infinite > non_infinite > utility)
+  + game changers, CONSIDER-ONLY by contract. The formula encodes the user's power
+  philosophy: a GC pile without synergy stays F (test-pinned) and no-combo decks
+  cap ≈+C. Calibration honesty: density measured 0.25–0.43 on the 4 real builds;
+  commander-granted synergy (Ragost's rocks-are-Foods) is text-invisible and
+  underreads — documented in the output itself. (3) **`mtg note`** — the
+  carpenter's tally: record combos/decisions/findings DURING the build
+  (`--type combo --cards "A;B" --combo-class ...`); combo notes are first-class
+  deck-power sources deduped against the external fetch (noted classification
+  wins), with graceful offline degrade and a "one card away" near-miss list (live
+  on Ragost: missing Walking Ballista for the Heliod auto-win). Ghost-name guard:
+  `--cards` validates names against the DB and warns (caught live on first use —
+  a bad separator created ghost cards silently). deck-gaps' plan check refactored
+  onto the new single-source `deckbuilder/plan_coverage.py` (verified identical),
+  which deck-power's synergy density shares — no drift possible. Smoke pin
+  34→36 commands (deliberate). 22 regression tests; suite 1245 green.
+  (`data/{normalize_cards,build_sqlite}.py`, `deckbuilder/{deck_power,build_notes,
+  plan_coverage}.py`, `cli/commands/{deck,misc}.py`, `BUILDER.md`,
+  `agents/{system,user-feedback}.md`, `tests/{test_deck_power,test_cli_smoke}.py`,
+  `logs/feature-deck-power-categorizers.json`)
+
+### Changed
+- **Agent files synced to today's tooling (audit-driven, redundancy preserved).**
+  The audit found the role files unaware of every feature shipped 2026-07-06; fixed
+  surgically: (1) `agents/deck_builder.md` step 7 gains the price-at-pick-time rule
+  (search rows print prices; `prices-batch --name` before summing; `--max-rank`
+  consider-only) and its deck-gaps section documents the counted-cards lists for
+  fix-or-justify; (2) `agents/system.md` rule 8 adds `prices-batch --name` to the
+  no-scripting helpers, and the JSON error contract gains the INVERSE rule: non-zero
+  exit + JSON without `"error"` = documented workflow state (`status_exits` in
+  report summaries), not a failure; (3) `agents/card_ranker.md` inputs gain
+  edhrec_rank labeled consider-only; (4) `agents/deck_fixer.md` re-audit notes the
+  counted-cards list verifies a fix registered; (5) `BUFF.md` judges plan_gap leads
+  against the counted list, not the number; (6) `agents/user-feedback.md` wires the
+  staple-policy answer to the tooling (answer (a) → `--max-rank`; answer (c) → a low
+  staple_density is the REQUESTED outcome, not a problem). Docs-only; suite 1232
+  green. (`agents/{deck_builder,system,card_ranker,deck_fixer,user-feedback}.md`,
+  `BUFF.md`)
+
+### Added
+- **EDHREC-rank popularity signals (the two v0.8.0 tentativo items), scoped
+  CONSIDER-ONLY by user direction.** (1) `deck-check` gains **`staple_density`**:
+  median edhrec_rank + % top-2000 over nonland cards, with a qualitative read —
+  printed as a dim informational line and JSON block, deliberately NEVER a warning
+  and NEVER gating preflight ("popularity ≠ power; synergy-dense decks read low by
+  design" is in the output itself). Thresholds calibrated against the four real
+  agent builds (Felothar T3 43.3%, Galadriel T3 65.6%, Mendicant T2 71.4%, Ragost T1
+  72.6% — the signal orders the brackets correctly; ≥65 staple-dense / 40–65 mixed /
+  <40 outlier flag, coarse on purpose at n=4). Honest note: the initial thresholds
+  from intuition were useless (everything read staple-heavy) — real decks are full
+  of staples BY COUNT; calibration beat prediction. (2) **`--max-rank`** on
+  `search`/`search-tags` (unknown ranks kept — 17% of the DB is unranked). Bug
+  caught in live verification: the post-filter STARVED the result list (a rank cap
+  on a limit-5 fetch returned nothing); fixed with conditional oversampling in all
+  three search branches — plain `search`'s `--max-price` had the same pre-existing
+  starvation and gets the fix for free. BUILDER.md search axes updated. 8 regression
+  tests incl. the never-a-warning contract; suite 1232 green.
+  (`deckbuilder/deck_check.py`, `cli/_shared.py`, `cli/commands/{search,deck}.py`,
+  `BUILDER.md`, `tests/test_staple_density.py`, `logs/polish-edhrec-signals.json`)
+
+### Fixed
+- **Trigger-doubler CAST context (the last Fase-0.2 known-gap) — the doubler's four
+  contexts are now complete: attack / death / enter / cast.** New
+  DOUBLES_CAST_TRIGGERS branch in `detect_trigger_doubler` (per-line "cast" check,
+  the same structural pattern as the other contexts) → Spellslinger SUPPORTING (a
+  defining promotion would overband type-scoped doublers). Veyran fires the signal —
+  his Spellslinger high is now signal-backed beside magecraft; Echoes of Eternity
+  correctly excluded (its doubler line reads "colorless spell you CONTROL"; the
+  'cast' sits on its separate copy line), Gandalf the White turned out to be an ETB
+  doubler in his real text (a memory misread the per-line check classified correctly
+  on its own), Harmonic Prodigy's reminder-cast excluded. Controls green: Isshin,
+  Panharmonicon, Teysa Karlov. Veyran pin upgraded with expected_signals; suite 1224
+  green. (`analyzer/content.py`, `analyzer/mapping.py`,
+  `data/golden/golden_cards.json`, `logs/polish-doubler-cast-context.json`)
+
+### Fixed
+- **Audit signal/noise + compression prominence (v0.8.0 polishing, the two BAJA
+  items — the full-build-#3 retro backlog is now CLOSED).** (1) `report --summary`
+  separates **status exits** from real failures: a non-zero exit whose JSON response
+  has NO `"error"` key is a documented workflow state (card not-found, `cards-batch
+  --verify` with missing names) — the JSON error contract itself is the classifier;
+  plain-text non-zero output (SIGPIPE-truncated, rich panels) stays a failure. The
+  human summary prints status exits as a separate dim line. Honest correction
+  recorded: `budget` never exits non-zero (verified both modes) — the two
+  "over-budget exits" in the Ragost audit were also pipe-to-`head` SIGPIPEs; all 8
+  were pilot noise, zero tool anomalies (the budget-text branch stays as a forward
+  guard). (2) `category-counts --table` demotes the compressed target to a trailing
+  lowercase **`comp*`** column with a self-documenting footnote ("guidance only —
+  build to Need/Range; a High/Critical category can compress to a misleading tiny
+  target") — the third confirmation of the misleading-compression issue, now encoded
+  in the output itself instead of only in the contract docs. 6 regression tests;
+  suite 1224 green. (`logging_util.py`, `cli/commands/misc.py`,
+  `category_counts/output.py`, `tests/test_report_summary_split.py`,
+  `logs/polish-baja-items.json`)
+
+### Fixed
+- **The qualifier-interruption GENERAL mechanism (v0.8.0 polishing, the structural
+  MEDIA item — 5 sightings incl. 1 in production) + deck-gaps now shows WHICH cards
+  it counted.** New single-source module `utils/phrase_match.py`: a tag phrase may
+  carry the `" * "` wildcard — literal parts in order with a BOUNDED same-clause gap
+  (40 chars, never crossing `.`/`;`/newline; unbounded would recreate the
+  naked-substring FP class). ALL SIX phrase consumers ported (cards/search SQL via
+  `phrase_to_like` + rank re-check, deck_check ×2, card_profile — the analyzer's
+  matched_tags —, suggestion_scorer, ramp_rules, deck-gaps) so the multi-consumer
+  drift class is structurally closed for phrase matching; plain phrases behave
+  byte-for-byte as before. First wildcard phrases, both measured: reanimation
+  "creature card * from your graveyard to/onto the battlefield" (273+2 genuine —
+  **Mirko, the founding #21 member, reads Reanimator very_high**; Alesha improves
+  free; Otrimi's to-HAND control stays excluded) and lifegain_payoff "you gained *
+  life this turn" (57/57 — **Angelic Accord, the production sighting, reads Lifegain
+  Matters high**). Same round: deck-gaps' plan check returns and prints the counted
+  cards (`analyzer_support[].have/cards`, `plan_gaps[].cards`, human "counted:"
+  line) — verified live on Ragost (Lifegain 4→6, gap resolved by data not guesswork).
+  Mirko pin updated + Angelic Accord/Alesha sentinels → 376, sanity "377 passed";
+  9 mechanism tests; suite 1218 green. (`utils/phrase_match.py`, `cards/search.py`,
+  `deckbuilder/{deck_check,card_profile,suggestion_scorer,ramp_rules}.py`,
+  `cli/commands/deck.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `tests/test_phrase_match.py`,
+  `logs/polish-media-items.json`)
+
+### Added
+- **Price visibility at pick time (v0.8.0 polishing — the two ALTA items from the
+  full-build-#3 retro).** (1) Every search-family result row now prints a **price
+  chip** (`$1.23` / `$?` when unknown) via a shared `fmt_price` helper — `search`,
+  `search --trigger`, `search-tags`, `similar`, `complements`. The shortlists
+  already FILTERED by `--max-price` but never showed the price, so hand allocation
+  ran on memory prices (measured off by 5x: Flawless Maneuver remembered ~$4,
+  actual $20.30). (2) **`prices-batch --name` (repeatable; the file argument is now
+  optional and both combine)** — cost hand-picked candidates BEFORE they join a
+  list; human output ends with a known-price TOTAL in both modes; JSON stays a
+  plain list in file mode (backward compatible) and returns `{results, known_total,
+  unknown_count, not_found_count}` in `--name` mode; ad-hoc not-found names get the
+  fuzzy did-you-mean suggestions. No new command — the 34-command smoke pin is
+  intact. Live check reproduced the build friction in one shot: three `--name`
+  lookups → $60.20, the exact surprise money from the Ragost draft. One bug caught
+  during verification (suggest_similar_names returns dicts — join crashed; fixed).
+  BUILDER §6/§11 and CLAUDE.md updated: never sum a draft on memory prices.
+  8 regression tests; suite 1207 green. (`cli/_shared.py`,
+  `cli/commands/search.py`, `cli/commands/cards.py`, `BUILDER.md`, `CLAUDE.md`,
+  `tests/test_price_visibility.py`, `logs/polish-price-visibility.json`)
+
+### Added
+- **Full build #3 (post-30-batch milestone): Ragost, Deft Gastronaut (virgin, RW
+  artifacts-as-Foods group slug, user-picked) — READY at $146.63/$150 soft (97.8%
+  utilization), T1, ZERO tool errors, preflight first try — and the draft-TO-budget
+  Budget Contract PASSED its acceptance test.** The Upgrade Review never triggered;
+  package allocation happened while drafting (key slots Solphim $25.59 / Heliod
+  $20.66 / Aetherflux $19.68 inside the 15–20% guidance; Smothering Tithe at 33% of
+  budget correctly skipped). Honest asterisk: the first COSTED sum hit $219 because
+  hand-picked staples carried memory price guesses (Flawless Maneuver $20.30 vs ~$4
+  remembered) — the `--by-card` flag caught it and 7 deck-swaps landed 97.6% before
+  deck-write, inside the same drafting pass. **Friction lesson: allocation needs
+  price visibility at pick time — run `prices-batch` over hand-picked staples before
+  summing.** The analyzer ran the build end-to-end in production: the triple read
+  (Artifacts + Group Slug + **Lifegain Matters — an archetype created HOURS earlier
+  in the post-30 fix round**) drove every package, and the M2 plan check raised a
+  real plan_gap (4 lifegain payoffs < 5) that improved the deck (Second Breakfast →
+  Exemplar of Light). Calibration sighting: **Angelic Accord's "gained 4 OR MORE
+  life" is the qualifier-interruption family's 5th member and FIRST production
+  sighting** — the deck-gaps counter undercounts a genuinely-covered category.
+  Two pilot memory-of-effects errors caught by the spot-check discipline before
+  building (Throne of the God-Pharaoh counts tapped CREATURES; Currency Converter is
+  discard-based); 6 SIGPIPE audit artifacts from piping through `head` (the Felothar
+  lesson, repeated). verify-early 76/76.
+  (`final-builds/Ragost-Deft-Gastronaut-Food-Cannon-T1-v1/`,
+  `logs/testbuild-ragost-fullbuild-3.json`)
+
+### Fixed
+- **Post-30 fix round: the mature two-member gap queue closed — 2 NEW archetypes,
+  6 measured tag extensions, 1 structural tribal fix, 2 measured rejects.** NEW:
+  **Devotion** ("devotion to" 67/67 — Nylea's #21 honest empty closed; Klothys and
+  Athreos read their god clauses; Gray Merchant pinned as payoff control) and
+  **Coin Flips** (payoff forms only, 8 — Yusri/Okaun/Zndrsplt; naked "flip a coin"
+  81 rejected like the d20-roller class). Extensions: spell_payoff += "instant and
+  sorcery spells you cast cost" (22/22 all less-direction — **the Electromancer
+  gap closed: Vadrik and Baral read Spellslinger high**); clone_copy += "becomes a
+  copy of" (73 — **Volrath and Brudiclad read Clones high**, Krark guard
+  untouched); group_hug += "attacking player draws" (Breena's Goad + Politics +
+  Counters triple); death_trigger += "another creature you own dies" (Athreos →
+  Aristocrats high); land_payoff += "land you control is put into a graveyard"
+  (Titania → Lands + Go Wide, her full truth); investigate += "you sacrifice a
+  clue" (14/14). STRUCTURAL: the tribal capture's lazy `+?`/`s?` ate the trailing
+  s of s-ending types ("Fungus"→"fungu") and -ves plurals ("elve"/"wolve") — word
+  resolution now tries raw/s-stripped/s-restored/ves→f candidates (Thelon reads
+  Fungus Tribal high) plus a whitelist-filtered global-anthem pattern "(all|each)
+  <Type> get" (Slivers/Saprolings/Nightmares class). REJECTED measured-dirty:
+  "target opponent draws" (4/8 are drawback riders — Thought-Knot Seer pinned as
+  guard) and naked "flip a coin". Deferred: the general qualifier-interruption
+  mechanism (every member so far closed via cheap measured variants). Twelve pins
+  updated + 2 new guards → 374 sentinels, sanity "375 passed"; suite 1199 green.
+  (`analyzer/content.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `logs/post-30-fixround.json`)
+
+### Added
+- **Calibration batch #30 (blind-first): FAIL (CW 1) — fixed at BOTH layers, and
+  THE 30-BATCH PLAN IS COMPLETE (7 PASS / 7 FAIL-fixed post-gate, zero unfixed
+  lies).** Rights: Kotori (**Vehicles validating fresh**), Klothys (symmetric-pinger
+  slug + punisher warning), Kumena (mode 3's clean "each Merfolk you control" fired
+  tribal, beating the blind's qualifier-interruption prediction), Eloise
+  (Aristocrats + clue value engine), Edgar, Charmed Groom (Vampire Tribal + Go Wide
+  — and the DFC control: the Coffin's bloodline counter read SELF, per-face
+  card_name plumbing works). The CW: **Grimgrin read `Stax: high` from his OWN
+  "enters tapped and doesn't untap during your untap step" at BOTH layers** —
+  UNTAP_RESTRICTION was missing from the SELF_RESTRICTION guard's signal list (the
+  #18 audit-the-alternation lesson on a guard's SIGNAL list) and the stax tag
+  carried a naked "doesn't untap" (the scope-check-only-in-signal-layer annotation
+  finally producing a real lie). Fixed both: guard extended (self subject before +
+  "during your untap step" after — Winter Orb/Frost Titan keep true Stax;
+  _self_subjects gains this artifact/land/enchantment for the Mana Vault class) and
+  the tag split directionally (its-controller 179 / their-controllers 35 stay;
+  your-untap-step 54 out). Controls all green; Grimgrin reads Aristocrats medium.
+  New known-gaps: coin-flip (Yusri), generic incoming-damage 3rd form (Michiko),
+  land-GY 3rd form (Titania), global symmetric anthem (Thelon), devotion 2nd member
+  (Klothys). Twelve sentinels (10 batch + Winter Orb/Mana Vault controls) → 372,
+  sanity "373 passed"; suite 1197 green. (`analyzer/semantics.py`,
+  `data/seed/card_tags.json`, `data/golden/golden_cards.json`,
+  `logs/calibration-batch-30.json`, `logs/calibration-batch-30-fixround.json`)
+
+### Added
+- **Calibration batch #29 (blind-first): FAIL (CW 3, two predicted) — the attack
+  DIRECTION family completed with its 4th direction, and the batch-11 name class
+  fixed at a second site.** Rights: Beckett Brass (Pirate + Theft + Attack triple
+  true), Wort (conspire copy-slinger), Cadira (deployment side of #19). The CWs, all
+  ONE direction-scope family: (1) **Medomai** read `Stax: high` from his OWN "can't
+  attack during extra turns" — the SELF_RESTRICTION guard's split(",")[0] subject
+  never matches no-comma legends referenced by first name (the batch-11 class in
+  semantics.detect_negation); fixed with a first-name fallback, Gadrak/Peacekeeper
+  controls green. (2) **Breena** (predicted) read `Attack: high` from "whenever a
+  player attacks one of your opponents" — the THIRD-PARTY direction; new
+  THIRD_PARTY_ATTACK_INCENTIVE signal → Goad / Forced Combat defining (measured 14,
+  all incentive class) — the attack family now covers all four directions
+  (self/board/incoming/third-party); Breena reads Goad + Counters, Marisi/Cadira
+  intact. (3) **Teysa EoG** (predicted) read `Attack + Go Wide: high` from "a
+  creature deals combat damage to YOU... create a Spirit" — the saboteur-INVERSE
+  incoming form escaped the #22 guard and her compensation Spirits fed the token
+  conjunction; incoming regex extended (7/7 defensive measured) + a new
+  incoming-compensation token guard (2/2: Teysa, Search the Premises); she reads
+  Pillowfort high, Isperia intact. Partials seeded the queue: Baral = **2nd
+  Electromancer member** (typed spell cost-reduction, now firmly measurable),
+  Brudiclad = 2nd "becomes a copy" member, Atraxa PV = the proliferate-only class,
+  Go-Shintai = Shrine identity (enchantment-type tribal). Ten sentinels with 3
+  signal-asserting CW pins → 360, sanity "361 passed"; suite 1185 green.
+  (`analyzer/semantics.py`, `analyzer/content.py`, `analyzer/mapping.py`,
+  `data/golden/golden_cards.json`, `logs/calibration-batch-29.json`,
+  `logs/calibration-batch-29-fixround.json`)
+
+### Added
+- **Calibration batch #28 (blind-first): PASS — right 5, partial 3, empty 2, CW 0 —
+  seventh post-gate PASS; both #27 archetypes and MODAL_TOOLBOX validated fresh, and
+  the #19 attack boundary held on BOTH sides in one batch.** Rights: Vadmir (**Crimes
+  Matter validating fresh**; his crime counters go on himself — correctly SELF),
+  Trelasarra (**Lifegain Matters validating fresh**), Fain, the Broker
+  (**MODAL_TOOLBOX validating fresh** on a virgin member of the measured 4-commander
+  class — menu warning fired, per-mode bands are options per §7.0b), Neheb the Worthy
+  (Minotaur Tribal; his saboteur "deals combat damage → each player discards" is
+  VALUE, no Attack band), Runo//Krothuss (DFC split; copies entering tapped and
+  attacking = creature DEPLOYMENT feeding combat — Attack high TRUE — plus Clones).
+  Partials/empties all honest with mechanisms identified: Light-Paws (aura-cast-enters
+  payoff form), Marina Vendrell (rooms/doors class + enchantment-dig-to-hand form),
+  Ms. Bumbleflower (gift-draw hug form "target opponent DRAWS" — group_hug only has
+  "may draw"; her Spellslinger high is the Birgi no-rider precedent), Ulamog CH
+  (defending-player exile-mill + eldrazi-titan class), Athreos ("another creature YOU
+  OWN dies" — **qualifier-interruption 4th member**, the general regex-tag mechanism
+  gains pressure). Zero changes per PASS protocol; ten sentinels → 350, sanity "351
+  passed"; suite 1175 green. (`data/golden/golden_cards.json`,
+  `docs/MIGRATION-archetypes.md`, `logs/calibration-batch-28.json`)
+
+### Added
+- **Calibration batch #27 (blind-first): FAIL (CW 1) — the counter-DIRECTION family
+  reaches the counter-sense layer; fixed structurally, plus two new archetypes.**
+  Rights 6: Anthousa (**Targeted Spell Payoff / Heroic validating fresh**), Satsuki
+  (**Sagas Matter validating fresh**; her Counters high is lore-counter MANIPULATION —
+  the Vorel class, proliferate genuinely accelerates Sagas), Higure (**Ninjutsu
+  validating fresh** + Ninja Tribal via the #19 tutor pattern; his saboteur
+  self-trigger correctly did NOT band Attack), Henzie (Creature Spells + Aristocrats
+  both true — tags-see-reminder landing defensible: blitzed creatures die every turn),
+  Phylath (Landfall via the M5 ability-word strip), Inalla (Wizard Tribal + Clones +
+  Life Loss triple; the EPHEMERAL guard kept her end-step copies out of Go Wide).
+  Aragorn KoG validated MONARCH fresh (partial: his can't-block-as-offense half is a
+  measurable gap). The CW: **Jhoira of the Ghitu read `Counters Matter: high` from
+  "put four time counters on" — but suspend time counters COUNT DOWN (fewer = casts
+  sooner); proliferate is actively anti-plan.** Fixed with a new **COUNTER_CLOCK**
+  sense: put-time-counters + suspend-countdown context on the same reminder-stripped
+  line (alternation audited per the #18 lesson — it catches Alaundo's textual grant
+  "last time counter is removed" and Curse of the Cabal's "is suspended") never feeds
+  Counters Matter. Measured 39 put-forms: 12/12 countdown-grants excluded, 27
+  accumulators kept (Rose Tyler, Kate Stewart, As Foretold — more counters IS their
+  plan). Coverage: NEW archetypes **Crimes Matter** (`crime_payoff` — "you commit a
+  crime" 19 + "you've committed a crime" 7, opponent form excluded; the class hit its
+  2nd commander-member per the conditional-rider precedent — Marchesa DoD empty→high,
+  Magda reads Crimes + Treasures) and **Lifegain Matters** (pure mapping fix, Fynn
+  precedent — `lifegain_payoff` existed unmapped; Amalia reads her truth, Vito gains
+  Lifegain high beside his true drain). Process: "Marchesa, Resolute Monarch" turned
+  out to be a battle back-face — the not-found path caught it (verify-early), replaced
+  with Aragorn. Twelve sentinels (10 batch + Kate Stewart/Alaundo clock-split
+  controls) → 340, sanity "341 passed"; suite 1165 green.
+  (`analyzer/semantics.py`, `analyzer/mapping.py`, `data/seed/card_tags.json`,
+  `data/golden/golden_cards.json`, `logs/calibration-batch-27.json`,
+  `logs/calibration-batch-27-fixround.json`)
+
+### Added
+- **Calibration batch #26 (blind-first): PASS — right 6, partial 4, empty 0, CW 0 —
+  sixth post-gate PASS, fourth consecutive; three post-#25 archetypes validated on
+  virgin commanders in one batch.** Rights: Beluna Grandsquall (**Adventures Matter
+  validating fresh**; his imperative "Mill seven cards" self-fill never read opponent
+  Mill), Farideh (**Dice Rolling validating fresh**; the ability-word prefix stripped by
+  the M5 fix), Yeva (**Flash / Instant Speed validating fresh** on the enabler form that
+  motivated the archetype), Daxos the Returned (Enchantments + Go Wide double-high;
+  experience counters via SCALES_WITH, no false Counters band), Rakdos, Lord of Riots
+  (Creature Spells + Life Loss double-high — LOST_LIFE_PAYOFF caught the cast condition,
+  beating the blind prediction), Volrath (Minus Counters high). Partials all honest with
+  the mechanism identified: Ishkanah (delirium class — the one-shot token guard held),
+  Kathril (keyword-counter class + GY dependency; his final +1/+1 correctly read SELF),
+  Yasharn (predicted blind: "players can't pay life or sacrifice" not in the stax
+  vocab), Vadrik (typed instant/sorcery cost-reduction does not band Spellslinger — the
+  Goblin Electromancer family, the ripest gap of the batch). Zero changes per PASS
+  protocol; five measurable known-gaps queued. Ten sentinels → 328, sanity "329 passed";
+  suite 1153 green. (`data/golden/golden_cards.json`, `docs/MIGRATION-archetypes.md`,
+  `logs/calibration-batch-26.json`)
+
 ### Changed
 - **Budget Contract rewritten from "safety-first" to "draft-TO-budget" (user finding:
   the builder was forcing itself to save money).** Evidence across all three full

@@ -17,6 +17,7 @@ from mtgcli.deckbuilder.ramp_rules import (
     land_matches_allowed_ramp_tags,
     resolve_tag_keys,
 )
+from mtgcli.utils.phrase_match import phrase_matches, phrase_to_like
 
 
 # Broad card types matched against type_line via LOWER(type_line) LIKE.
@@ -376,7 +377,9 @@ def search_by_tags(
     phrase_conditions = []
     for phrase in search_phrases:
         phrase_conditions.append("(name LIKE ? OR type_line LIKE ? OR oracle_text LIKE ?)")
-        like_query = f"%{phrase}%"
+        # phrase_to_like maps the " * " qualifier wildcard to LIKE's % (recall-oriented;
+        # the rank count below re-checks with the bounded same-clause gap).
+        like_query = phrase_to_like(phrase)
         params.extend([like_query, like_query, like_query])
     
     sql += " OR ".join(phrase_conditions) + ")"
@@ -423,7 +426,7 @@ def search_by_tags(
             card.get("type_line", "") or "",
             card.get("oracle_text", "") or "",
         ]).lower()
-        card["tag_match_count"] = sum(1 for p in search_phrases if p.lower() in text)
+        card["tag_match_count"] = sum(1 for p in search_phrases if phrase_matches(p, text))
         results.append(card)
         if dedupe:
             seen_ids.add(dedup_id)

@@ -68,7 +68,11 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
     },
     "Spellslinger": {
         "defining": ["spell_payoff", "magecraft", "spell_copy"],
-        "supporting": ["COUNTERSPELL_INTERACTION"],
+        # DOUBLES_CAST_TRIGGERS (the Fase-0.2 doubler cast-context, closed 2026-07-06):
+        # doubling cast triggers is a spellslinger ENGINE piece — supporting, not
+        # defining (Gandalf the White doubles legendary/artifact casts; a defining
+        # promotion would overband him).
+        "supporting": ["COUNTERSPELL_INTERACTION", "DOUBLES_CAST_TRIGGERS"],
         "weak": [],
     },
     "Stax / Prison": {
@@ -165,7 +169,11 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
     },
     "Goad / Forced Combat": {
         # Batch #19 (the Marisi class): "goad" 85 — keyword family.
-        "defining": ["goad"],
+        # Batch #29 (the Breena class): THIRD_PARTY_ATTACK_INCENTIVE — "attacks one of
+        # your opponents" rewards the table attacking your opponents (14 measured, all
+        # incentive: Breena, Calculating Lich, Maeve, Gahiji) — forced-combat politics,
+        # not your own aggro.
+        "defining": ["goad", "THIRD_PARTY_ATTACK_INCENTIVE"],
         "supporting": [],
         "weak": [],
     },
@@ -189,6 +197,41 @@ _ARCHETYPE_RULES: Dict[str, Dict[str, List[str]]] = {
         # roll" 26 + "roll one or more dice" 11 — payoff forms only (d20/d6 rollers
         # deliberately not defining).
         "defining": ["dice_payoff"],
+        "supporting": [],
+        "weak": [],
+    },
+    "Devotion": {
+        # Post-30 fix round (the Nylea/Klothys class, 2nd real member): "devotion to" —
+        # 67 measured, all devotion payoffs/conditions (Gray Merchant, Nyx Lotus, the
+        # Theros gods' own clauses — a god deck IS a devotion deck).
+        "defining": ["devotion_payoff"],
+        "supporting": [],
+        "weak": [],
+    },
+    "Coin Flips": {
+        # Post-30 fix round (the Yusri/Okaun/Zndrsplt class, 3 commander members):
+        # payoff forms only — "wins a coin flip" 4 + "flip you win" 4; the naked
+        # "flip a coin" (81) REJECTED like the d20-roller class (every coin card would
+        # band the archetype).
+        "defining": ["coin_flip_payoff"],
+        "supporting": [],
+        "weak": [],
+    },
+    "Crimes Matter": {
+        # Batch-27 fix round: the Marchesa-DoD/Gonti-CA class (2nd member made it
+        # measurable per the conditional-rider precedent). "you commit a crime" 19 +
+        # "you've committed a crime" 7 — all your-crime payoffs measured; the
+        # opponent-direction form ("an opponent commits a crime") deliberately excluded.
+        "defining": ["crime_payoff"],
+        "supporting": [],
+        "weak": [],
+    },
+    "Lifegain Matters": {
+        # Batch-27 fix round (the Amalia class): pure MAPPING fix, Fynn/Poison
+        # precedent — the lifegain_payoff tag existed ("whenever you gain life" 88 +
+        # "if you gained life") but fed no archetype. The generic `lifegain` tag
+        # ('you gain'/'lifelink') stays OUT (the Tatyova lesson).
+        "defining": ["lifegain_payoff"],
         "supporting": [],
         "weak": [],
     },

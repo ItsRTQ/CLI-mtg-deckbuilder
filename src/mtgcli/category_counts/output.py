@@ -21,7 +21,12 @@ def format_table(result: Dict[str, Any]) -> str:
     )
     name_width = max([len("Category")] + [len(c.get("display_name", c.get("category", "?"))) for c in recs]) + 1
 
-    header = f"{'Category':<{name_width}} {'Need':>5} {'Range':>8} {'Comp':>5} {'Priority':<10}"
+    # Column order encodes the Category Counts Contract: Need and Range are the source
+    # of truth, so they come first; the compressed target sits LAST and lowercase
+    # ("comp*") because it is the least reliable number in the row (a Critical-need
+    # category can compress to a misleading near-zero target — third confirmation in
+    # full build #3). The footnote makes the contract self-documenting in the output.
+    header = f"{'Category':<{name_width}} {'Need':>5} {'Range':>8} {'Priority':<10} {'comp*':>5}"
     lines.append(header)
     lines.append("-" * len(header))
 
@@ -30,8 +35,8 @@ def format_table(result: Dict[str, Any]) -> str:
             f"{c.get('display_name', c.get('category', '?')):<{name_width}} "
             f"{c.get('need_score', 0):>5.1f} "
             f"{c.get('recommended_range', '?'):>8} "
-            f"{c.get('compressed_target_count', '?'):>5} "
-            f"{c.get('priority', '?'):<10}"
+            f"{c.get('priority', '?'):<10} "
+            f"{c.get('compressed_target_count', '?'):>5}"
         )
 
     lines.append("-" * len(header))
@@ -41,6 +46,8 @@ def format_table(result: Dict[str, Any]) -> str:
         f"avg_mv={result.get('projected_avg_mv', '?')} "
         f"fit={result.get('archetype_fit_score', '?')}"
     )
+    lines.append("*comp = compressed target; guidance only — build to Need/Range "
+                 "(a High/Critical category can compress to a misleading tiny target).")
     return "\n".join(lines)
 
 

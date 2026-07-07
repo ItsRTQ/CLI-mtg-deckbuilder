@@ -4,7 +4,7 @@ prices-batch, budget.
 Bodies split verbatim from the former monolithic ``cli.py``.
 """
 from mtgcli.cli._shared import *  # noqa: F401,F403 -- shared imports, helpers, app
-from mtgcli.cli._shared import _apply_max_price  # noqa: F401 -- underscore not re-exported by *
+from mtgcli.cli._shared import _apply_max_price, _emit_json_error  # noqa: F401 -- underscore not re-exported by *
 
 @app.command()
 def card(
@@ -238,21 +238,39 @@ def prices(
 
 @app.command()
 def prices_batch(
-    input_path: Path = typer.Argument(..., help="Path to deck JSON file"),
+    input_path: Optional[Path] = typer.Argument(None, help="Path to deck JSON or .txt decklist"),
+    names: Optional[List[str]] = typer.Option(None, "--name", help="Card name to price; repeatable — cost hand-picked candidates BEFORE they join a list (no file needed)"),
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
-    """Look up prices for all cards in a deck JSON file."""
+    """Look up prices for cards in a deck file, and/or for ad-hoc names via --name.
+
+    The --name mode exists so package allocation can be costed AT PICK TIME
+    (full build #3 friction: hand-picked staples were summed on memory prices).
+    Human output ends with a known-price TOTAL in both modes. JSON stays a plain
+    list in file mode (backward compatible); with --name it returns
+    {"results": [...], "known_total": X, "unknown_count": N, "not_found_count": N}.
+    """
     require_database(SQLITE_PATH, json_output)
 
-    if not input_path.exists():
-        print(f"[red]File not found: {input_path}[/red]")
+    if input_path is None and not names:
+        _msg = "Provide a deck file or at least one --name."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
         raise typer.Exit(code=1)
 
-    try:
-        deck_entries = load_deck_file(input_path)["main_deck"]
-    except Exception as e:
-        print(f"[red]Failed to read deck file: {e}[/red]")
-        raise typer.Exit(code=1)
+    deck_entries = []
+    if input_path is not None:
+        if not input_path.exists():
+            print(f"[red]File not found: {input_path}[/red]")
+            raise typer.Exit(code=1)
+        try:
+            deck_entries = list(load_deck_file(input_path)["main_deck"])
+        except Exception as e:
+            print(f"[red]Failed to read deck file: {e}[/red]")
+            raise typer.Exit(code=1)
+    deck_entries += [{"name": n, "quantity": 1} for n in (names or [])]
 
     repo = CardRepository(str(SQLITE_PATH))
     results = []
@@ -272,25 +290,57 @@ def prices_batch(
                 "price_source": card_data.get("price_source", "scryfall"),
             })
         else:
-            results.append({
+            not_found = {
                 "name": name,
                 "found": False,
                 "quantity": entry.get("quantity", 1) if isinstance(entry, dict) else 1,
                 "usd_price": None,
                 "price_status": "not_found",
-            })
+            }
+            # Ad-hoc names are typed by hand — offer the same fuzzy suggestions as `card`.
+            # suggest_similar_names returns dicts; only "name" is guaranteed.
+            if names and name in names:
+                not_found["suggestions"] = [s["name"] for s in repo.suggest_similar_names(name)]
+            results.append(not_found)
+
+    known_total = 0.0
+    unknown_count = 0
+    not_found_count = 0
+    for r in results:
+        if not r.get("found"):
+            not_found_count += 1
+        elif r["usd_price"] is None:
+            unknown_count += 1
+        else:
+            try:
+                known_total += float(r["usd_price"]) * r.get("quantity", 1)
+            except (TypeError, ValueError):
+                unknown_count += 1
+    known_total = round(known_total, 2)
 
     if json_output:
-        print_json(results)
+        if names:
+            print_json({"results": results, "known_total": known_total,
+                        "unknown_count": unknown_count, "not_found_count": not_found_count})
+        else:
+            print_json(results)
     else:
         for r in results:
             qty = r.get("quantity", 1)
             if not r.get("found"):
-                print(f"[red]{qty}x {r['name']}: not found[/red]")
+                sug = f"  [yellow]did you mean: {', '.join(r['suggestions'])}?[/yellow]" if r.get("suggestions") else ""
+                print(f"[red]{qty}x {r['name']}: not found[/red]{sug}")
             elif r["usd_price"] is not None:
                 print(f"{qty}x {r['name']}: [green]${r['usd_price']}[/green]")
             else:
                 print(f"{qty}x {r['name']}: [yellow]unknown price[/yellow]")
+        tail = []
+        if unknown_count:
+            tail.append(f"{unknown_count} unknown")
+        if not_found_count:
+            tail.append(f"{not_found_count} not found")
+        extra = f" ({', '.join(tail)})" if tail else ""
+        print(f"[bold]Known-price total: ${known_total:.2f}[/bold]{extra}")
 
 
 

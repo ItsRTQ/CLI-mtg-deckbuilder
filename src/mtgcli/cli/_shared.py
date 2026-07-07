@@ -115,3 +115,30 @@ def _apply_max_price(results, max_price):
         except (TypeError, ValueError):
             return True
     return [c for c in results if ok(c)]
+
+
+def _apply_max_rank(results, max_rank):
+    """Popularity filter shared by the search family (cards with unknown rank are kept —
+    17% of the DB is digital-only/unranked; dropping them would silently hide real cards).
+    CONSIDER-ONLY tooling: rank measures how played a card is, not how strong."""
+    if max_rank is None:
+        return results
+    def ok(c):
+        r = c.get("edhrec_rank")
+        try:
+            return r is None or float(r) <= max_rank
+        except (TypeError, ValueError):
+            return True
+    return [c for c in results if ok(c)]
+
+
+def fmt_price(card):
+    """Price chip for search-family result lines: ' [green]$1.23[/green]', or ' [dim]$?[/dim]'
+    when unknown. Shown on every shortlist row so package allocation can happen AT PICK TIME
+    (full build #3 friction: --max-price filtered by price but never showed it, so hand
+    allocation ran on memory prices)."""
+    p = card.get("usd_price")
+    try:
+        return f" [green]${float(p):.2f}[/green]"
+    except (TypeError, ValueError):
+        return " [dim]$?[/dim]"

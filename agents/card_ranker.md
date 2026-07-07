@@ -63,6 +63,8 @@ category-counts recommended_range / need_score / compression notes
 user feedback
 power level / bracket
 budget and unknown price status
+edhrec_rank (popularity — CONSIDER-ONLY, never an include-verdict: rank measures how
+  played a card is, not how strong; on-plan niche cards outrank staples in context)
 role need
 mana efficiency
 card type and subtype

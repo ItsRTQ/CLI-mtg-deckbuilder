@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.deckbuilder.theme_profiles import get_theme_packages
 from mtgcli.deckbuilder.ramp_rules import land_matches_allowed_ramp_tags
+from mtgcli.utils.phrase_match import phrase_matches
 
 
 def _get_category_phrases(
@@ -65,7 +66,7 @@ def check_theme_packages(deck_cards: List[Dict[str, Any]], theme: str) -> Dict[s
 
             matched = False
             for phrase in search_phrases:
-                if phrase.lower() in text:
+                if phrase_matches(phrase, text):
                     matched = True
                     break
 
@@ -135,8 +136,8 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
             phrases = _get_category_phrases(category, tag_definitions, role_definitions)
             matches = False
             for phrase in phrases:
-                phrase = phrase.lower()
-                if phrase in name or phrase in type_line or phrase in oracle_text:
+                if (phrase_matches(phrase, name) or phrase_matches(phrase, type_line)
+                        or phrase_matches(phrase, oracle_text)):
                     matches = True
                     break
 
@@ -169,6 +170,15 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
         "warnings": warnings
     }
 
+    # Popularity signal — CONSIDERATION ONLY, deliberately NOT a warning and never a
+    # gate: edhrec_rank measures how PLAYED a card is, not how strong (Command Tower
+    # is #2 because it goes everywhere). It exists to catch gross bracket mismatches
+    # ("asked T1, 0% staples"), and synergy-dense decks READ LOW BY DESIGN (their
+    # on-plan niche cards rank poorly while playing strong in context — Ragost class).
+    density = staple_density(deck_cards)
+    if density is not None:
+        report["staple_density"] = density
+
     if theme:
         theme_check = check_theme_packages(deck_cards, theme)
         report["theme_check"] = theme_check
@@ -176,3 +186,49 @@ def check_deck_quality(deck_cards: List[Dict[str, Any]], theme: Optional[str] = 
         report["warnings"].extend(theme_check["warnings"])
 
     return report
+
+
+def staple_density(deck_cards: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Aggregate edhrec_rank over NONLAND cards into a popularity signal.
+
+    Returns None when no ranks are known. Lands are excluded (the most-played cards
+    in the format are lands and say nothing about the build). Labels are qualitative
+    on purpose — no bracket claims (there is no judged-decks dataset to calibrate
+    real bracket thresholds against)."""
+    ranks: List[float] = []
+    unranked = 0
+    for card in deck_cards:
+        if "land" in (card.get("type_line") or "").lower():
+            continue
+        qty = card.get("quantity", 1)
+        r = card.get("edhrec_rank")
+        if isinstance(r, (int, float)):
+            ranks.extend([float(r)] * qty)
+        else:
+            unranked += qty
+    if not ranks:
+        return None
+    ranks.sort()
+    n = len(ranks)
+    median = ranks[n // 2] if n % 2 else (ranks[n // 2 - 1] + ranks[n // 2]) / 2
+    pct_top_2000 = round(100 * sum(1 for r in ranks if r <= 2000) / n, 1)
+    # Thresholds calibrated against the 4 real agent builds (2026-07-06): Felothar T3
+    # 43.3%, Galadriel T3 65.6%, Mendicant T2 71.4%, Ragost T1 72.6% — real built
+    # decks live in the 43-73% band (rocks/removal/draw are staples by count), and the
+    # signal orders the brackets correctly. n=4 calibration: labels are coarse on
+    # purpose; below 40% is an OUTLIER vs anything ever built here, worth a look.
+    if pct_top_2000 >= 65:
+        read = "staple-dense"
+    elif pct_top_2000 >= 40:
+        read = "mixed"
+    else:
+        read = "niche/synergy-dense (unusually low — worth a look if a high bracket was requested)"
+    return {
+        "median_rank": int(median),
+        "pct_top_2000": pct_top_2000,
+        "ranked_nonland_count": n,
+        "unranked_nonland_count": unranked,
+        "read": read,
+        "note": ("popularity signal, consider-only — NOT a power verdict and never a gate; "
+                 "synergy-dense decks read low by design"),
+    }

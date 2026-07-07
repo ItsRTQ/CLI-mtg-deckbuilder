@@ -67,6 +67,7 @@ output/deck_explanation.md
 output/validation_report.json
 output/commander_analysis.json
 output/commander_combos.json
+output/build-notes.json
 final-builds/<build-name>/
 ```
 
@@ -139,6 +140,14 @@ The commander should not be inside `main_deck`. If a flat list contains the comm
 
 Default: ask up to **4 core questions** before building. Use multiple choice and always include `Agent choice`.
 
+**Core question 1 asks for the official Commander BRACKET (1-2 / 3 / 4-5), always with
+an `n/a — I don't care about brackets` option** (default n/a: brackets are a social
+contract, not a requirement). With a bracket target, `mtg deck-power --bracket <N>`
+must report COMPLIANT before finalizing (deterministic criteria: Game Changers count,
+mass land denial, extra turns, 2-card combos); with n/a, skip the verdict and just
+show the TIER (consider-only). See agents/user-feedback.md for the exact wording and
+the bracket→power-level mapping for category-counts.
+
 The 4th question is always:
 
 ```text
@@ -157,7 +166,48 @@ Do not ask endless questions. Ask only questions that materially change the deck
 
 ## 6. Standard Build Workflow
 
-Use this flow unless the user gives a narrower task:
+Use this flow unless the user gives a narrower task.
+
+### 6.0 The annotated-deck flow (PRIMARY since the Consistency Engine)
+
+The draft is built THROUGH the tool, package by package — never held in agent
+memory. Every card enters with its purpose, every combo gets noted when spotted,
+and the finished build ships with its judgment.
+
+```bash
+# 1. Analyze, plan, shortlist (unchanged: commander-analyze, category-counts, search-tags)
+# 2. Draft by PACKAGE — deck-add validates at entry (exists/color/singleton/size),
+#    annotates the purpose, and prints the batch price + RUNNING TOTAL with budget %:
+mtg deck-add --deck output/deck.json --commander "<Commander>" \
+  --cards "Sol Ring;Arcane Signet;..." --purpose ramp \
+  --set-config budget=150 --set-config budget_mode=soft --set-config bracket=n/a \
+  --deck-note "<theme / gameplan>"        # first call creates the deck + contract
+mtg deck-add --deck output/deck.json --cards "..." --purpose draw     # ~8-12 packages total
+mtg deck-add --deck output/deck.json --cards "12 Mountain;11 Plains" --purpose flex
+
+# 3. WHILE drafting: note combos the moment you see them (the carpenter's tally)
+mtg note "<what you saw>" --type combo --cards "A;B" --combo-class infinite
+#    ...and note REJECTED candidates too (--type decision) — that evaluation work
+#    is what the Budget Upgrade Review re-pays when it isn't recorded.
+
+# 4. One annotation pass at the END of the draft (never per-card-per-add):
+mtg deck-annotate --deck output/deck.json --auto                      # census seeds ~85%
+mtg deck-annotate --deck output/deck.json --cards "A;B" --purpose-add synergy --note "..."
+mtg deck-annotate --deck output/deck.json --sync-notes                # combos -> deck
+
+# 5. Inspect and score:
+mtg deck-view  --deck output/deck.json [--by-purpose | --card "Name"]
+mtg deck-power --deck output/deck.json --commander "<Commander>"     # consistency tier
+#    (bracket target reads from the deck's config; n/a skips the compliance verdict)
+
+# 6. Close as always: deck-fill-lands, validate, deck-check, deck-gaps, preflight,
+#    final-build (the build folder ships deck_list.json — the annotated judgment).
+```
+
+The legacy decklist.txt path below still works (deck-write converts it), but it
+loses entry-time validation, running budget, and purposes — prefer deck-add.
+
+### 6.1 Legacy flow reference
 
 ```bash
 mtg commander-analyze --commander "<Commander>" --output output/commander_analysis.json --json-output
@@ -207,8 +257,25 @@ Other built-in helpers so you never need an inline `python`/`jq` script to read 
 mtg card "<Card>" --field oracle_text          # one raw field, no JSON/grep needed
 mtg category-counts ... --table                # flat one-row-per-category table, sorted by need
 mtg budget output/decklist.txt --budget <USD> --by-card   # total + most-expensive cards + high-cost flags
+mtg prices-batch --name "Card A" --name "Card B"          # cost hand-picked candidates BEFORE they join the list (known-price total included)
 mtg deck-swap --deck output/decklist.txt --commander "<Commander>" --swap "Old=New"
+mtg note "<finding>" [--type combo --cards "A;B" --combo-class infinite]   # building notes: RECORD combos/decisions while drafting, don't memorize them
+mtg deck-power --deck output/deck.json --commander "<Commander>" [--bracket <N>]   # the two categorizers: bracket compliance + tier (consider-only)
 ```
+
+**Building notes (the carpenter's tally):** whenever you SPOT a combo or make a
+non-obvious decision while drafting, record it immediately with `mtg note` — combo
+notes (`--type combo --cards "A;B" --combo-class infinite|non_infinite|utility|auto_win`;
+`;` separates names because card names contain commas) become first-class combo
+sources for `deck-power`, deduped against the external fetch. Notes live in
+`output/build-notes.json`.
+
+**Before finalizing, run `mtg deck-power`:** if the user chose a bracket target, its
+compliance verdict must be COMPLIANT (deterministic: Game Changers, MLD, extra turns,
+2-card combos); the TIER (synergy + combos + game changers, 0-10 in 0.5 bands, F
+below 5.0) is CONSIDER-ONLY — report it, never gate on it, and its "one card away"
+combo list is a lead in both directions (add the finisher, or stay clear of it at
+low brackets).
 
 `deck-swap` is the blessed way to change a card in the list (budget trim, swap a salt card, etc.):
 it validates the incoming card (exists, Commander-legal, in color identity, no singleton dup)
@@ -458,6 +525,11 @@ substring-based, so treat the shortlist as candidates to evaluate, not a verdict
 - **By trigger event** — `mtg search --trigger attacks_or_combat --colors R` finds cards that
   trigger on an event family (`--list-triggers`: permanent_dies, permanent_enters, you_cast_spell,
   attacks_or_combat, sacrifice, targeted_by_spell, draw_or_discard, life_change, recurring_tick).
+- **By popularity (consider-only)** — `--max-rank <N>` on `search`/`search-tags` caps candidates
+  by EDHREC rank (unknown ranks are kept). Popularity ≠ power: use it to surface format staples
+  at high brackets, never as an include-verdict. `deck-check` reports the deck's `staple_density`
+  (median rank, % top-2000) as an INFORMATIONAL line — it never warns and never gates preflight;
+  synergy-dense decks read low by design.
 - **Similar / complementary to a card** — `mtg similar "<Card>"` returns cards performing the same
   function (ranked by shared facets); `mtg complements "<Card>"` returns the other half of the
   interaction (a sacrifice outlet → death-triggers, recursion, token makers; a +1/+1 placer →
@@ -555,6 +627,10 @@ Allocate while drafting, not after: think in package budgets (e.g. mana base ~20
   draw engines ~15%, the commander's core plan ~30%, interaction/protection ~15%).
   When two cards fill the same slot, take the strongest one the slot's share affords —
   not the cheapest one that functions.
+Price visibility at pick time (full build #3 lesson): NEVER sum a draft on memory
+  prices. Search-family results print each card's price; for hand-picked staples run
+  `mtg prices-batch --name "A" --name "B" ...` (known-price total included) BEFORE
+  adding them to the list — memory prices measured off by 5x (Flawless Maneuver).
 Per-card price instinct: do NOT self-impose tiny caps. On a $75 budget a $2/card cap
   is self-sabotage. A key slot (win condition, draw engine, signature synergy piece)
   may reasonably eat 10–20% of the budget alone; the --by-card high-cost flag (>20%)

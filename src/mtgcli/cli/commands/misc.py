@@ -1,9 +1,114 @@
-"""Misc / export / report commands: export, final-build, report.
+"""Misc / export / report commands: export, final-build, report, note.
 
 Bodies split verbatim from the former monolithic ``cli.py``.
 """
 from mtgcli.cli._shared import *  # noqa: F401,F403 -- shared imports, helpers, app
-from mtgcli.cli._shared import _apply_max_price  # noqa: F401 -- underscore not re-exported by *
+from mtgcli.cli._shared import _apply_max_price, _emit_json_error  # noqa: F401 -- underscore not re-exported by *
+
+
+@app.command()
+def note(
+    text: Optional[str] = typer.Argument(None, help="Note text (omit with --list/--clear)"),
+    note_type: str = typer.Option("finding", "--type", help="Note type: combo | finding | decision"),
+    cards: Optional[str] = typer.Option(None, "--cards", help="Comma-separated card names involved (e.g. 'Heliod, Sun-Crowned,Walking Ballista')... use ';' as separator when names contain commas"),
+    combo_class: Optional[str] = typer.Option(None, "--combo-class", help="For --type combo: infinite | non_infinite | utility | auto_win"),
+    list_notes: bool = typer.Option(False, "--list", help="List the current build's notes and exit"),
+    clear: bool = typer.Option(False, "--clear", help="Clear the current build's notes"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Building notes — the carpenter's tally: record combos/decisions/findings during
+    a build instead of memorizing them. Combo notes feed `mtg deck-power`.
+
+    Examples:
+        mtg note "Heliod + Ballista is an auto-win line" --type combo \\
+            --cards "Heliod; Sun-Crowned;Walking Ballista" --combo-class auto_win
+        mtg note --list
+    """
+    from mtgcli.deckbuilder.build_notes import (
+        COMBO_CLASSES, NOTE_TYPES, add_note, load_notes, save_notes,
+    )
+
+    if clear:
+        save_notes([])
+        if json_output:
+            print_json({"ok": True, "cleared": True})
+        else:
+            print("[green]Build notes cleared.[/green]")
+        return
+
+    if list_notes:
+        notes = load_notes()
+        if json_output:
+            print_json({"notes": notes, "count": len(notes)})
+        else:
+            if not notes:
+                print("[yellow]No build notes yet.[/yellow]")
+                return
+            print(f"[bold blue]Build notes ({len(notes)}):[/bold blue]")
+            for n in notes:
+                extra = ""
+                if n.get("cards"):
+                    extra += f" [dim]({', '.join(n['cards'])})[/dim]"
+                if n.get("combo_class"):
+                    extra += f" [magenta]({n['combo_class']})[/magenta]"
+                # parens, not brackets: rich eats [combo]-style tokens as markup
+                print(f"  {n['seq']}. ({n['type']}) {n['text']}{extra}")
+        return
+
+    if not text:
+        _msg = "Provide note text, or use --list / --clear."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+    if note_type not in NOTE_TYPES:
+        _msg = f"Unknown --type '{note_type}'. Valid: {', '.join(NOTE_TYPES)}."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+    if note_type == "combo" and combo_class not in COMBO_CLASSES:
+        _msg = f"--type combo requires --combo-class ({', '.join(COMBO_CLASSES)})."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    card_list = None
+    unknown = []
+    if cards:
+        sep = ";" if ";" in cards else ","
+        card_list = [c.strip() for c in cards.split(sep) if c.strip()]
+        # Light DB validation (warn, don't block): a bad separator or typo silently
+        # creates ghost card names that deck-power can never match (caught live on
+        # the first real use — 'Heliod; Sun-Crowned' split into two ghosts).
+        try:
+            repo = CardRepository(str(SQLITE_PATH))
+            resolved = []
+            for name in card_list:
+                found = repo.get_card_by_exact_name(name)
+                if found:
+                    resolved.append(found["name"])
+                else:
+                    unknown.append(name)
+                    resolved.append(name)
+            card_list = resolved
+        except Exception:
+            pass
+    entry = add_note(text, note_type=note_type, cards=card_list, combo_class=combo_class)
+    if json_output:
+        out = {"ok": True, "note": entry}
+        if unknown:
+            out["unknown_cards"] = unknown
+        print_json(out)
+    else:
+        print(f"[green]Noted (#{entry['seq']}, {entry['type']}).[/green]")
+        if unknown:
+            print(f"[yellow]warning — not found in DB (typo or bad separator? names with "
+                  f"commas need ';' between cards): {', '.join(unknown)}[/yellow]")
 
 @app.command()
 def export(
@@ -105,6 +210,12 @@ def final_build(
     decklist_path = save_final_build_decklist(decklist_text, build_dir, build_name)
     explanation_path = save_final_build_explanation(explanation_text, build_dir, build_name)
 
+    # The build ships with its ANNOTATED deck object (purposes, agent notes, combos,
+    # config) as deck_list.json — the .txt is the human list, this is the judgment.
+    deck_json_path = build_dir / "deck_list.json"
+    import shutil as _shutil
+    _shutil.copyfile(deck_path, deck_json_path)
+
     version = build_name.rsplit("-", 1)[-1]
 
     if json_output:
@@ -115,6 +226,7 @@ def final_build(
             "build_dir": str(build_dir),
             "decklist_path": str(decklist_path),
             "explanation_path": str(explanation_path),
+            "deck_json_path": str(deck_json_path),
             "commander": commander,
             "theme": theme,
             "bracket": resolved_bracket,
@@ -125,6 +237,7 @@ def final_build(
         print(f"Final build folder created: [bold]{build_dir}[/bold]")
         print(f"Decklist saved to: [bold]{decklist_path}[/bold]")
         print(f"Explanation saved to: [bold]{explanation_path}[/bold]")
+        print(f"Deck JSON saved to: [bold]{deck_json_path}[/bold]")
 
 
 
@@ -191,5 +304,8 @@ def report(
                       + ", ".join(f"seq{f['seq']} {f['command']}(exit {f['exit_code']})" for f in s["failures"]) + "[/yellow]")
             else:
                 print("    failures: none")
+            if s.get("status_exits"):
+                print(f"    [dim]status exits ({s['status_exit_count']}, documented states — over-budget / verify-missing / not-found): "
+                      + ", ".join(f"seq{f['seq']} {f['command']}" for f in s["status_exits"]) + "[/dim]")
 
 

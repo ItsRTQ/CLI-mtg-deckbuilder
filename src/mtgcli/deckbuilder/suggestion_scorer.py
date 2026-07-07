@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.deckbuilder.ramp_rules import RAMP_LAND_ALLOWED_TAGS as _RAMP_LAND_ALLOWED_TAGS
+from mtgcli.utils.phrase_match import phrase_matches
 
 _DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
 
@@ -188,7 +189,7 @@ def _match_sub_tags(
     for sub_tag in sub_tags:
         phrases = tag_definitions.get(sub_tag, [])
         for phrase in phrases:
-            if phrase.lower() in card_text:
+            if phrase_matches(phrase, card_text):
                 matched.append(sub_tag)
                 break
     return matched

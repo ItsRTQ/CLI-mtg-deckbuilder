@@ -8,27 +8,34 @@ Default: ask up to **4 core questions** before building. If the user already ans
 
 ---
 
-## Core Question 1: Power Level
+## Core Question 1: Bracket
 
 ```text
-What power level do you want?
+What official Commander Bracket should the deck target?
 
-a) Casual — precon/precon-level, no infinite combos, no tutors by default
-b) Optimized Casual — upgraded precon feel, medium synergy, no infinite combos by default
-c) High Power — high synergy, tutors allowed, 1–2 incidental combos allowed
-d) cEDH — best legal cards, unrestricted combos/tutors
+a) Bracket 1-2 — casual/precon table: no Game Changers, no MLD, no 2-card combos
+b) Bracket 3 — upgraded: up to 3 Game Changers, no MLD, no cheap 2-card combos
+c) Bracket 4-5 — optimized/cEDH: no restrictions
+d) n/a — I don't care about brackets; just build it well
 e) Agent choice
 ```
 
-Default: Optimized Casual.
+Default: n/a (brackets are a social contract, not a requirement — many users don't
+play them; the option exists for the tables that do).
 
-Bracket mapping:
+Wire the answer to the tooling:
+- a/b/c → run `mtg deck-power --bracket <N>` before finalizing; the compliance
+  verdict (deterministic: GC count, MLD, extra turns, 2-card combos) must be
+  COMPLIANT for the target. Combos policy follows the bracket (1-2: none;
+  3: no cheap 2-card infinites).
+- n/a → skip the compliance verdict entirely; still show `deck-power`'s TIER
+  (consider-only) in the build summary.
+
+Internal power mapping for slot planning (category-counts `--power-level`):
 
 ```text
-T1 = cEDH / highest power
-T2 = Highly Optimized
-T3 = Slightly Optimized / Precon Optimized
-T4 = Precon Level
+Bracket 1-2 -> power 4-5      Bracket 3 -> power 6-7
+Bracket 4-5 -> power 8-10     n/a       -> agent judgment from the other answers
 ```
 
 ---
@@ -202,6 +209,11 @@ b) Use staples only if they fit the theme
 c) Avoid generic staples; keep it flavorful
 d) Agent choice
 ```
+
+Wire the answer to the tooling: (a) → use `--max-rank` on shortlists to surface format
+staples (popularity is CONSIDER-ONLY, never an include-verdict); (c) → skip `--max-rank`
+and expect `deck-check`'s staple_density to read low — that is the requested outcome,
+not a problem to fix.
 
 ### Card preferences
 

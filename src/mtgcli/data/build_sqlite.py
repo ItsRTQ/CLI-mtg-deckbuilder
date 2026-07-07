@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS cards (
     layout TEXT,
     games TEXT,
     digital INTEGER,
-    finishes TEXT
+    finishes TEXT,
+    game_changer INTEGER,
+    keywords TEXT,
+    loyalty TEXT,
+    produced_mana TEXT,
+    all_parts TEXT,
+    image_url TEXT
 );
 """
 
@@ -51,8 +57,9 @@ INSERT OR REPLACE INTO cards (
     colors, color_identity, commander_legal, can_be_commander,
     usd_price, usd_foil_price, usd_etched_price, edhrec_rank, eur_price, eur_foil_price, tix_price,
     price_status, price_source,
-    layout, games, digital, finishes
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    layout, games, digital, finishes, game_changer,
+    keywords, loyalty, produced_mana, all_parts, image_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -83,6 +90,12 @@ def _to_row(norm: Dict[str, Any]) -> tuple:
         json.dumps(norm["games"]),
         1 if norm["digital"] else 0,
         json.dumps(norm["finishes"]),
+        1 if norm.get("game_changer") else 0,
+        json.dumps(norm.get("keywords") or []),
+        norm.get("loyalty"),
+        json.dumps(norm["produced_mana"]) if norm.get("produced_mana") is not None else None,
+        json.dumps(norm["all_parts"]) if norm.get("all_parts") is not None else None,
+        norm.get("image_url"),
     )
 
 
@@ -116,6 +129,14 @@ def build_sqlite_database() -> Dict[str, Any]:
                 existing = card_identities[key]
                 for field in _PRICE_FIELDS:
                     existing[field] = min_known_price(existing[field], norm[field])
+                # First-printing-wins leaves gaps for PER-PRINTING fields when the first
+                # printing lacks them (image_url; defensively also the oracle-level
+                # Fase-1 fields) — fill from any later printing that has a value.
+                for field in ("image_url", "loyalty", "produced_mana", "all_parts"):
+                    if existing.get(field) is None and norm.get(field) is not None:
+                        existing[field] = norm[field]
+                if not existing.get("keywords") and norm.get("keywords"):
+                    existing["keywords"] = norm["keywords"]
 
     # Finalize price_status and price_source after all printings are merged
     cards_with_known_usd = 0
@@ -135,6 +156,19 @@ def build_sqlite_database() -> Dict[str, Any]:
     cursor = conn.cursor()
 
     cursor.execute(_CREATE_TABLE)
+    # Migration guard: CREATE TABLE IF NOT EXISTS never alters an EXISTING table, so a
+    # rebuild over an old DB crashed on any new column ("table cards has no column named
+    # game_changer"). Diff the live schema against _CREATE_TABLE and ALTER in what's
+    # missing — durable for every future column, no ad-hoc repair scripts.
+    cursor.execute("PRAGMA table_info(cards)")
+    _existing = {row[1] for row in cursor.fetchall()}
+    for _line in _CREATE_TABLE.splitlines():
+        _line = _line.strip().rstrip(",")
+        if not _line or _line.startswith(("CREATE", ");", '"')) or _line == ");":
+            continue
+        _parts = _line.split()
+        if len(_parts) >= 2 and _parts[0] not in _existing and _parts[0].isidentifier():
+            cursor.execute(f"ALTER TABLE cards ADD COLUMN {_parts[0]} {_parts[1]}")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_name ON cards(name);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_commander_legal ON cards(commander_legal);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cards_can_be_commander ON cards(can_be_commander);")

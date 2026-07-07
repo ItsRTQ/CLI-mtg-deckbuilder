@@ -4,7 +4,12 @@ Purpose: collect only preferences that materially change deckbuilding.
 
 Use multiple choice. Always include `Agent choice`. Do not ask open-ended questions unless required.
 
-Default: ask up to **4 core questions** before building. If the user already answered something, do not ask it again.
+**MANDATORY: ask the 4 core questions and WAIT for the answers before building** — every
+build, unconditionally. This never depends on the agent "having doubts": an agent with
+plausible defaults has no doubts, and its defaults are not answers. If the user already
+answered something in their request, do not ask it again — the remaining core questions
+still get asked. Enforcement: `deck-add`'s first call refuses to create a deck without
+the answered contract (budget + bracket via `--set-config`).
 
 ---
 
@@ -240,10 +245,31 @@ Valid reasons:
 commander supports multiple strong archetypes
 category-counts conflicts with user preference
 budget is close to overage
+budget reallocation across type buckets (see below)
 combo/stax/tutor policy is unclear
 land/ramp count needs a style decision
 synergy search confidence is weak
 theme strictness affects major card choices
+```
+
+### Budget reallocation question (cost-by-type lens, BUILDER §11)
+
+When `deck-view`'s cost by type shows money concentrated in a low-impact bucket
+(classic: expensive lands) while a better card was passed on for price, ALWAYS ask —
+never reallocate silently. The user owns this trade: they may value the mana base,
+already own those cards, or see something the agent didn't (this is what makes the
+build personal). The proposal must name exact cuts, the exact upgrade, both prices,
+the freed amount, and the consistency trade-off:
+
+```text
+Cost by type shows $31 on lands. Swapping <Land A, Land B, Land C> for basics
+frees ~$18, enough for <Upgrade X> ($15). Trade-off: slightly less consistent
+mana (2-color deck — low risk).
+
+a) Keep the mana base as is — find the money elsewhere (or skip the upgrade)
+b) Swap the listed lands for basics and apply the upgrade
+c) Partial — swap only the lands I name, then re-check
+d) Agent choice
 ```
 
 Do not ask just to delay building.

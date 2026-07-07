@@ -1040,6 +1040,25 @@ def deck_add(
             else:
                 print(f"[red]{_msg}[/red]")
             raise typer.Exit(code=1)
+        # Build-contract gate (BUILDER §5): the first call must carry the user's
+        # ANSWERED contract — budget + bracket — so a draft cannot start before
+        # the core questions were asked. "n/a" / "none" are valid explicit answers.
+        _contract_keys = {kv.split("=", 1)[0].strip()
+                          for kv in (set_config or []) if "=" in kv}
+        _missing = [k for k in ("budget", "bracket") if k not in _contract_keys]
+        if _missing:
+            _msg = (
+                "First use: no build contract — missing: " + ", ".join(_missing) + ". "
+                "Ask the user the BUILDER.md §5 core questions (bracket, budget, theme, "
+                "detail level) and WAIT for their answers, then create the deck with "
+                "--set-config budget=<USD or n/a> --set-config bracket=<1-5 or n/a>. "
+                "Do not draft on assumed defaults."
+            )
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": _msg}})
+            else:
+                print(f"[red]{_msg}[/red]")
+            raise typer.Exit(code=1)
         try:
             cmds = [_Card(commander, ["WINCON"], repo=repo)]
             if partner:
@@ -1311,6 +1330,7 @@ def deck_view(
         "total_price": deck_obj.total_price(),
         "by_purpose": deck_obj.total_by_purpose(),
         "card_types": deck_obj.card_type_counts(),
+        "price_by_type": deck_obj.total_price_by_type(),
         "mana_curve": deck_obj.mana_curve(),
         "mana_curve_score": deck_obj.mana_curve_score(),
     }
@@ -1334,6 +1354,8 @@ def deck_view(
     print(f"\n{metrics['size']}/{metrics['max_size']} cards — ${metrics['total_price']:.2f}{util}")
     print("by purpose: " + ", ".join(f"{k}={v}" for k, v in metrics["by_purpose"].items()))
     print(deck_obj.card_types())
+    print("cost by type: " + ", ".join(
+        f"{k}=${v:.2f}" for k, v in metrics["price_by_type"].items()))
     curve = " ".join(f"{k}:{v}" for k, v in metrics["mana_curve"].items())
     print(f"curve: {curve}  (score {metrics['mana_curve_score']})")
 

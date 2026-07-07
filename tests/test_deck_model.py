@@ -129,6 +129,21 @@ def test_total_by_purpose_and_price_quantity_aware():
     assert d.total_price() == round(2.5 + 0.4, 2)
 
 
+def test_total_price_by_type_primary_quantity_aware():
+    d = Deck(_commander())
+    d.add([_card("AC", type_line="Artifact Creature — Golem", price=3.0),
+           _card("Rock", type_line="Artifact", price=1.25),
+           _card("Mountain", ("FLEX",), ident='[]', qty=4,
+                 type_line="Basic Land — Mountain", price=0.1),
+           _card("Mystery", type_line="Instant", price=None)])
+    by_type = d.total_price_by_type()
+    # Artifact Creature buckets as creature (primary type); 4x quantity-aware
+    # lands; unknown price sums as $0 (same convention as total_price)
+    assert by_type == {"creature": 3.0, "artifact": 1.25, "land": 0.4, "instant": 0.0}
+    assert list(by_type) == ["creature", "artifact", "land", "instant"]  # cost desc
+    assert round(sum(by_type.values()), 2) == d.total_price()
+
+
 def test_card_types_moxfield_primary():
     d = Deck(_commander())
     d.add([_card("AC", type_line="Artifact Creature — Golem"),

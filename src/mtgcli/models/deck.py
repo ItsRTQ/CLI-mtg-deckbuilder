@@ -176,6 +176,18 @@ class Deck:
     def total_price(self) -> float:
         return round(sum((c.usd_price or 0.0) * c.quantity for c in self._cards), 2)
 
+    def total_price_by_type(self) -> Dict[str, float]:
+        """Known-price USD total per Moxfield primary type ("the deck has $X on
+        lands"), quantity-aware, sorted most-expensive first. Same convention as
+        total_price: an unknown price sums as $0 here (unknown ≠ free — surface
+        unpriced cards via `budget --by-card` / `prices-batch` when it matters)."""
+        totals: Dict[str, float] = {}
+        for c in self._cards:
+            t = self.primary_type(c)
+            totals[t] = totals.get(t, 0.0) + (c.usd_price or 0.0) * c.quantity
+        return {t: round(v, 2)
+                for t, v in sorted(totals.items(), key=lambda kv: (-kv[1], kv[0]))}
+
     def primary_type(self, card: Card) -> str:
         low = card.type_line.lower()
         return next((t for t in _PRIMARY_TYPE_ORDER if t in low), "other")

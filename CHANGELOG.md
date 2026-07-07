@@ -2,7 +2,71 @@
 
 ## 0.8.0
 
+### Changed
+- **README brought up to date with everything shipped since 2026-07-04, plus a
+  Quick Start.** New "Quick Start — Install & Use" section at the top (fresh
+  clone → venv → `pip install -e .` → `init-data` → the two ways to use it:
+  agent-driven build with the annotated flow spelled out step by step, and
+  manual one-liners). Command Reference 34 → **39 commands**: new "Annotated
+  deck — drafting & scoring" group with full sections for `deck-add` (incl.
+  the §5 contract gate), `deck-annotate`, `deck-view` (cost by type + the
+  reallocation lens), `deck-power` (bracket compliance + consistency TIER)
+  and `note`. Updated in place: `prices-batch --name` mode, budget contract
+  language (spending plan, 85–100% target), search price chips + `--max-rank`,
+  deck-check `staple_density` + Bolt/tuck vocab, final-build ships
+  `deck_list.json`, Agent Usage rewritten to the §6.0 annotated flow (questions
+  MANDATORY at step 3), Output Files shows the annotated `deck.json` shape +
+  `build-notes.json`, Development Notes (models/, tier_weights.json, 140 tags,
+  376 golden sentinels, 1300+ tests). Stale counts swept (34k identities).
+  Docs-only. (`README.md`)
+
 ### Added
+- **Budget Reallocation — the cost-by-type lens wired into the agent contract
+  (user design: make the build more personal).** `budget --by-card` answers
+  "which CARD is expensive"; `deck-view`'s cost by type answers "where does the
+  MONEY sit" — and money in a low-impact bucket (classic: expensive nonbasic
+  lands) is budget a passed-on staple/wincon could use. New BUILDER §11
+  subsection "Budget Reallocation": when over budget or an upgrade doesn't fit,
+  read `metrics.price_by_type`, and if reallocation would fund a better card,
+  **ASK the user — never reallocate silently** (proposal template: exact cuts,
+  exact upgrade, both prices, freed amount, consistency trade-off; basics-for-
+  duals is cheap in mono/2-color, risky in 3+). Rationale in the contract
+  itself: the user owns this trade — they may value the mana base, own the
+  cards, or see something the agent didn't. Synced with intentional redundancy:
+  user-feedback.md (new during-build question + valid reason), deck_builder.md
+  step 7, deck_fixer.md Budget Fixes (reallocation before card-by-card cuts),
+  CLAUDE.md step 7. Docs-only; suite 1305 green. (`BUILDER.md`, `CLAUDE.md`,
+  `agents/{user-feedback,deck_builder,deck_fixer}.md`)
+- **`Deck.total_price_by_type()` — "the deck has $X on lands" (user request).**
+  Known-price USD total per Moxfield PRIMARY type (the existing `primary_type`
+  single-bucket rule: Artifact Creature = creature, Dryad Arbor = land),
+  quantity-aware, sorted most-expensive first, same unknown-price convention as
+  `total_price` (None sums $0 — unknown ≠ free, documented in the docstring).
+  Wired into `deck-view`: human "cost by type:" line + `metrics.price_by_type`
+  in JSON. Live on Kiki: creature $45.64 > sorcery $34.71 > ... > land $6.12
+  (a combo deck's money is in its engine, not its mana — visible at a glance).
+  2 regression tests (model + CLI pin); suite 1305 green. (`models/deck.py`,
+  `cli/commands/deck.py`, `tests/{test_deck_model,test_fase4_commands}.py`)
+- **The §5 core questions get a mechanical gate (user finding: agents skip the
+  default questions).** Root cause was two-sided: user prompts phrase the questions
+  as conditional ("ask for any doubts" — an agent with plausible defaults never has
+  doubts), and BUILDER §5 used soft language ("Default: ask up to 4 core questions").
+  Fixed with the project's proven pattern (preflight / verify-early / deck-add
+  guardians: docs-only rules get skipped, gates don't): (1) **`deck-add`'s FIRST
+  call now refuses to create a deck without the answered build contract** —
+  `--set-config budget=<USD|n/a>` AND `--set-config bracket=<1-5|n/a>` — with an
+  error that points the agent at the §5 questions ("Do not draft on assumed
+  defaults"); explicit `n/a` is a valid answer, missing is not. A draft mechanically
+  cannot start before the questions were asked. (2) Docs hardened preserving the
+  intentional redundancy: BUILDER §2 gains rule 14 (questions are UNCONDITIONAL;
+  "ask if in doubt" is not the contract) and §5 rewritten MANDATORY-wait-for-answers;
+  agents/system.md rule 12; agents/user-feedback.md header; agents/deck_builder.md
+  step 2 ("if needed" was the same bug) + step 9; CLAUDE.md step 2. Legacy
+  `deck-write` path is NOT gated (docs-only there) — noted as a known hole. 2
+  regression tests (gate blocks / partial contract blocks / n-a passes / not
+  required after first use); suite 1304 green. (`cli/commands/deck.py`,
+  `BUILDER.md`, `CLAUDE.md`, `agents/{system,user-feedback,deck_builder}.md`,
+  `tests/test_fase4_commands.py`)
 - **Full build #4 = the Consistency Engine's ACCEPTANCE TEST: Kiki-Jiki, Mirror
   Breaker (virgin, mono-R combo-first, salt alta, tutors-first, $150 soft,
   bracket n/a — the new §5 bracket question's production debut) — READY at

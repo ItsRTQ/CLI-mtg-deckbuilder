@@ -47,6 +47,10 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
     `commander_tags` and `synergy_tags` are formally DEPRECATED (see the analysis JSON's
     `legacy_deprecations` block; removal planned v0.10) — new reads should use
     `analyzer.archetype_support`, `analyzer.tags` and `analyzer.signals`.
+12. Ask the BUILDER §5 core questions and WAIT for the user's answers BEFORE drafting —
+    unconditionally, not "when in doubt" (plausible defaults are not answers). `deck-add`'s
+    first call requires the answered contract (`--set-config budget=... bracket=...`) and
+    refuses to create a deck without it.
 
 ---
 

@@ -23,6 +23,11 @@ needs_db = pytest.mark.skipif(
 )
 
 
+# The answered build contract (BUILDER §5 gate): deck-add's FIRST call refuses
+# to create a deck without budget + bracket in --set-config.
+_CONTRACT = ("--set-config", "budget=150", "--set-config", "bracket=n/a")
+
+
 def _add(deck, cards, purpose, extra=()):
     return runner.invoke(app, ["deck-add", "--deck", str(deck), "--cards", cards,
                                "--purpose", purpose, *extra])
@@ -44,9 +49,43 @@ def test_deck_add_creates_validates_and_tracks_budget(tmp_path):
 
 
 @needs_db
+def test_deck_add_first_use_requires_build_contract(tmp_path):
+    deck = tmp_path / "new.json"
+    r = runner.invoke(app, ["deck-add", "--deck", str(deck), "--cards", "Sol Ring",
+                            "--purpose", "ramp", "--commander",
+                            "Ragost, Deft Gastronaut", "--json-output"])
+    assert r.exit_code != 0
+    err = json.loads(r.output)["error"]
+    assert err["type"] == "validation"
+    assert "budget" in err["message"] and "bracket" in err["message"]
+    assert "BUILDER.md" in err["message"]          # points the agent at §5
+    assert not deck.exists()                       # nothing was created
+    # partial contract (budget only) is still not an answered contract
+    r2 = _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
+                                         "--set-config", "budget=150"))
+    assert r2.exit_code != 0 and not deck.exists()
+    # explicit n/a answers ARE a contract ("No budget" is an answer, not a default)
+    r3 = _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
+                                         "--set-config", "budget=n/a",
+                                         "--set-config", "bracket=n/a"))
+    assert r3.exit_code == 0, r3.output
+
+
+@needs_db
+def test_deck_add_contract_not_required_after_first_use(tmp_path):
+    deck = tmp_path / "d.json"
+    r = _add(deck, "Sol Ring", "ramp",
+             ("--commander", "Ragost, Deft Gastronaut", *_CONTRACT))
+    assert r.exit_code == 0, r.output
+    r2 = _add(deck, "Boros Signet", "ramp")        # no contract flags needed now
+    assert r2.exit_code == 0, r2.output
+
+
+@needs_db
 def test_deck_add_atomic_on_bad_name_and_color(tmp_path):
     deck = tmp_path / "d.json"
-    _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut"))
+    _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
+                                    *_CONTRACT))
     r = runner.invoke(app, ["deck-add", "--deck", str(deck), "--cards",
                             "Krenkooo;Path to Exile", "--purpose", "removal",
                             "--json-output"])
@@ -68,7 +107,7 @@ def test_deck_add_first_use_requires_commander(tmp_path):
 def test_deck_annotate_auto_and_refine_merge_only(tmp_path):
     deck = tmp_path / "d.json"
     _add(deck, "Sol Ring;Swords to Plowshares", "flex",
-         ("--commander", "Ragost, Deft Gastronaut"))
+         ("--commander", "Ragost, Deft Gastronaut", *_CONTRACT))
     r = runner.invoke(app, ["deck-annotate", "--deck", str(deck), "--auto"])
     assert r.exit_code == 0, r.output
     data = json.loads(deck.read_text())
@@ -88,7 +127,8 @@ def test_deck_annotate_auto_and_refine_merge_only(tmp_path):
 @needs_db
 def test_deck_annotate_unknown_card_rejects(tmp_path):
     deck = tmp_path / "d.json"
-    _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut"))
+    _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
+                                    *_CONTRACT))
     r = runner.invoke(app, ["deck-annotate", "--deck", str(deck),
                             "--cards", "Ghost", "--purpose-add", "draw",
                             "--json-output"])
@@ -124,7 +164,7 @@ def test_deck_swap_preserves_top_level_keys(tmp_path):
 def test_deck_power_uses_consistency_tier_when_annotated(tmp_path):
     deck = tmp_path / "d.json"
     _add(deck, "Fiery Emancipation;Aetherflux Reservoir", "wincon",
-         ("--commander", "Ragost, Deft Gastronaut"))
+         ("--commander", "Ragost, Deft Gastronaut", *_CONTRACT))
     _add(deck, "Sol Ring;Boros Signet", "ramp")
     _add(deck, "12 Mountain", "flex")
     r = runner.invoke(app, ["deck-power", "--deck", str(deck), "--commander",
@@ -140,13 +180,16 @@ def test_deck_power_uses_consistency_tier_when_annotated(tmp_path):
 def test_deck_view_shows_metrics_and_card(tmp_path):
     deck = tmp_path / "d.json"
     _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
-                                    "--set-config", "budget=100"))
+                                    "--set-config", "budget=100",
+                                    "--set-config", "bracket=n/a"))
     r = runner.invoke(app, ["deck-view", "--deck", str(deck)])
     assert r.exit_code == 0, r.output
     assert "by purpose" in r.output and "curve:" in r.output and "% of $100" in r.output
+    assert "cost by type:" in r.output and "artifact=$" in r.output
     rj = runner.invoke(app, ["deck-view", "--deck", str(deck), "--json-output"])
     data = json.loads(rj.output)
     assert data["metrics"]["by_purpose"] == {"RAMP": 1}
+    assert list(data["metrics"]["price_by_type"]) == ["artifact"]  # Sol Ring only
     rc = runner.invoke(app, ["deck-view", "--deck", str(deck), "--card", "Sol Ring"])
     assert rc.exit_code == 0 and "Add {C}{C}" in rc.output
     rmiss = runner.invoke(app, ["deck-view", "--deck", str(deck), "--card", "Ghost",
@@ -161,7 +204,7 @@ def test_final_build_ships_deck_list_json(tmp_path, monkeypatch):
     monkeypatch.setattr(misc_cmd, "FINAL_BUILDS_DIR", tmp_path / "final-builds")
     deck = tmp_path / "d.json"
     _add(deck, "Sol Ring", "ramp", ("--commander", "Ragost, Deft Gastronaut",
-                                    "--set-config", "budget=150"))
+                                    *_CONTRACT))
     _add(deck, "98 Mountain", "flex")
     expl = tmp_path / "e.md"
     expl.write_text("guide")

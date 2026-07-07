@@ -9,20 +9,125 @@ The Python `mtg` CLI provides facts, search, validation, deck checks, enrichment
 The external CLI agent makes deckbuilding decisions.
 ```
 
-The app should not try to fully replace deckbuilding judgment. It should act as a reliable tool layer that gives the agent accurate card data (38k+ cards from Scryfall in a local SQLite database), legality checks, functional search, an evidence-first commander analyzer, and a hard finalization gate — while an external LLM agent (guided by `BUILDER.md`) supplies the strategy, card choices, and explanations.
+The app should not try to fully replace deckbuilding judgment. It should act as a reliable tool layer that gives the agent accurate card data (34k+ cards from Scryfall in a local SQLite database), legality checks, functional search, an evidence-first commander analyzer, an **annotated deck object with a consistency tier** (the agent drafts THROUGH the tool, package by package, with a running budget), and a hard finalization gate — while an external LLM agent (guided by `BUILDER.md`) supplies the strategy, card choices, and explanations.
 
 ## Contents
 
+- [**Quick Start — Install & Use**](#quick-start--install--use)
 - [Project Goal](#project-goal)
 - [Core Architecture](#core-architecture)
 - [Requirements](#requirements) · [Setup](#setup) · [Initialize Card Data](#initialize-card-data)
-- [**Command Reference**](#command-reference) — all 34 commands, with a clickable [index](#index)
+- [**Command Reference**](#command-reference) — all 39 commands, with a clickable [index](#index)
 - [Agent Usage](#agent-usage)
 - [Power Level Brackets](#power-level-brackets) · [Budget Handling](#budget-handling)
 - [Deck Identity Model](#deck-identity-model) · [Engine-First Deckbuilding](#engine-first-deckbuilding) · [Broad Archetypes](#broad-archetypes)
 - [Package-Based Strategy Construction](#package-based-strategy-construction) · [Generic Deckbuilding Defaults](#generic-deckbuilding-defaults)
 - [Combos and Tutors](#combos-and-tutors) · [Deckbuilding Constraints](#deckbuilding-constraints)
 - [Output Files](#output-files) · [Troubleshooting](#troubleshooting) · [Development Notes](#development-notes)
+
+---
+
+## Quick Start — Install & Use
+
+Everything you need to go from a fresh clone to a finished, validated Commander deck.
+
+### 1. Dependencies
+
+What you need before cloning:
+
+| Dependency | Version / notes |
+|---|---|
+| **Python** | 3.11+ (`python3 --version`), with `pip` and the `venv` module |
+| **git** | any recent version, to clone the repo |
+| **A shell** | bash/zsh (Linux, macOS, **WSL2** on Windows) or PowerShell (native Windows) |
+| **Disk space** | ~1 GB free: Scryfall bulk download (~550 MB) + the SQLite database (~25 MB) |
+| **Internet** | only for the first card-data download (everything runs local afterwards) |
+
+Install them per platform:
+
+```bash
+# Debian/Ubuntu/WSL2
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv git
+
+# macOS (Homebrew)
+brew install python@3.11 git
+
+# Windows (native, PowerShell)
+winget install Python.Python.3.11 Git.Git
+```
+
+An LLM CLI agent (e.g. Claude Code) is only needed for the agent-driven build in
+step 4-A — the CLI itself works standalone without one.
+
+### 2. Install
+
+```bash
+git clone <this-repo> && cd CLI-mtg-deckbuilder
+
+# virtual environment (Linux/macOS)
+python3 -m venv .venv
+source .venv/bin/activate
+# Windows PowerShell:  python -m venv .venv ; .venv\Scripts\activate
+
+pip install -r requirements.txt
+pip install -e .            # exposes the `mtg` command (editable mode)
+
+mtg status                  # sanity check: shows paths, DB missing is expected here
+```
+
+### 3. Build the card database (one-time, ~550MB download)
+
+```bash
+mtg init-data               # downloads Scryfall bulk data + builds data/processed/mtg.sqlite
+mtg card "Sol Ring"         # verify: full card data prints
+```
+
+Details and troubleshooting: [Setup](#setup) · [Initialize Card Data](#initialize-card-data) ·
+[Troubleshooting](#troubleshooting).
+
+### 4. Use it — two ways
+
+**A. Agent-driven build (the primary use).** Point an LLM CLI agent (Claude Code or
+similar) at the repo and give it a prompt like:
+
+```text
+Using BUILDER.md as your main context, build a "Krenko, Mob Boss" deck.
+```
+
+`BUILDER.md` is the canonical build contract. The agent will:
+
+1. **Ask you the core questions first — mandatory, not optional** (bracket, budget,
+   theme direction, detail level). The tool enforces it: `deck-add` refuses to create
+   a deck without your answered budget + bracket.
+2. Analyze the commander (`commander-analyze`: evidence-based archetype bands +
+   oracle hooks) and plan slot targets (`category-counts`).
+3. **Draft THROUGH the tool, package by package** (`deck-add`): every card is
+   validated at entry (exists / color identity / singleton / size), annotated with
+   its purpose, and priced — a running total shows budget utilization live.
+4. Record combos and rejected candidates as it goes (`note`), annotate the finished
+   draft (`deck-annotate`), and score it (`deck-power`: bracket compliance + a
+   hypergeometric **consistency tier**).
+5. Fill lands, validate, quality-check, audit against the commander's own plan
+   (`deck-gaps`), and pass the one finalization gate: `preflight` → `READY`.
+6. Save a versioned folder under `final-builds/` (decklist + explanation +
+   `deck_list.json`, the annotated judgment) and a Moxfield-ready export.
+
+**B. Manual use.** Every capability is a plain CLI command — useful standalone:
+
+```bash
+mtg card "Krenko, Mob Boss" --field oracle_text      # one field, no JSON wrangling
+mtg search-tags sacrifice_outlet death_trigger --colors B   # search by FUNCTION, ranked
+mtg similar "Sol Ring"                               # cards doing the same job
+mtg complements "Viscera Seer"                       # the other half of the interaction
+mtg commander-analyze --commander "Krenko, Mob Boss" # what the commander wants
+mtg prices-batch --name "Rhystic Study" --name "Smothering Tithe"   # price picks BEFORE adding
+mtg deck-view --deck output/deck.json                # the annotated deck: purposes, curve, cost by type
+mtg budget output/deck.json --budget 150 --by-card   # where the money went
+mtg preflight --deck output/deck.json --commander "Krenko, Mob Boss"   # READY / NOT READY
+```
+
+Every command supports `--json-output` (structured errors included) and `--help`.
+Full details per command: [Command Reference](#command-reference).
 
 ---
 
@@ -221,7 +326,7 @@ This makes it easier to test imports without processing the entire bulk file.
 
 ## Command Reference
 
-The `mtg` CLI exposes **34 commands** (v0.8.0). This index links to a detailed section for
+The `mtg` CLI exposes **39 commands** (v0.8.0). This index links to a detailed section for
 each one. Every command supports `--json-output`, and any command accepts the global
 `--log` flag (see [Global flags](#global-flags)).
 
@@ -232,7 +337,7 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | Command | What it does |
 |---|---|
 | [`mtg status`](#mtg-status) | Show project paths and whether the card database exists. |
-| [`mtg init-data`](#mtg-init-data) | Download Scryfall bulk data (~2GB) and build the local SQLite database. |
+| [`mtg init-data`](#mtg-init-data) | Download Scryfall bulk data (~550MB) and build the local SQLite database. |
 | [`mtg temp-clean`](#mtg-temp-clean) | Clean temporary / generated files from `output/`. |
 
 **Card lookup & prices**
@@ -282,6 +387,16 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | [`mtg deck-gaps`](#mtg-deck-gaps) | Audit the deck against its commander's plan; lists what's thin. |
 | [`mtg preflight`](#mtg-preflight) | THE finalization gate: every must-pass check in one command → `READY`. |
 
+**Annotated deck — drafting & scoring** (the primary flow since the Consistency Engine)
+
+| Command | What it does |
+|---|---|
+| [`mtg deck-add`](#mtg-deck-add) | THE drafting primitive: add a validated PACKAGE with purpose + running budget. |
+| [`mtg deck-annotate`](#mtg-deck-annotate) | Seed/refine purposes on the drafted deck; sync noted combos into it. |
+| [`mtg deck-view`](#mtg-deck-view) | View the annotated deck: purposes, types, curve, **cost by type**, combos. |
+| [`mtg deck-power`](#mtg-deck-power) | Bracket compliance (deterministic) + consistency TIER (hypergeometric). |
+| [`mtg note`](#mtg-note) | Record combos/decisions/findings WHILE drafting (the carpenter's tally). |
+
 **Export & reporting**
 
 | Command | What it does |
@@ -320,8 +435,8 @@ mtg status --json-output   # {"project_root", "database_path", "database_exists"
 
 #### `mtg init-data`
 
-Downloads the Scryfall bulk data (**~2GB**, one-time) if missing, then builds the local
-SQLite database: one row per unique card identity (38k+), with USD/foil/EUR/TIX prices
+Downloads the Scryfall bulk data (**~550MB**, one-time) if missing, then builds the local
+SQLite database: one row per unique card identity (34k+, nonplayable layouts purged at ingest), with USD/foil/EUR/TIX prices
 aggregated across all printings, `edhrec_rank` popularity, commander-legality and
 `can_be_commander` flags precomputed.
 
@@ -425,11 +540,21 @@ mtg prices "Sol Ring" "Lightning Bolt" --json-output
 
 #### `mtg prices-batch`
 
-Prices for every card in a deck file (deck JSON or `.txt` decklist).
+Prices for every card in a deck file (deck JSON or `.txt` decklist) — **or for
+hand-picked names via `--name` (repeatable), BEFORE they join any list**. Both modes
+end with a known-price TOTAL.
 
 ```bash
 mtg prices-batch output/decklist.txt --json-output
+mtg prices-batch --name "Rhystic Study" --name "Smothering Tithe" --name "Dockside Extortionist"
 ```
+
+Notes:
+- **Never sum a draft on memory prices** — measured off by 5x in a real build
+  (Flawless Maneuver remembered ~$4, actual $20.30). Cost hand-picked staples with
+  `--name` before adding them.
+- `--name` mode JSON returns `{results, known_total, unknown_count, not_found_count}`;
+  not-found names get fuzzy did-you-mean suggestions.
 
 #### `mtg budget`
 
@@ -444,7 +569,9 @@ mtg budget output/deck.json --budget 130 --by-card --top 25
 ```
 
 Options:
-- `--budget <USD>` — the maximum. Budget is a **constraint, not a spending target**.
+- `--budget <USD>` — the ceiling. **A budget is a spending plan as well as a cap**:
+  draft TO it (target 85–100% utilization); landing far under budget is a drafting
+  failure, and below ~60% the Budget Upgrade Review is required (BUILDER §11).
 - `--overage <pct>` — allowed percent above the limit (default 10).
 - `--by-card` — per-card `line_total = usd_price × quantity` breakdown, most expensive
   first (`--top N`, 0 = all).
@@ -512,11 +639,16 @@ Notes:
   guaranteed 5-power beater).
 - An unknown `--type` value errors out listing the supported types and suggesting
   `--subtype` for creature types (e.g. `Rogue`).
-- Results are ranked with real EDHREC popularity as tiebreak (staples first).
+- Results are ranked with real EDHREC popularity as tiebreak (staples first), and
+  **every result row prints a price chip** (`$1.23`, `$?` when unknown) — allocation
+  happens with prices visible, never from memory.
+- `--max-rank <N>` caps candidates by EDHREC rank (unknown ranks are kept) — useful
+  to surface format staples at high brackets. Popularity is CONSIDER-ONLY, never an
+  include-verdict. Also available on `search-tags`.
 
 #### `mtg search-tags`
 
-Search by **card function** using the curated tag vocabulary (106 functional tags —
+Search by **card function** using the curated tag vocabulary (140 functional tags —
 `ramp`, `card_draw`, `evasion`, `sacrifice_outlet`, `reanimation`, `protection`, …).
 Passing several tags unions their phrases, and results are **ranked by
 `tag_match_count`** — how many of the requested tags' phrases each card hits — so the
@@ -831,9 +963,13 @@ mtg deck-check --commander "Krenko, Mob Boss" --deck output/deck.json --json-out
 
 Notes:
 - Lands only count as ramp when they actually ramp (Myriad Landscape yes, basics no).
-- Fight/bite spells count as removal.
+- Fight/bite spells count as removal; so do burn-to-target (Lightning Bolt) and
+  tuck effects (Chaos Warp).
 - Counts are heuristic tag matches — treat warnings as prompts for judgment, not
   hard failures.
+- Also reports **`staple_density`** (median EDHREC rank + % top-2000 over nonland
+  cards) as a purely INFORMATIONAL line — never a warning, never gates preflight.
+  Popularity ≠ power; synergy-dense decks read low by design.
 
 #### `mtg deck-gaps`
 
@@ -868,6 +1004,122 @@ mtg preflight --deck output/deck.json --commander "Krenko, Mob Boss" --budget 13
 
 ---
 
+### Annotated deck — drafting & scoring
+
+Since the Consistency Engine, the draft is built THROUGH the tool instead of in agent
+memory: every card enters with a **purpose** (RAMP / DRAW / REMOVAL / WINCON /
+SYNERGY / COMBO_PIECE / …), the build contract (budget, bracket) travels IN the deck
+JSON, and the finished deck can be scored for consistency.
+
+#### `mtg deck-add`
+
+**THE drafting primitive.** Adds a PACKAGE of cards, batch and ATOMIC — any invalid
+card rejects the whole batch. Every card is validated at entry (exists, color
+identity, singleton, deck size), annotated with the batch's purpose, and priced: the
+output shows the batch price and the **running deck total with budget %** (the
+draft-to-budget mechanism).
+
+```bash
+# FIRST call creates the deck and MUST carry the user's answered build contract:
+mtg deck-add --deck output/deck.json --commander "Krenko, Mob Boss" \
+    --cards "Sol Ring;Arcane Signet;Fellwar Stone" --purpose ramp \
+    --set-config budget=150 --set-config budget_mode=soft --set-config bracket=n/a \
+    --deck-note "goblin swarm: token engine + damage payoffs"
+
+# subsequent packages (~8-12 per build); basics use "N Name":
+mtg deck-add --deck output/deck.json --cards "Skullclamp;..." --purpose draw
+mtg deck-add --deck output/deck.json --cards "30 Mountain" --purpose flex
+```
+
+Notes:
+- **The first call is gated**: without `budget` AND `bracket` in `--set-config` it
+  refuses to create the deck — those values come from the user's answers to the
+  BUILDER §5 core questions, so a draft cannot start before asking (`n/a` is a valid
+  explicit answer; missing is not).
+- `--purpose` accepts several, comma-separated (`--purpose ramp,synergy`);
+  `--note` applies an agent note to the whole batch.
+- The contract lives in the deck's `config` — it survives context loss and travels
+  with the file.
+
+#### `mtg deck-annotate`
+
+One annotation pass at the END of the draft (never per-card-per-add):
+
+```bash
+mtg deck-annotate --deck output/deck.json --auto          # seed ~85% from the measured census
+mtg deck-annotate --deck output/deck.json --cards "A;B" --purpose-add synergy --note "..."
+mtg deck-annotate --deck output/deck.json --sync-notes    # pull noted combos into the deck
+```
+
+Notes:
+- `--auto` is merge-only (never removes a purpose you set) and counts lands as RAMP
+  only when they actually ramp.
+- `--sync-notes` deduplicates combos recorded with [`mtg note`](#mtg-note) and marks
+  their pieces COMBO_PIECE.
+
+#### `mtg deck-view`
+
+Shows the annotated deck: commanders, config, budget utilization, metrics
+(cards by purpose, primary-type counts, **cost by type**, mana curve + score),
+combos, and the Moxfield-format list.
+
+```bash
+mtg deck-view --deck output/deck.json
+mtg deck-view --deck output/deck.json --by-purpose        # group the list by purpose
+mtg deck-view --deck output/deck.json --card "Sol Ring"   # one card's build-facing summary
+mtg deck-view --deck output/deck.json --json-output       # full dict + metrics
+```
+
+The **cost by type** line (`creature=$45.64, sorcery=$34.71, … land=$6.12`) answers
+"where does the MONEY sit" — the lens behind the Budget Reallocation check: money
+concentrated in a low-impact bucket (classic: expensive nonbasic lands) can fund a
+better card, and the agent must ASK before reallocating (BUILDER §11).
+
+#### `mtg deck-power`
+
+The two categorizers in one command:
+
+1. **Bracket compliance (deterministic)** — Game Changers count (WotC's official
+   flag), mass land denial, extra-turn cards, complete 2-card combos, tutors
+   (informational) → computed minimum bracket + a COMPLIANT verdict against the
+   deck's configured bracket target (skipped when the target is `n/a`).
+2. **Consistency TIER (0.0–10.0, +S ≥ 9.5 … F < 5.0, consider-only)** — exact
+   hypergeometrics over the annotated deck: win-route access weighted by combo class
+   (auto-win > infinite > value), tutors count as wildcards, function bundle at turn
+   targets (ramp@T2, draw/removal@T3), curve score. Reports broken routes as a
+   "one card away" list and includes per-category draw odds.
+
+```bash
+mtg deck-power --deck output/deck.json --commander "Krenko, Mob Boss" --json-output
+```
+
+Notes:
+- The tier needs the annotated deck (purposes + combos); an unannotated deck falls
+  back to a text-census tier with a notice.
+- The tier is CONSIDER-ONLY — report it, never gate on it.
+
+#### `mtg note`
+
+The carpenter's tally: record combos, decisions, and findings the moment you see them
+while drafting — never hold them in memory.
+
+```bash
+mtg note "Kiki + Zealous Conscripts = infinite hasty tokens" \
+    --type combo --cards "Kiki-Jiki, Mirror Breaker;Zealous Conscripts" \
+    --combo-class auto_win
+mtg note "Rejected Purphoros: $27 vs remembered ~$5" --type decision
+```
+
+Notes:
+- Combo notes are first-class `deck-power` sources (deduped against the external
+  fetch; the noted classification wins). `;` separates card names because names
+  contain commas.
+- `--cards` validates names against the DB and warns on ghosts.
+- Notes live in `output/build-notes.json`; `deck-annotate --sync-notes` pulls the
+  combos into the deck itself.
+
+---
+
 ### Export & reporting
 
 #### `mtg enrich`
@@ -897,8 +1149,12 @@ Validates the deck and saves a versioned final build folder:
 ```text
 final-builds/<Commander>-<Theme>-<Bracket>-v<N>/
 ├── <build-name>.txt                # Moxfield-compatible decklist
-└── <build-name>.explanation.md    # the deck explanation
+├── <build-name>.explanation.md     # the deck explanation
+└── deck_list.json                  # the ANNOTATED deck: purposes, notes, config, combos
 ```
+
+`deck_list.json` means the build's judgment travels with it — reload it any time with
+[`mtg deck-view`](#mtg-deck-view) to see why every card is there.
 
 ```bash
 mtg final-build --deck output/deck.json --commander "Krenko, Mob Boss" \
@@ -945,28 +1201,41 @@ agents/deck_explainer.md
 
 ### Agent workflow
 
-When asked to build a deck, the agent should:
+When asked to build a deck, the agent should (the annotated-deck flow, BUILDER §6.0):
 
 1. Read the user request.
 2. Identify commander, archetype, detail, and constraints.
-3. Use `agents/user-feedback.md` to ask useful preference questions if needed.
+3. **Ask the BUILDER §5 core questions (bracket, budget, theme, detail level) and
+   WAIT for the answers — mandatory and unconditional**, never "only if in doubt"
+   (`agents/user-feedback.md` has the exact wording). `deck-add` enforces it: the
+   first call refuses to create a deck without the answered budget + bracket.
 4. Confirm the commander exists and is legal: `mtg card "<name>" --field can_be_commander`.
 5. Analyze the commander: `mtg commander-analyze` (prefer the `analyzer` bands; read `oracle_hooks`).
 6. Plan slot targets with `mtg category-counts` (trust `recommended_range`/`need_score`).
 7. Build package goals; shortlist candidates with `search`, `search-tags`, `suggest`,
-   `similar`, `complements`.
-8. Rank candidates with `agents/card_ranker.md`; draft `output/decklist.txt`.
-9. **Verify the draft BEFORE building: `mtg cards-batch output/decklist.txt --verify`.**
-10. Build the deck file: `mtg deck-write --commander "<name>" --structured`.
-11. Fill lands: `mtg deck-fill-lands`.
-12. Audit against the plan: `mtg deck-gaps`. Validate: `mtg validate`; quality: `mtg deck-check`;
-    budget: `mtg budget`.
-13. Fix errors with `mtg deck-swap` (guided by `agents/deck_fixer.md`).
-14. **Gate: `mtg preflight` must print `READY`.**
-15. Export with `mtg export`; save with `mtg final-build`.
-16. Explain the final validated deck.
+   `similar`, `complements` (results print prices; cost hand-picks with
+   `prices-batch --name` BEFORE adding — never sum a draft on memory prices).
+8. Rank candidates with `agents/card_ranker.md`.
+9. **Draft THROUGH the tool, package by package: `mtg deck-add --purpose <role>`** —
+   validated at entry, running budget total with utilization %. First call sets the
+   contract (`--set-config budget=... bracket=...`) and theme (`--deck-note`).
+10. WHILE drafting: `mtg note --type combo` the moment a combo is seen; `--type
+    decision` for rejected candidates. If the budget gets tight, check `deck-view`'s
+    **cost by type** and ASK the user before reallocating (BUILDER §11).
+11. One annotation pass at the end: `mtg deck-annotate --auto` + refine + `--sync-notes`.
+12. Fill lands: `mtg deck-fill-lands`. Inspect: `mtg deck-view`.
+13. Score: `mtg deck-power` (bracket compliance if targeted; consistency TIER is
+    consider-only). Audit against the plan: `mtg deck-gaps`. Validate: `mtg validate`;
+    quality: `mtg deck-check`; budget: `mtg budget`.
+14. Fix errors with `mtg deck-swap` (guided by `agents/deck_fixer.md`).
+15. **Gate: `mtg preflight` must print `READY`.**
+16. Export with `mtg export`; save with `mtg final-build` (ships `deck_list.json`).
+17. Explain the final validated deck.
 
 The agent must not claim the deck is done unless `mtg preflight` prints `READY`.
+The legacy path (draft `output/decklist.txt` → `cards-batch --verify` →
+`deck-write --structured`) still works, but loses entry-time validation, the running
+budget, and purposes — prefer `deck-add`.
 
 ---
 
@@ -1521,34 +1790,37 @@ Generated files are written to `output/`.
 Common output files:
 
 ```text
-output/deck.json
+output/deck.json                # the ANNOTATED deck (purposes, config, combos) — see deck-add
 output/deck.enriched.json
 output/deck.moxfield.txt
 output/deck_explanation.md
 output/validation_report.json
 output/deck_check_report.json
+output/commander_analysis.json
+output/build-notes.json         # combos/decisions recorded with `mtg note`
 ```
 
 ### `output/deck.json`
 
-Simple decklist used by validator/exporter:
+The annotated deck (created by [`mtg deck-add`](#mtg-deck-add)) — judgment only;
+card facts re-hydrate from the database on load:
 
 ```json
-[
-  {
-    "quantity": 1,
-    "name": "Chishiro, the Shattered Blade",
-    "set_code": "nec",
-    "collector_number": "77"
-  },
-  {
-    "quantity": 1,
-    "name": "Sol Ring",
-    "set_code": "lcc",
-    "collector_number": "299"
-  }
-]
+{
+  "commander": "Chishiro, the Shattered Blade",
+  "agent_note": "modified-creatures engine: counters + auras, wide payoff",
+  "config": { "budget": "150", "budget_mode": "soft", "bracket": "n/a" },
+  "combos": { "infinite": [], "non_infinite": [], "utility": [], "auto_win": [] },
+  "main_deck": [
+    { "name": "Sol Ring", "quantity": 1, "purpose": ["RAMP"] },
+    { "name": "Rishkar's Expertise", "quantity": 1, "purpose": ["DRAW", "SYNERGY"],
+      "agent_note": "draw scales with the biggest modified body" }
+  ]
+}
 ```
+
+Legacy shapes (a flat card array, or `{commander, main_deck}` without purposes) are
+still accepted by every consumer — they just carry no judgment.
 
 ### `output/deck.enriched.json`
 
@@ -1704,24 +1976,27 @@ Project layout (v0.8.0):
 
 ```text
 src/mtgcli/
-├── cli/               # the Typer CLI package (34 commands in commands/{data,search,cards,deck,analysis,misc}.py)
+├── cli/               # the Typer CLI package (39 commands in commands/{data,search,cards,deck,analysis,misc}.py)
 ├── analyzer/          # evidence-first card analyzer: signals with provenance traces, ordinal bands
+├── models/            # CARD and DECK build-context objects + the consistency-tier math
 ├── cards/             # SQLite repository, search engine, query parser
 ├── category_counts/   # slot planning (calculator, scoring, output)
-├── deckbuilder/       # commander analyzer, oracle hooks, pricing, land filler, deck check, ramp rules
+├── deckbuilder/       # commander analyzer, oracle hooks, pricing, land filler, deck check,
+│                      #   ramp rules, deck power, build notes, plan coverage
 ├── data/              # Scryfall download / normalize / SQLite build
 ├── combos/, explore/  # external combo & EDHREC data
 ├── export/            # Moxfield + final-builds
-├── utils/, validator/ # deck IO, JSON IO, deck validation
+├── utils/, validator/ # deck IO, JSON IO, phrase matching, deck validation
 └── config.py, logging_util.py
 ```
 
 Key data files:
 
 ```text
-data/seed/card_tags.json              # 106 functional tags — curated, DB-measured phrases
+data/seed/card_tags.json              # 140 functional tags — curated, DB-measured phrases
+data/seed/tier_weights.json           # every consistency-tier constant, declared with provenance
 data/seed/commander_overrides.json    # allowlist for non-creature face commanders
-data/golden/golden_cards.json         # 166 hand-verified analyzer reads (the regression net)
+data/golden/golden_cards.json         # 376 hand-verified analyzer reads (the regression net)
 data/processed/mtg.sqlite             # the card database (built by init-data)
 ```
 
@@ -1729,7 +2004,7 @@ Testing:
 
 ```bash
 pip install -e .
-python3 -m pytest -q     # 950 tests; the golden set catches analyzer regressions in seconds
+python3 -m pytest -q     # 1300+ tests; the golden set catches analyzer regressions in seconds
 ```
 
 Run the full suite after ANY code change, and add a regression test for any bug fixed.

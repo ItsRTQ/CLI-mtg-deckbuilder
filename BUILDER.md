@@ -51,6 +51,12 @@ agents/deck_explainer.md
     85–100% utilization) and never past it. Landing far under budget is a drafting
     failure, not prudence (§11).
 13. Before starting the build ask the user "Do you want to clear output folder? "(Yes/No - answere only) if user selects yes run(.venv/bin/mtg temp-clean --full --yes) to clear output folder using the mtg tool. if user select no, then skip and continue to build
+14. The §5 core questions are UNCONDITIONAL: ask them and WAIT for the user's answers
+    before drafting a single card. "Ask if in doubt" is not the contract — an agent with
+    plausible defaults never has doubts, and its defaults are not answers. `deck-add`
+    enforces this mechanically: its FIRST call refuses to create a deck without the
+    answered contract (`--set-config budget=<USD|n/a> --set-config bracket=<1-5|n/a>`).
+    A build that drafts without asking is not following this document.
 
 ---
 
@@ -138,7 +144,14 @@ The commander should not be inside `main_deck`. If a flat list contains the comm
 
 ## 5. User Feedback Flow
 
-Default: ask up to **4 core questions** before building. Use multiple choice and always include `Agent choice`.
+**MANDATORY — ask the 4 core questions and WAIT for the answers before building** (rule 14).
+This is unconditional: it does not depend on the agent having doubts, and plausible
+defaults are not answers (`Agent choice` must be the user's pick, never the agent's
+assumption). Use multiple choice and always include `Agent choice`. Enforcement:
+`deck-add`'s first call refuses to create a deck until the answered contract
+(budget + bracket) is passed via `--set-config`, so a draft cannot mechanically start
+before this step. If the user already answered something in their request, don't
+re-ask it — but the remaining core questions still get asked.
 
 **Core question 1 asks for the official Commander BRACKET (1-2 / 3 / 4-5), always with
 an `n/a — I don't care about brackets` option** (default n/a: brackets are a social
@@ -650,6 +663,45 @@ Use:
 ```bash
 mtg budget output/deck.json --budget <amount> --overage 10 --json-output
 ```
+
+### Budget Reallocation (the cost-by-type lens)
+
+`budget --by-card` answers "which CARD is expensive"; `deck-view`'s **cost by type**
+(human line, or `metrics.price_by_type` in JSON) answers "where does the MONEY sit"
+— and money sitting in a low-impact bucket is budget a higher-impact slot could use.
+
+When to run the check: the deck is over budget, a wanted upgrade doesn't fit, or a
+trim is needed for any reason.
+
+```bash
+mtg deck-view --deck output/deck.json          # "cost by type: creature=$45, land=$31, ..."
+```
+
+The classic finding: a large share of budget in LANDS (expensive duals/utility lands)
+while a win condition, draw engine, or key synergy piece was passed on for price.
+Swapping nonbasic lands for basics frees that money — at a real cost in mana
+consistency (cheap in mono/2-color decks, increasingly risky in 3+ colors).
+
+**Rule: NEVER reallocate silently — ASK.** This is a personal-preference trade the
+user owns (they may value the mana base, already own those lands, or see something
+the agent didn't). Present a concrete proposal:
+
+```text
+Cost by type shows $31 on lands. Swapping <Land A, Land B, Land C> for basics
+frees ~$18, enough for <Upgrade X> ($15). Trade-off: slightly less consistent
+mana (this is a 2-color deck — low risk).
+
+a) Keep the mana base as is — find the money elsewhere (or skip the upgrade)
+b) Swap the listed lands for basics and apply the upgrade
+c) Partial — swap only the lands I name, then re-check
+d) Agent choice
+```
+
+Every proposal must name the exact cuts, the exact upgrade, both prices, the freed
+amount, and the consistency trade-off. Apply via `mtg deck-swap` (never hand-edit),
+then re-run `budget` and `deck-view` to confirm the landing. The same lens works in
+reverse for any type bucket (e.g. $40 in creatures on a spellslinger plan is the
+same conversation).
 
 ### Budget Tolerance Modes
 

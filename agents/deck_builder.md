@@ -9,7 +9,9 @@ Do not invent cards. Do not create helper scripts.
 ## Build Sequence
 
 1. Read `BUILDER.md`.
-2. Collect user preferences if needed.
+2. Ask the BUILDER §5 core questions and WAIT for the user's answers — MANDATORY,
+   unconditional (never "if needed"/"if in doubt": plausible defaults are not answers).
+   Skip only the individual questions the user already answered in their request.
 3. Run `commander-analyze`.
 4. Detect archetype, detail, constraints, and build mode.
 5. Run `category-counts` with commander analysis.
@@ -23,14 +25,22 @@ Do not invent cards. Do not create helper scripts.
    for hand-picked staples run `mtg prices-batch --name "A" --name "B"` (known-price
    total included) BEFORE adding them — NEVER sum a draft on memory prices (measured
    off by 5x). At high brackets `--max-rank <N>` surfaces format staples — popularity
-   is CONSIDER-ONLY, never an include-verdict.
+   is CONSIDER-ONLY, never an include-verdict. When the budget gets tight (over, or
+   a wanted upgrade doesn't fit), check WHERE the money sits with `deck-view`'s
+   **cost by type** before cutting: money concentrated in a low-impact bucket
+   (classic: expensive lands) can be reallocated to a better card — but ALWAYS ask
+   the user first per BUILDER §11 "Budget Reallocation" (exact cuts, exact upgrade,
+   both prices, consistency trade-off). Never reallocate silently — the user may
+   value the mana base or see something you didn't.
 8. Rank candidates.
 9. **Draft THROUGH the tool, package by package** (`mtg deck-add --cards "A;B;..."
    --purpose <role>` — the package IS the role): validates at entry (exists / color
    identity / singleton / size), and prints the batch price + RUNNING TOTAL with
-   budget % — watch it land in the 85–100% window as you draft. First call carries
+   budget % — watch it land in the 85–100% window as you draft. First call MUST carry
    `--set-config budget=... budget_mode=... bracket=...` (the contract lives IN the
-   deck) and `--deck-note` (theme/gameplan). Basics: `--cards "12 Mountain"`.
+   deck — deck-add refuses to create it without budget + bracket, which only the
+   user's step-2 answers can provide) and `--deck-note` (theme/gameplan). Basics:
+   `--cards "12 Mountain"`.
    The old decklist.txt + `deck-write --structured` path still works but loses
    entry-time validation, running budget, and purposes.
 10. WHILE drafting: `mtg note --type combo` the moment you SEE a combo, and

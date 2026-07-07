@@ -74,6 +74,7 @@ src/mtgcli/export/final_builds.py
 src/mtgcli/export/moxfield.py
 src/mtgcli/models/__init__.py
 src/mtgcli/models/card.py
+src/mtgcli/models/consistency.py
 src/mtgcli/models/deck.py
 src/mtgcli/utils/__init__.py
 src/mtgcli/utils/deck_io.py
@@ -94,11 +95,13 @@ tests/test_cli_smoke.py
 tests/test_combos.py
 tests/test_command_logging.py
 tests/test_commander_analyzer.py
+tests/test_consistency.py
 tests/test_constraints.py
 tests/test_db_missing_json.py
 tests/test_deck_check_ramp.py
 tests/test_deck_check_removal.py
 tests/test_deck_io.py
+tests/test_deck_model.py
 tests/test_deck_pipeline.py
 tests/test_deck_power.py
 tests/test_deck_swap_quantity.py
@@ -106,6 +109,7 @@ tests/test_dedupe.py
 tests/test_enrichment.py
 tests/test_explore.py
 tests/test_fase1_ingest_fields.py
+tests/test_fase4_commands.py
 tests/test_final_builds.py
 tests/test_flexible_lands.py
 tests/test_golden_set.py

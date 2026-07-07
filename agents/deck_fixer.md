@@ -105,6 +105,14 @@ user requested stricter spending
 
 Do not cut key synergy just because the deck is under budget.
 
+When a trim IS needed, look at WHERE the money sits before cutting cards one by one:
+`mtg deck-view` prints **cost by type** (`metrics.price_by_type` in JSON). If a
+low-impact bucket concentrates cost (classic: expensive nonbasic lands) while the
+trim threatens a high-impact card, propose a REALLOCATION (swap lands for basics,
+keep the good card) and ASK the user per BUILDER §11 "Budget Reallocation" — exact
+cuts, exact keep, both prices, consistency trade-off. Never reallocate silently:
+the user may value the mana base or see something the agent didn't.
+
 A deck under budget is valid and does not need a "fix." If it is meaningfully
 under budget (especially T1/T2), defer to the Budget Upgrade Review (BUILDER.md
 Section 11) instead of forcing spending. Never auto-apply over-budget upgrades

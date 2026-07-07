@@ -68,11 +68,12 @@ For each build, run the **standard BUILDER workflow**, but with an analyzer-obse
 in:
 
 1. Analyze the commander with ONE command — `mtg commander-analyze --commander "<name>"
-   --json-output --log`. Since Fase 1 it carries BOTH reads: the legacy `archetype_fit` (numeric
-   scores) and the preferred `analyzer.archetype_support` (evidence bands + signal IDs). Rules:
-   - **Build from `analyzer.archetype_support`** (see BUILDER.md §7.0b). Treat `archetype_fit` as
-     a hint at most.
-   - **A disagreement between the two IS calibration signal** — record which is right and why.
+   --json-output --log`. It carries ONE archetype read: `analyzer.archetype_support` (evidence
+   bands + signal IDs), plus `analyzer.tags`/`analyzer.signals`. Rules:
+   - **Build from `analyzer.archetype_support`** (see BUILDER.md §7.0b) — it is the only read
+     (the legacy `archetype_fit` was removed in v0.8.0).
+   - **Whether the analyzer read matches your own read of the oracle IS calibration signal** —
+     record when it disagrees with reality and why.
    - **Coverage-gap protocol:** if `archetype_support` is empty or all-low but the commander
      clearly has a plan, record: (a) the archetype it SHOULD read, and (b) which `signals`/tags
      DID fire (that pairing is the map for adding the missing mapper rule). Then build from your
@@ -108,8 +109,8 @@ CALIMAX run: <Commander> (<archetype>, agent-chosen)
 Deck: <N> cards, $<price>, preflight: READY/NOT READY
 Audit: logs/<name>.json (<count> commands logged)
 
-Archetype check: analyzer.archetype_support said <X> | legacy archetype_fit said <Y> |
-  correct read: <Z> | verdict: analyzer right / legacy right / both / neither (coverage gap)
+Archetype check: analyzer.archetype_support said <X> | correct read: <Z> |
+  verdict: analyzer right / analyzer wrong / coverage gap
 
 Analyzer hits (read matched reality): <count>, examples …
 Analyzer misses (to fix), classified:

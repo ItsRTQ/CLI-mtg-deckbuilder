@@ -69,7 +69,7 @@ role need
 mana efficiency
 card type and subtype
 power/toughness for combat roles
-combo/explore context if used
+noted combo context if used (mtg note / agent web research)
 validation legality
 ```
 
@@ -201,7 +201,7 @@ package/role improved, and risk/downside. Respect the user's budget tolerance mo
 
 ## Combo Context
 
-`mtg combos` is optional context.
+Combo context comes from the agent's own research (web when needed), recorded via `mtg note --type combo` — the external fetch command was removed (v0.8.0).
 
 If the user wants combos, evaluate packages by:
 

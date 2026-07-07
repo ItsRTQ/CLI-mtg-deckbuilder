@@ -4,8 +4,8 @@ Importing this package builds the Typer ``app`` and registers every command (by
 importing the command modules), then exposes the console entry point ``main`` /
 ``_run_app`` plus the small public surface the test suite imports (``app``,
 ``has_power_toughness``, ``print_json``) and the symbols historically patched
-(``SQLITE_PATH``, ``CardRepository``, ``build_explore_url``,
-``fetch_commander_page`` — now owned by the command modules that use them).
+(``SQLITE_PATH``, ``CardRepository`` — now owned by the command modules that
+use them).
 
 The entry point ``mtg = mtgcli.cli:main`` and ``python -m mtgcli.cli`` (via
 ``__main__.py``) both resolve to :func:`main` below.
@@ -18,8 +18,6 @@ from mtgcli.cli._shared import (
     _emit_json_error,
     SQLITE_PATH,
     CardRepository,
-    build_explore_url,
-    fetch_commander_page,
 )
 
 # Importing each command module runs its @app.command() decorators, registering
@@ -40,9 +38,9 @@ from mtgcli.cli.commands import (  # noqa: E402,F401 -- imported for registratio
 _COMMAND_ORDER = [
     "status", "init_data", "card", "search", "search_tags", "suggest",
     "commander_analyze", "validate", "deck_write", "deck_fill_lands", "enrich",
-    "export", "suggest_lands", "deck_check", "themes", "theme_info", "explore",
+    "export", "suggest_lands", "deck_check", "themes", "theme_info",
     "temp_clean", "final_build", "price", "cards", "cards_batch", "prices",
-    "prices_batch", "budget", "category_counts", "combos", "deck_swap",
+    "prices_batch", "budget", "category_counts", "deck_swap",
     "preflight", "similar", "complements", "deck_gaps", "analyze_card", "report",
 ]
 _ORDER_INDEX = {name: i for i, name in enumerate(_COMMAND_ORDER)}

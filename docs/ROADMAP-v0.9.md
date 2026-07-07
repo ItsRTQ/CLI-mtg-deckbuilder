@@ -47,16 +47,17 @@ agent-brain cannot skip.
 
 ## 3. Deprecate / delete (decided, scheduled)
 
-1. **`archetype_fit` (legacy) — deprecate after the gate.** Analyzer is primary
-   (BUILDER.md §7.0b already says so). M3: mark deprecated in output (`"deprecated":
-   true` field), stop feeding new consumers, delete in v0.10.
+1. **`archetype_fit` (legacy) — DONE, REMOVED in v0.8.0.** Analyzer is the only read
+   (BUILDER.md §7.0b). The field (and the interim `legacy_deprecations` block) was
+   physically deleted from `commander_analysis.json`; `best_archetype` now derives from
+   the top analyzer band, and category-counts dropped `archetype_fit_score`.
 2. **`_score_provides` oracle heuristics — replace with analyzer signals** (M2,
    consumer #1). Keep as fallback only when analyzer is absent.
 3. **`deck-write` unstructured default with `--commander` present.** If `--commander`
    is given, `--structured` should be implied (the current default silently builds an
    illegal deck shape). Small fix, M4.
-4. **Legacy `commander_tags` / `synergy_tags` duplication** in commander-analyze output
-   vs analyzer signals: keep both until M3, then single source.
+4. **Legacy `commander_tags` / `synergy_tags` duplication — DONE, REMOVED in v0.8.0.**
+   The tag lists were deleted; `analyzer.tags` is the single source.
 5. **Stale `output/` artifacts** between builds (old analysis JSONs cache stale
    scores — the F10 cache trap). M4: `mtg clean-output` helper or timestamp warning
    when an analysis file predates the installed version.
@@ -110,11 +111,12 @@ enables per-command tests); delete `safe_float`.
 - Done when: consumers produce same-or-better outputs on a 10-commander spot-check +
   full suite green; certero re-measured (target: hold ≥75%).
 
-### M3 — Legacy deprecation
-- `archetype_fit` marked deprecated in JSON output; agent files updated to stop
-  mentioning it except as historical.
-- Remove `commander_tags`/`synergy_tags` duplication (single source: analyzer).
-- Done when: no consumer reads legacy fields; deprecation notes in CHANGELOG.
+### M3 — Legacy removal (DONE in v0.8.0)
+- `archetype_fit` REMOVED from JSON output (deprecation was an interim step; the field and
+  the `legacy_deprecations` block are now physically deleted); agent files updated to point
+  only at `analyzer.archetype_support`.
+- `commander_tags`/`synergy_tags` duplication REMOVED (single source: `analyzer.tags`).
+- Done: no consumer reads legacy fields; removal notes in CHANGELOG.
 
 ### M4 — Build-flow polish (the consolidation list)
 - `deck-write`: `--commander` implies `--structured`.

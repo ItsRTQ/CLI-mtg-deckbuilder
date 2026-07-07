@@ -15,7 +15,7 @@ Do not invent cards. Do not create helper scripts.
 3. Run `commander-analyze`.
 4. Detect archetype, detail, constraints, and build mode.
 5. Run `category-counts` with commander analysis.
-6. Optionally run `explore` / `combos` for context.
+6. Optionally research combos/synergies on the web yourself (BUILDER §12) — verify every card against the DB, record adoptions with `mtg note`.
 7. Search/suggest candidates by role and package. **If a budget is set, draft TO it
    (target 85–100% utilization): allocate package budgets while drafting and take the
    strongest card each slot's share affords — never self-impose per-card caps far below
@@ -31,7 +31,10 @@ Do not invent cards. Do not create helper scripts.
    (classic: expensive lands) can be reallocated to a better card — but ALWAYS ask
    the user first per BUILDER §11 "Budget Reallocation" (exact cuts, exact upgrade,
    both prices, consistency trade-off). Never reallocate silently — the user may
-   value the mana base or see something you didn't.
+   value the mana base or see something you didn't. OWNED cards (user-bulk
+   collection) cost the budget $0 — `budget`/preflight exclude them automatically
+   with a visible line; prefer an owned staple over buying a weaker substitute
+   (BUILDER §11 "Owned cards").
 8. Rank candidates.
 9. **Draft THROUGH the tool, package by package** (`mtg deck-add --cards "A;B;..."
    --purpose <role>` — the package IS the role): validates at entry (exists / color
@@ -151,7 +154,7 @@ budget/salt/power limits
 If compressed targets look misleading, use `recommended_range`, `need_score`, and deckbuilding judgment.
 
 Build the commander engine straight from the analysis: turn each `wanted_card_patterns` entry
-(and `synergy_tags` / `engine_profile.primary_pattern`) into `suggest`/`search-tags` queries.
+(and `analyzer.tags` / `engine_profile.primary_pattern`) into `suggest`/`search-tags` queries.
 This is how niche hooks get covered — e.g. a `targeted_spell_payoff` commander wants cheap
 self-targeting spells and buyback auras (Whip Silk) that generic archetype filling never finds.
 
@@ -250,14 +253,12 @@ Landfall/landsmatter usually targets 38–42 lands. Do not hard-lock exact 40 un
 
 ---
 
-## Combos and Explore
+## Combo & Synergy Research
 
-Use combos/explore as optional context:
-
-```bash
-mtg explore --commander "<commander>" --json-output
-mtg combos --commander "<commander>" --output output/commander_combos.json --json-output
-```
+The former `explore` / `combos` fetch commands were removed (v0.8.0). If the build
+needs outside combo/synergy ideas, research the web yourself (BUILDER §12): verify
+every candidate against the DB (`mtg card` / `cards-batch --verify`), record adopted
+combos with `mtg note --type combo` and rejections with `--type decision`.
 
 Do not include full combos unless user preference, power level, and salt policy allow them.
 

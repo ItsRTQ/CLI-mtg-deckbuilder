@@ -11,8 +11,6 @@ from mtgcli.deckbuilder.commander_analyzer import (
     _parse_type_line,
     _infer_engine_patterns,
     _extract_text_signals,
-    _build_commander_type_tags,
-    _compute_archetype_fit,
 )
 from mtgcli.deckbuilder.suggestion_scorer import (
     extract_commander_synergy_signals,
@@ -217,28 +215,6 @@ def test_omnath_scaling_axes():
     assert "tokens" in signals["scaling_axes"]
 
 
-# ─── Commander type tags ──────────────────────────────────────────────────────
-
-def test_brago_type_tags():
-    parsed = _parse_type_line(BRAGO["type_line"])
-    tags = _build_commander_type_tags(parsed["card_types"], parsed["subtypes"])
-    assert "creature_commander" in tags
-    assert "tribal_spirit" in tags
-
-
-def test_edgar_type_tags():
-    parsed = _parse_type_line(EDGAR["type_line"])
-    tags = _build_commander_type_tags(parsed["card_types"], parsed["subtypes"])
-    assert "creature_commander" in tags
-    assert "tribal_vampire" in tags
-
-
-def test_aminatou_type_tags():
-    parsed = _parse_type_line(AMINATOU["type_line"])
-    tags = _build_commander_type_tags(parsed["card_types"], parsed["subtypes"])
-    assert "planeswalker_commander" in tags
-
-
 # ─── Full analysis output ─────────────────────────────────────────────────────
 
 def test_analyze_commander_returns_schema_keys():
@@ -246,8 +222,8 @@ def test_analyze_commander_returns_schema_keys():
     required_keys = [
         "commander", "partner", "is_valid_commander", "commander_slots",
         "library_slots", "color_identity", "combined_color_identity",
-        "card_identity", "text_signals", "commander_tags", "commander_type_tags",
-        "synergy_tags", "anti_synergy_tags", "engine_profile", "archetype_fit",
+        "card_identity", "text_signals",
+        "engine_profile",
         "best_archetype", "role_pressures", "commander_scores",
         "provides", "requires", "rewards",
         "wanted_card_patterns", "avoid_card_patterns", "build_direction_options", "notes",
@@ -271,16 +247,8 @@ def test_brago_color_identity():
 
 def test_brago_archetype_blink():
     result = analyze_commander(BRAGO)
-    archetypes = [f["archetype"] for f in result["archetype_fit"]]
-    assert "blink" in archetypes
-    top = result["archetype_fit"][0]
-    assert top["fit_score"] > 0
-
-
-def test_brago_synergy_tags():
-    result = analyze_commander(BRAGO)
-    assert len(result["synergy_tags"]) > 0
-    assert "etb_blink_engine" in result["synergy_tags"]
+    bands = [a["archetype"] for a in result["analyzer"]["archetype_support"]]
+    assert any("Blink" in b or "ETB" in b for b in bands)
 
 
 def test_brago_wanted_patterns_contains_etb():
@@ -298,8 +266,8 @@ def test_teysa_analysis_death_trigger():
 
 def test_teysa_archetype_aristocrats():
     result = analyze_commander(TEYSA)
-    archetypes = [f["archetype"] for f in result["archetype_fit"]]
-    assert "aristocrats" in archetypes
+    bands = [a["archetype"] for a in result["analyzer"]["archetype_support"]]
+    assert "Aristocrats" in bands
 
 
 def test_omnath_engine_landfall():
@@ -308,25 +276,14 @@ def test_omnath_engine_landfall():
            "landfall_landsmatter" in result["engine_profile"]["secondary_patterns"]
 
 
-def test_omnath_synergy_has_landfall():
-    result = analyze_commander(OMNATH)
-    assert "landfall_landsmatter" in result["synergy_tags"] or "landfall" in result["synergy_tags"]
-
-
 def test_kinnan_engine_mana():
     result = analyze_commander(KINNAN)
     assert "mana_engine" in result["engine_profile"]["primary_pattern"] or \
            "mana_engine" in result["engine_profile"]["secondary_patterns"]
 
 
-def test_edgar_tribal_vampire_type_tag():
-    result = analyze_commander(EDGAR)
-    assert "tribal_vampire" in result["commander_type_tags"]
-
-
 def test_aminatou_planeswalker_type_tag():
     result = analyze_commander(AMINATOU)
-    assert "planeswalker_commander" in result["commander_type_tags"]
     assert result["card_identity"]["is_planeswalker"] is True
 
 
@@ -424,7 +381,7 @@ def test_synergy_signals_from_analysis_file(tmp_path):
 
     signals = extract_commander_synergy_signals(BRAGO, analysis_path=analysis_file)
     assert "etb_blink_engine" in signals
-    assert len(signals) >= len(analysis["synergy_tags"])
+    assert len(signals) > 0
 
 
 def test_check_card_synergy_basic():

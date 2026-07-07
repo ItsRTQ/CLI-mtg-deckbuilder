@@ -44,7 +44,7 @@ def format_table(result: Dict[str, Any]) -> str:
         f"lands={result.get('land_count', '?')} "
         f"nonland={result.get('nonland_slots', '?')} "
         f"avg_mv={result.get('projected_avg_mv', '?')} "
-        f"fit={result.get('archetype_fit_score', '?')}"
+        f"fit={result.get('fit_confidence', '?')}"
     )
     lines.append("*comp = compressed target; guidance only — build to Need/Range "
                  "(a High/Critical category can compress to a misleading tiny target).")
@@ -71,8 +71,8 @@ def format_human_readable(result: Dict[str, Any]) -> str:
     else:
         lines.append(f"Commander Zone Count: 1")
     lines.append(f"Library Slots:       {result['library_slots']}")
-    fit = result.get("archetype_fit_score", 0)
-    lines.append(f"Archetype:           {result['chosen_archetype']} (fit: {fit:.1f}/10)")
+    fit = result.get("fit_confidence", "unknown")
+    lines.append(f"Archetype:           {result['chosen_archetype']} (analyzer fit: {fit})")
 
     if result.get("forced_archetype_warning"):
         lines.append(f"WARNING:             {result['forced_archetype_warning']}")

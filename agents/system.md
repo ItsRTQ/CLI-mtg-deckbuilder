@@ -41,12 +41,11 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
    `deck-check`, `deck-power`, `export`, `final-build`, and `preflight`. To edit the list, use `deck-swap` (validates before writing) — never a `sed`/`python` replace. To read without scripting, use `cards-batch --verify`, `card --field`, `category-counts --table`, `budget --by-card`, and `prices-batch --name "A" --name "B"` (cost hand-picked candidates BEFORE summing — never draft on memory prices; search results print each card's price). For analysis, use `analyze-card` (evidence-based card read), `deck-gaps` (audit vs commander plan), `similar` / `complements` (functional neighbors). Every command supports `--json-output`, and `--log` (any command) appends to the audit trail consolidated by `mtg report`.
 9. `synergy` is not a role. Use `--synergy` on a real role.
 10. Commander-zone cards are metadata, not `main_deck` cards.
-11. `commander_analysis.json` carries two archetype reads: prefer `analyzer.archetype_support`
-    (evidence bands) over the legacy numeric `archetype_fit`; when they disagree, trust the
-    analyzer and treat the legacy score as a hint (BUILDER.md §7.0b). `archetype_fit`,
-    `commander_tags` and `synergy_tags` are formally DEPRECATED (see the analysis JSON's
-    `legacy_deprecations` block; removal planned v0.10) — new reads should use
-    `analyzer.archetype_support`, `analyzer.tags` and `analyzer.signals`.
+11. `commander_analysis.json` carries a SINGLE archetype read: `analyzer.archetype_support`
+    (evidence bands); `best_archetype` is derived from the top band (BUILDER.md §7.0b). The
+    legacy keyword reads (`archetype_fit`, `commander_tags`, `commander_type_tags`,
+    `synergy_tags`, `anti_synergy_tags`) and the `legacy_deprecations` block were REMOVED in
+    v0.8.0 — use `analyzer.archetype_support`, `analyzer.tags` and `analyzer.signals`.
 12. Ask the BUILDER §5 core questions and WAIT for the user's answers BEFORE drafting —
     unconditionally, not "when in doubt" (plausible defaults are not answers). `deck-add`'s
     first call requires the answered contract (`--set-config budget=... bracket=...`) and
@@ -64,7 +63,6 @@ output/deck.moxfield.txt
 output/deck_explanation.md
 output/validation_report.json
 output/commander_analysis.json
-output/commander_combos.json
 output/build-notes.json
 final-builds/<build-name>/
 ```

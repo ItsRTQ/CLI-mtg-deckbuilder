@@ -354,8 +354,11 @@ def budget(
     high_cost_pct: float = typer.Option(0.20, "--high-cost-pct", help="Flag single cards whose cost exceeds this fraction of the budget (default 0.20 = 20%)"),
     json_output: bool = typer.Option(False, "--json-output", help="Output budget summary as JSON"),
     strict: bool = typer.Option(False, "--strict", help="Fail if any card has unknown price"),
+    no_bulk: bool = typer.Option(False, "--no-bulk", help="Ignore the user-bulk collection (owned cards count full price)"),
 ):
-    """Summarize deck budget using local Scryfall price data."""
+    """Summarize deck budget using local Scryfall price data. Cards in the
+    user-bulk collection (user-bulk/collection.txt — cards the user already OWNS)
+    are excluded from the bill, visibly; disable with --no-bulk."""
     require_database(SQLITE_PATH, json_output)
 
     if not deck_path.exists():
@@ -378,8 +381,14 @@ def budget(
         else:
             hydrated.append({"name": name, "quantity": entry.get("quantity", 1), "usd_price": None})
 
+    owned = {}
+    if not no_bulk:
+        from mtgcli.deckbuilder.user_bulk import load_user_bulk, owned_lookup
+        owned = owned_lookup(load_user_bulk())
+
     summary = build_budget_summary(
-        hydrated, budget_limit=budget_limit, overage_percent=overage, high_cost_pct=high_cost_pct
+        hydrated, budget_limit=budget_limit, overage_percent=overage,
+        high_cost_pct=high_cost_pct, owned=owned,
     )
 
     if strict and summary["unknown_price_cards_count"] > 0:
@@ -394,6 +403,9 @@ def budget(
         conf_color = "green" if summary["budget_confidence"] == "complete" else "yellow"
         print(f"[bold blue]Budget Summary[/bold blue]")
         print(f"  Total (known USD):  [green]${summary['known_price_total']}[/green]")
+        if summary.get("owned_cards_count"):
+            print(f"  Owned (user-bulk):  [cyan]{summary['owned_cards_count']} card(s), "
+                  f"${summary['owned_value_excluded']:.2f} excluded[/cyan]")
         if budget_limit is not None:
             status = summary.get("budget_status", "")
             status_color = "green" if status == "under_budget" else ("yellow" if status == "within_overage" else "red")
@@ -426,3 +438,109 @@ def budget(
             raise typer.Exit(code=1)
 
 
+
+@app.command()
+def bulk_add(
+    cards: Optional[str] = typer.Option(None, "--cards", help="';'-separated card names to ADD to the collection; 'N Name' for quantities"),
+    remove: Optional[str] = typer.Option(None, "--remove", help="';'-separated card names to REMOVE (decrements; 'N Name' removes N copies)"),
+    show: bool = typer.Option(False, "--list", help="Show the collection with quantities, known prices and total"),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Maintain the USER-BULK collection (user-bulk/collection.txt): cards the user
+    already OWNS. Owned cards are excluded from `budget` bills (visible line;
+    --no-bulk disables). Names validate against the DB — batch and atomic, with
+    fuzzy did-you-mean on misses. The file is a plain decklist ("2 Sol Ring" per
+    line), so the user may also edit it by hand.
+    """
+    import re as _re
+    from mtgcli.deckbuilder.user_bulk import load_user_bulk, save_user_bulk
+
+    require_database(SQLITE_PATH, json_output)
+    if not cards and not remove and not show:
+        _msg = "Provide --cards to add, --remove to remove, or --list to view."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    repo = CardRepository(str(SQLITE_PATH))
+    owned = load_user_bulk()
+
+    def _parse_batch(raw: str):
+        """[(qty, canonical_name)] — validates every name; atomic on any miss."""
+        items, errors = [], []
+        for item in [c.strip() for c in raw.split(";") if c.strip()]:
+            m = _re.match(r"^(\d+)\s+(.*)$", item)
+            qty, name = (int(m.group(1)), m.group(2)) if m else (1, item)
+            row = repo.get_card_by_exact_name(name)
+            if row:
+                items.append((qty, row["name"]))
+            else:
+                sugg = [s["name"] if isinstance(s, dict) else s
+                        for s in (repo.suggest_similar_names(name) or [])][:3]
+                hint = f" Did you mean: {', '.join(sugg)}?" if sugg else ""
+                errors.append(f"'{name}' not found.{hint}")
+        return items, errors
+
+    added, removed, errors = [], [], []
+    if cards:
+        items, errs = _parse_batch(cards)
+        errors.extend(errs)
+        if not errs:
+            for qty, name in items:
+                owned[name] = owned.get(name, 0) + qty
+                added.append({"name": name, "quantity": qty})
+    if remove and not errors:
+        items, errs = _parse_batch(remove)
+        errors.extend(errs)
+        if not errs:
+            for qty, name in items:
+                have = owned.get(name, 0)
+                if not have:
+                    errors.append(f"'{name}' is not in the collection.")
+                    continue
+                owned[name] = max(0, have - qty)
+                if owned[name] == 0:
+                    del owned[name]
+                removed.append({"name": name, "quantity": min(qty, have)})
+
+    if errors:
+        _msg = "Batch rejected (nothing changed):\n  - " + "\n  - ".join(errors)
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    if added or removed:
+        save_user_bulk(owned)
+
+    total_cards = sum(owned.values())
+    entries, known_value = [], 0.0
+    if show or json_output:
+        for name, qty in sorted(owned.items(), key=lambda kv: kv[0].lower()):
+            row = repo.get_card_by_exact_name(name)
+            usd = row.get("usd_price") if row else None
+            if usd is not None:
+                known_value += usd * qty
+            entries.append({"name": name, "quantity": qty, "usd_price": usd})
+
+    if json_output:
+        print_json({
+            "added": added, "removed": removed,
+            "collection_size": total_cards, "unique_names": len(owned),
+            "collection": entries, "known_value": round(known_value, 2),
+        })
+        return
+
+    for a in added:
+        print(f"[green]  + {a['quantity']}x {a['name']}[/green]")
+    for r in removed:
+        print(f"[yellow]  - {r['quantity']}x {r['name']}[/yellow]")
+    if show:
+        for e in entries:
+            p = f"${e['usd_price']:.2f}" if e["usd_price"] is not None else "$?"
+            print(f"  {e['quantity']}x {e['name']} [dim]{p}[/dim]")
+        print(f"[dim]known value: ${known_value:.2f}[/dim]")
+    print(f"[bold]Collection: {total_cards} card(s), {len(owned)} unique[/bold]")

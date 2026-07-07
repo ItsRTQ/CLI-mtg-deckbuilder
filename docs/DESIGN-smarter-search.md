@@ -11,7 +11,7 @@ by value/effort. All four build on existing pieces (no greenfield):
 - `search_by_tags(..., rank=True)` — 97-tag functional vocabulary, OR-union, ranked by match count.
 - `query_parser` — already has the `mv<=`/`mv>=` comparator pattern to copy.
 - `commander_analyze` output — already the "plan" (oracle_hooks, wanted_card_patterns, role_pressures,
-  archetype_fit, synergy_tags).
+  analyzer.archetype_support, analyzer.tags).
 - `deck_check._get_category_phrases` — already maps a category → phrases via roles/tags.
 
 Cross-cutting principles (the same ones that have guided this project):

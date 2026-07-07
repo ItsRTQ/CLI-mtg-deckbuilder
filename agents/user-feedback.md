@@ -233,6 +233,21 @@ d) Agent choice
 
 If user chooses must-include or avoid, ask for card names.
 
+### Owned cards (user-bulk)
+
+```text
+Do you already own cards you'd want this deck to use?
+
+a) Yes — I'll list them now (they'll be recorded with `mtg bulk-add`)
+b) Yes — my user-bulk collection is already up to date
+c) No / buy everything
+d) Agent choice
+```
+
+Owned cards are excluded from the budget bill (BUILDER §11 "Owned cards"). Ask this
+once in Detailed Build mode or whenever the user mentions owning cards; on (a),
+record the names via `mtg bulk-add --cards "..."` before budgeting.
+
 ---
 
 ## During-Build Questions

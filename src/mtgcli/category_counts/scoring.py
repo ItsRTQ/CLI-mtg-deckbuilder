@@ -122,47 +122,10 @@ _ARCHETYPE_FIT_KEYWORDS: Dict[str, list] = {
 }
 
 
-def score_archetype_fit(
-    oracle_text: str,
-    type_line: str,
-    archetype: str,
-    power=None,
-    toughness=None,
-) -> float:
-    """Return 0-10 fit score for the commander/archetype combination.
-
-    ``power``/``toughness`` are optional; when provided, beatdown archetypes get a
-    creature-size bump so a big creature commander (e.g. an 8/7 Hydra) reads as
-    stompy even when its oracle text is mostly about something else. Callers that
-    omit P/T get the pure keyword score (keeps existing behavior and tests stable).
-    """
-    if archetype not in _ARCHETYPE_FIT_KEYWORDS:
-        return 5.0
-    keywords = _ARCHETYPE_FIT_KEYWORDS[archetype]
-    text = (oracle_text or "").lower() + " " + (type_line or "").lower()
-    matches = sum(1 for kw in keywords if kw.lower() in text)
-    if not keywords:
-        return 5.0
-    ratio = matches / len(keywords)
-    # 0 matches → 1.0, all match → 10.0
-    score = 1.0 + ratio * 9.0
-
-    # Creature-size bump: a big body is itself a stompy/voltron/battlecruiser signal,
-    # which pure keyword matching misses (P/T isn't in oracle/type_line text).
-    _BEATER_ARCHETYPES = {"stompy", "go_tall_aggro", "voltron", "battlecruiser"}
-    if archetype in _BEATER_ARCHETYPES and power is not None:
-        try:
-            p = float(power)
-        except (TypeError, ValueError):
-            p = 0.0
-        if p >= 7:
-            score += 3.0
-        elif p >= 5:
-            score += 2.0
-        elif p >= 4:
-            score += 1.0
-
-    return min(10.0, score)
+# The legacy public archetype-fit scorer (score_archetype_fit) was removed in v0.8.0;
+# best_archetype and fit_confidence now derive from the evidence-first analyzer's bands.
+# _ARCHETYPE_FIT_KEYWORDS above is retained — _score_dependency still uses it as a mild
+# keyword-count heuristic for the internal commander_scores.
 
 
 # ─── Commander provides (reduces category need) ───────────────────────────────

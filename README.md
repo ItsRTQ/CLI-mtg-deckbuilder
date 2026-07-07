@@ -17,7 +17,7 @@ The app should not try to fully replace deckbuilding judgment. It should act as 
 - [Project Goal](#project-goal)
 - [Core Architecture](#core-architecture)
 - [Requirements](#requirements) · [Setup](#setup) · [Initialize Card Data](#initialize-card-data)
-- [**Command Reference**](#command-reference) — all 39 commands, with a clickable [index](#index)
+- [**Command Reference**](#command-reference) — all 38 commands, with a clickable [index](#index)
 - [Agent Usage](#agent-usage)
 - [Power Level Brackets](#power-level-brackets) · [Budget Handling](#budget-handling)
 - [Deck Identity Model](#deck-identity-model) · [Engine-First Deckbuilding](#engine-first-deckbuilding) · [Broad Archetypes](#broad-archetypes)
@@ -121,6 +121,7 @@ mtg similar "Sol Ring"                               # cards doing the same job
 mtg complements "Viscera Seer"                       # the other half of the interaction
 mtg commander-analyze --commander "Krenko, Mob Boss" # what the commander wants
 mtg prices-batch --name "Rhystic Study" --name "Smothering Tithe"   # price picks BEFORE adding
+mtg bulk-add --cards "Sol Ring;2 Arcane Signet"      # record cards you OWN: they cost budgets $0
 mtg deck-view --deck output/deck.json                # the annotated deck: purposes, curve, cost by type
 mtg budget output/deck.json --budget 150 --by-card   # where the money went
 mtg preflight --deck output/deck.json --commander "Krenko, Mob Boss"   # READY / NOT READY
@@ -326,7 +327,7 @@ This makes it easier to test imports without processing the entire bulk file.
 
 ## Command Reference
 
-The `mtg` CLI exposes **39 commands** (v0.8.0). This index links to a detailed section for
+The `mtg` CLI exposes **38 commands** (v0.8.0). This index links to a detailed section for
 each one. Every command supports `--json-output`, and any command accepts the global
 `--log` flag (see [Global flags](#global-flags)).
 
@@ -351,6 +352,7 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | [`mtg prices`](#mtg-prices) | Batch price lookup for several names given inline. |
 | [`mtg prices-batch`](#mtg-prices-batch) | Prices for every card in a deck file. |
 | [`mtg budget`](#mtg-budget) | Deck cost summary vs a budget: total, per-card breakdown, high-cost flags. |
+| [`mtg bulk-add`](#mtg-bulk-add) | Maintain the user-bulk collection: cards you OWN cost the budget $0. |
 
 **Search & discovery**
 
@@ -361,8 +363,6 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | [`mtg suggest`](#mtg-suggest) | Role-based suggestions for a commander (ramp, card_draw, removal, …). |
 | [`mtg similar`](#mtg-similar) | Cards that perform the SAME function as a given card. |
 | [`mtg complements`](#mtg-complements) | Cards that complete the OTHER half of a card's interaction. |
-| [`mtg explore`](#mtg-explore) | Community recommendations for a commander (EDHREC page scrape). |
-| [`mtg combos`](#mtg-combos) | Known combos involving a commander, with bracket filters. |
 
 **Commander & deck analysis**
 
@@ -578,11 +578,34 @@ Options:
 - `--high-cost-pct` — flags single cards eating ≥ this fraction of the budget
   (default 0.20); they surface in `high_cost_cards` with `pct_of_budget`.
 - `--strict` — fail if any card has unknown price.
+- `--no-bulk` — ignore the user-bulk collection (owned cards count full price).
 
 Notes:
 - Output includes `budget_status` (`under_budget` / `over_budget` / …) and
   `budget_confidence` (`complete` when every card has a known price).
 - **Unknown price means unknown — not free and not forbidden.**
+- **Owned cards cost $0**: copies in the [user-bulk collection](#mtg-bulk-add) are
+  excluded from the bill (up to the owned quantity), always on a visible
+  `Owned (user-bulk)` line — the same applies inside `preflight`'s budget gate.
+
+#### `mtg bulk-add`
+
+Maintains the **user-bulk collection** (`user-bulk/collection.txt`) — the cards you
+already OWN. The budget commands price owned copies at $0, so the money in the
+budget goes to cards you actually need to buy.
+
+```bash
+mtg bulk-add --cards "Sol Ring;2 Arcane Signet;Rhystic Study"   # add (validated, atomic)
+mtg bulk-add --remove "Rhystic Study"                            # remove / decrement
+mtg bulk-add --list                                              # view with prices + known value
+```
+
+Notes:
+- Names validate against the DB with fuzzy did-you-mean on typos; any bad name
+  rejects the whole batch (nothing changes).
+- The file is a plain decklist (`2 Sol Ring` per line, `#` comments) — you can also
+  edit it **by hand**; run `mtg cards-batch user-bulk/collection.txt --verify`
+  afterwards to catch typos. See `user-bulk/README.md`.
 
 ---
 
@@ -725,32 +748,11 @@ mtg complements "Krenko, Mob Boss" --json-output
 
 Use it after locking a key engine piece to build the package around it.
 
-#### `mtg explore`
-
-Fetches community card recommendations for a commander from EDHREC (network required).
-Returns `high_synergy` and `top_cards` lists. Optional context, not a build requirement.
-
-```bash
-mtg explore --commander "Krenko, Mob Boss" --json-output
-```
-
-#### `mtg combos`
-
-Fetches and parses known combos involving a commander (network required). Writes
-`output/commander_combos.json` by default.
-
-```bash
-mtg combos --commander "Krenko, Mob Boss" --json-output
-mtg combos --commander "Krenko, Mob Boss" --max-bracket 3 --limit 10 --json-output
-```
-
-Options: `--bracket` (exact) / `--max-bracket` (ceiling), `--limit`, `--no-write`,
-`--include-raw`, `--output <path>`.
-
-Usage judgment (see the Combos section of BUILDER.md): if the user wants combos,
-evaluate compact packages; if not, individual combo pieces may still be good cards.
-Don't force combos into low-power/friendly decks. Combo cards still need legality,
-color-identity, budget and theme checks like any card.
+> **Removed in v0.8.0:** the former `mtg explore` / `mtg combos` commands fetched
+> community data from external sites without permission — a liability for the tool.
+> Combo and high-synergy research is the agent's job now (own web search when
+> needed), always verified against the local DB and recorded with
+> [`mtg note`](#mtg-note) (`--type combo` entries feed `deck-power` directly).
 
 ---
 
@@ -772,19 +774,21 @@ mtg commander-analyze --commander "Tymna the Weaver" --partner "Thrasios, Triton
 
 What the artifact contains (all top-level keys):
 - `color_identity` / `combined_color_identity` — the deck's legal colors.
-- **`analyzer` (preferred)** — the evidence-first read: `archetype_support` as ordinal
+- **`analyzer` — the ONLY archetype read** (evidence-first): `archetype_support` as ordinal
   bands (`very_high/high/medium/low`) each backed by detected signals, plus `signals`
-  (compact IDs), `dominant_symmetry`, and `warnings`. Full traces via
-  [`mtg analyze-card`](#mtg-analyze-card).
-- `archetype_fit` (legacy) — weighted text scores, kept for compatibility. **When the two
-  disagree, trust `analyzer.archetype_support`** and treat this as a hint.
+  (compact IDs), `tags` (the functional tag names it matched), `dominant_symmetry`, and
+  `warnings`. Full traces via [`mtg analyze-card`](#mtg-analyze-card). (The legacy
+  `archetype_fit` weighted-score list was REMOVED in v0.8.0 — build from
+  `analyzer.archetype_support`.)
+- `best_archetype` — the top analyzer band, aliased to snake_case for convenience.
 - `engine_profile` — the commander's primary pattern and engine action.
 - `oracle_hooks` — generic, commander-agnostic structural reads of the oracle text:
   `named_counters` (a custom counter like `slime`/`experience` means proliferate +
   any-counter payoffs, NOT +1/+1-specific ones), `asymmetric_punisher` (build
   attrition/protection, not go-wide), `trigger_events`, `token_types`,
   `cost_reduction_type`, and derived `build_signals`.
-- `synergy_tags` / `anti_synergy_tags`, `wanted_card_patterns` / `avoid_card_patterns`,
+- `analyzer.tags` (the functional tags the commander matched — replaces the removed
+  `commander_tags` / `synergy_tags` lists), `wanted_card_patterns` / `avoid_card_patterns`,
   `role_pressures`, commander scores, `build_direction_options`.
 - Power/toughness when available — real data for combat/Voltron/fragility judgment.
 
@@ -1976,7 +1980,7 @@ Project layout (v0.8.0):
 
 ```text
 src/mtgcli/
-├── cli/               # the Typer CLI package (39 commands in commands/{data,search,cards,deck,analysis,misc}.py)
+├── cli/               # the Typer CLI package (38 commands in commands/{data,search,cards,deck,analysis,misc}.py)
 ├── analyzer/          # evidence-first card analyzer: signals with provenance traces, ordinal bands
 ├── models/            # CARD and DECK build-context objects + the consistency-tier math
 ├── cards/             # SQLite repository, search engine, query parser

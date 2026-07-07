@@ -168,7 +168,7 @@ def test_deck_power_uses_consistency_tier_when_annotated(tmp_path):
     _add(deck, "Sol Ring;Boros Signet", "ramp")
     _add(deck, "12 Mountain", "flex")
     r = runner.invoke(app, ["deck-power", "--deck", str(deck), "--commander",
-                            "Ragost, Deft Gastronaut", "--no-fetch", "--json-output"])
+                            "Ragost, Deft Gastronaut", "--json-output"])
     assert r.exit_code == 0, r.output
     data = json.loads(r.output)
     ct = data["consistency_tier"]

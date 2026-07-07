@@ -12,7 +12,6 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from mtgcli.category_counts.scoring import (
-    score_archetype_fit,
     score_commander,
     merge_partner_scores,
 )
@@ -244,161 +243,53 @@ def _infer_engine_patterns(oracle: str) -> List[str]:
     return [name for name, _ in matched]
 
 
-# ─── Commander type tags ──────────────────────────────────────────────────────
+# ─── Archetype: analyzer band → best_archetype ────────────────────────────────
 
-_COMMON_TRIBES = {
-    "vampire", "zombie", "goblin", "dragon", "wizard", "elf",
-    "human", "spirit", "dinosaur", "merfolk", "faerie", "demon",
-    "angel", "knight", "warrior", "shaman", "cleric", "rogue",
-    "artificer", "druid", "pirate", "horror", "beast", "elemental",
-    "necron", "tyranid", "advisor", "assassin", "berserker", "bird",
-    "cat", "centaur", "cyclops", "dwarf", "fish", "fox", "gnome",
-    "golem", "hydra", "monk", "mutant", "naga", "ninja", "ogre",
-    "plant", "rat", "shaman", "skeleton", "sliver", "soldier",
-    "sphinx", "troll", "vedalken", "vampire",
+# The legacy keyword scorer (score_archetype_fit / archetype_fit) was removed in v0.8.0.
+# best_archetype and the build-direction menu now derive from the evidence-first analyzer's
+# archetype_support bands. This alias maps the analyzer's Title-Case archetype names to the
+# snake_case vocabulary that score_commander / _WIN_CONVERSION_MAP still use internally.
+# Names with no downstream meaning collapse to "value_engine" (the historical default);
+# tribal bands map to "tribal".
+_ANALYZER_TO_LEGACY_ARCHETYPE: Dict[str, str] = {
+    "Voltron": "voltron",
+    "Aristocrats": "aristocrats",
+    "Life Loss / Group Slug": "group_slug",
+    "Spellslinger": "spellslinger",
+    "Stax / Prison": "stax",
+    "Go Wide": "go_wide_aggro",
+    "Reanimator": "reanimator",
+    "Blink / Flicker": "blink",
+    "ETB Value": "value_engine",
+    "Theft": "theft",
+    "Treasures / Value Engine": "value_engine",
+    "Graveyard Value / Recursion": "graveyard_value",
+    "Lifegain Matters": "lifegain",
+    "Pillowfort / Defense": "pillowfort",
+    "Enchantments Matter": "enchantress",
+    "Artifacts Matter": "artifacts",
+    "Battlecruiser / Big Mana": "battlecruiser",
+    "Stompy / Big Power": "stompy",
+    "Attack Triggers / Aggro": "go_tall_aggro",
+    "Mill": "mill",
+    "Lands / Landfall": "landfall",
 }
 
 
-def _build_commander_type_tags(card_types: List[str], subtypes: List[str]) -> List[str]:
-    tags = []
-    types_lower = [t.lower() for t in card_types]
-    if "creature" in types_lower:
-        tags.append("creature_commander")
-    if "artifact" in types_lower:
-        tags.append("artifact_commander")
-    if "enchantment" in types_lower:
-        tags.append("enchantment_commander")
-    if "planeswalker" in types_lower:
-        tags.append("planeswalker_commander")
-    if "background" in types_lower:
-        tags.append("background_commander")
-    for subtype in subtypes:
-        if subtype.lower() in _COMMON_TRIBES:
-            tags.append(f"tribal_{subtype.lower()}")
-    return tags
+def _best_archetype_from_bands(archetype_support) -> Optional[str]:
+    """Map the top high/very_high analyzer band to a legacy snake_case archetype name.
 
-
-# ─── Synergy tags ─────────────────────────────────────────────────────────────
-
-_ORACLE_TO_SYNERGY: List[Tuple[str, str]] = [
-    ("graveyard", "graveyard"),
-    ("exile", "exile_matters"),
-    ("+1/+1 counter", "counters"),
-    ("token", "tokens"),
-    ("sacrifice", "sacrifice"),
-    ("draw a card", "card_draw"),
-    ("draws a card", "card_draw"),
-    ("combat damage", "combat"),
-    ("enters the battlefield", "etb"),
-    ("landfall", "landfall"),
-    ("constellation", "constellation"),
-    ("equipment", "equipment"),
-    ("aura", "aura"),
-    ("gain life", "lifegain"),
-    ("lifelink", "lifegain"),
-    ("artifact", "artifact_matters"),
-    ("enchantment", "enchantment_matters"),
-    ("+1/+1", "counters"),
-    ("proliferate", "proliferate"),
-    ("whenever", "triggered_value"),
-]
-
-
-def _build_synergy_tags(engine_patterns: List[str], oracle: str) -> List[str]:
-    tags: set = set(engine_patterns)
-    lower = oracle.lower()
-    for signal, tag in _ORACLE_TO_SYNERGY:
-        if signal in lower:
-            tags.add(tag)
-    return sorted(tags)
-
-
-# ─── Anti-synergy tags ────────────────────────────────────────────────────────
-
-def _build_anti_synergy_tags(engine_patterns: List[str], oracle: str) -> List[str]:
-    anti: set = set()
-    if "etb_blink_engine" in engine_patterns:
-        anti.add("non_permanent")
-    if "spell_cast_engine" in engine_patterns:
-        anti.add("permanent_heavy")
-    if "mana_engine" in engine_patterns:
-        anti.add("high_cost_generic")
-    if "death_trigger_engine" in engine_patterns or "sacrifice_value" in engine_patterns:
-        anti.add("graveyard_hate_effects")
-    return sorted(anti)
-
-
-# ─── Archetype fit ────────────────────────────────────────────────────────────
-
-_ALL_ARCHETYPES = [
-    "aristocrats", "artifacts", "auras", "battlecruiser", "blink", "combo",
-    "control", "enchantress", "equipment", "go_tall_aggro", "go_wide_aggro",
-    "graveyard_value", "group_slug", "landfall", "lands", "lifegain", "mill",
-    "pillowfort", "reanimator", "spellslinger", "stax", "stompy", "theft",
-    "tokens", "tribal", "value_engine", "voltron",
-]
-
-_ARCHETYPE_REASONS: Dict[str, str] = {
-    "aristocrats": "Death triggers, sacrifice, or token production detected.",
-    "blink": "Exile-and-return or ETB triggers detected.",
-    "tokens": "Token creation or population detected.",
-    "spellslinger": "Instant/sorcery cast triggers detected.",
-    "artifacts": "Artifact synergy or triggers detected.",
-    "enchantress": "Enchantment synergy or constellation detected.",
-    "landfall": "Landfall or land-enters triggers detected.",
-    "graveyard_value": "Graveyard interaction detected.",
-    "reanimator": "Return from graveyard to battlefield detected.",
-    "voltron": "Equipment/aura/modification synergy detected.",
-    "equipment": "Equipment synergy detected.",
-    "auras": "Aura/enchant creature synergy detected.",
-    "lifegain": "Life gain triggers or lifelink detected.",
-    "combo": "Untap, copy, or free-cast potential detected.",
-    "control": "Counterspells or targeted removal detected.",
-    "group_slug": "Each-opponent damage or drain detected.",
-    "mill": "Mill or library-exile detected.",
-    "tribal": "Creature subtype synergy detected.",
-    "value_engine": "Draw or ETB value detected.",
-    "counter_engine": "Counter placement or proliferate detected.",
-}
-
-
-def _compute_archetype_fit(
-    oracle: str,
-    type_line: str,
-    forced_archetype: Optional[str] = None,
-    power=None,
-    toughness=None,
-) -> List[Dict[str, Any]]:
-    to_score = list(_ALL_ARCHETYPES)
-    if forced_archetype and forced_archetype not in to_score:
-        to_score.append(forced_archetype)
-
-    scored = []
-    for arch in to_score:
-        score = score_archetype_fit(oracle, type_line, arch, power=power, toughness=toughness)
-        scored.append((arch, score))
-
-    def _entry(arch, score, low_conf=False):
-        e = {
-            "archetype": arch,
-            "fit_score": round(score, 1),
-            "reason": _ARCHETYPE_REASONS.get(arch, f"Text signals match {arch} patterns."),
-        }
-        if low_conf:
-            e["low_confidence"] = True
-        return e
-
-    fits = [_entry(a, s) for a, s in scored if s >= 3.0]
-    fits.sort(key=lambda x: -x["fit_score"])
-
-    if not fits:
-        # Nothing cleared the confidence threshold. Rather than return an empty list
-        # (which also leaves build_direction_options empty), surface the best-scoring
-        # archetypes as low-confidence so the agent still gets directional options.
-        scored.sort(key=lambda t: -t[1])
-        fits = [_entry(a, s, low_conf=True) for a, s in scored[:2]]
-
-    return fits
+    archetype_support is band-sorted, so the first high/very_high entry is the strongest
+    read. Tribal bands map to "tribal"; unmapped archetypes collapse to "value_engine".
+    Returns None when no band reaches high (caller falls back to the historical default).
+    """
+    for s in archetype_support or []:
+        if s.get("band") in ("very_high", "high"):
+            arch = s.get("archetype", "")
+            if arch.endswith(" Tribal"):
+                return "tribal"
+            return _ANALYZER_TO_LEGACY_ARCHETYPE.get(arch, "value_engine")
+    return None
 
 
 # ─── Role pressures ───────────────────────────────────────────────────────────
@@ -640,17 +531,16 @@ def _score_multiplayer_scaling(oracle: str) -> float:
 # ─── Build direction options ──────────────────────────────────────────────────
 
 def _build_direction_options(
-    archetype_fits: List[Dict[str, Any]],
+    archetype_support: Optional[List[Dict[str, Any]]],
     engine_patterns: List[str],
 ) -> List[str]:
     options = []
-    if len(archetype_fits) >= 2:
-        top = archetype_fits[0]["archetype"]
-        second = archetype_fits[1]["archetype"]
-        options.append(f"Primary: {top} build (highest natural fit)")
-        options.append(f"Alternative: {second} hybrid approach")
-    elif archetype_fits:
-        options.append(f"Primary: {archetype_fits[0]['archetype']} build")
+    highs = [s for s in (archetype_support or []) if s.get("band") in ("very_high", "high")]
+    if len(highs) >= 2:
+        options.append(f"Primary: {highs[0]['archetype']} build (highest analyzer support)")
+        options.append(f"Alternative: {highs[1]['archetype']} hybrid approach")
+    elif highs:
+        options.append(f"Primary: {highs[0]['archetype']} build")
     if "counter_engine" in engine_patterns and "token_engine" in engine_patterns:
         options.append("Counter-token synergy hybrid")
     if "graveyard_recursion" in engine_patterns and "sacrifice_value" in engine_patterns:
@@ -719,30 +609,11 @@ def analyze_commander(
     primary_pattern = engine_patterns[0] if engine_patterns else "value_engine"
     secondary_patterns = engine_patterns[1:3]
 
-    commander_type_tags = _build_commander_type_tags(card_types, subtypes)
-    synergy_tags = _build_synergy_tags(engine_patterns, oracle)
-    anti_synergy_tags = _build_anti_synergy_tags(engine_patterns, oracle)
-    commander_tags = sorted(set(commander_type_tags + engine_patterns))
 
-    archetype_fits = _compute_archetype_fit(oracle, type_line, archetype, power=power, toughness=toughness)
-    best_archetype = archetype or (archetype_fits[0]["archetype"] if archetype_fits else "value_engine")
-
-    forced_archetype_warning: Optional[str] = None
-    if archetype:
-        forced_score = next(
-            (f["fit_score"] for f in archetype_fits if f["archetype"] == archetype), 1.0
-        )
-        if forced_score < 4.0:
-            forced_archetype_warning = (
-                f"This commander has a low fit score ({forced_score}) for {archetype}. "
-                "Build is possible but not naturally supported by the commander text."
-            )
-
-    # Fase 2 (M2 consumer #1): compute the universal analyzer profile BEFORE scoring so
-    # commander_scores can consume its signals (provides via evidence, oracle heuristics
-    # as fallback). Guarded — an analyzer failure must never break the legacy analysis
-    # (signals stay None → score_commander behaves exactly as before). The result is
-    # reused for the `analyzer` embed at the end, so the analyzer runs once per card.
+    # Compute the universal analyzer profile up front: its signals feed commander scoring
+    # (provides via evidence, oracle heuristics as fallback) and its archetype_support bands
+    # drive best_archetype + the build-direction menu. Guarded — an analyzer failure must
+    # never break the analysis. Reused for the `analyzer` embed at the end (one run per card).
     _ua = _up = None
     _ua_signals = _up_signals = None
     try:
@@ -755,6 +626,11 @@ def analyze_commander(
     except Exception:
         _ua = _up = None
         _ua_signals = _up_signals = None
+
+    # best_archetype: the user's --archetype wins; otherwise the top analyzer band (aliased
+    # to the internal snake_case vocabulary); else the historical "value_engine" default.
+    _ua_support = (_ua or {}).get("archetype_support")
+    best_archetype = archetype or _best_archetype_from_bands(_ua_support) or "value_engine"
 
     cmd_scores_raw = score_commander(commander_card, best_archetype, signals=_ua_signals)
     provides = cmd_scores_raw.get("provides", {})
@@ -806,7 +682,7 @@ def analyze_commander(
     )
     wanted = _build_wanted_patterns(engine_patterns, text_signals, subtypes)
     avoid = _build_avoid_patterns(engine_patterns)
-    directions = _build_direction_options(archetype_fits, engine_patterns)
+    directions = _build_direction_options(_ua_support, engine_patterns)
 
     # General oracle-derived hooks (commander-agnostic). Its build_signals are merged
     # ahead of the fixed-table wanted patterns because they're specific to THIS card's
@@ -865,10 +741,6 @@ def analyze_commander(
         "combined_color_identity": combined_color,
         "card_identity": card_identity,
         "text_signals": text_signals,
-        "commander_tags": commander_tags,
-        "commander_type_tags": commander_type_tags,
-        "synergy_tags": synergy_tags,
-        "anti_synergy_tags": anti_synergy_tags,
         "engine_profile": {
             "primary_pattern": primary_pattern,
             "secondary_patterns": secondary_patterns,
@@ -876,28 +748,6 @@ def analyze_commander(
             "engine_action": _describe_engine_action(primary_pattern, name),
             "output": _describe_engine_output(engine_patterns, provides, rewards),
             "win_conversion": _describe_win_conversion(best_archetype, engine_patterns),
-        },
-        "archetype_fit": archetype_fits,
-        # M3 (Fase 3 prep): machine-readable deprecation notice. The legacy fields stay
-        # in place until v0.10 so no consumer breaks, but every reader can see what
-        # replaces them. BUILDER.md §7.0b carries the same instruction for agents.
-        "legacy_deprecations": {
-            "archetype_fit": {
-                "deprecated": True,
-                "replaced_by": "analyzer.archetype_support",
-                "removal_planned": "v0.10",
-                "note": "Weighted text scores; can be confidently wrong. Prefer the evidence-first analyzer bands.",
-            },
-            "commander_tags": {
-                "deprecated": True,
-                "replaced_by": "analyzer.tags + analyzer.signals",
-                "removal_planned": "v0.10",
-            },
-            "synergy_tags": {
-                "deprecated": True,
-                "replaced_by": "analyzer.tags (phrases via search-tags)",
-                "removal_planned": "v0.10",
-            },
         },
         "best_archetype": best_archetype,
         "role_pressures": role_pressures,
@@ -912,9 +762,6 @@ def analyze_commander(
         "build_direction_options": directions,
         "notes": notes,
     }
-
-    if forced_archetype_warning:
-        result["forced_archetype_warning"] = forced_archetype_warning
 
     # Fase 1 of the archetype migration (strangler fig): embed the evidence-first analyzer's
     # read ALONGSIDE the legacy archetype_fit. Purely additive — no legacy field changes and no

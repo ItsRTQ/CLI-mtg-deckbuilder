@@ -42,11 +42,13 @@ Use `output/commander_analysis.json` for:
 
 **Exact top-level paths** (don't guess nested locations — these live at the ROOT of the JSON):
 `color_identity` (e.g. `["B","U"]`), `combined_color_identity` (with partner),
-`is_valid_commander`, `analyzer` (the preferred archetype read; its `tags` list replaces the
-deprecated tag lists), `archetype_fit` (legacy, deprecated), `legacy_deprecations` (what is
-deprecated and what replaces it), `engine_profile`, `synergy_tags` (deprecated),
-`wanted_card_patterns`, `oracle_hooks`, `build_direction_options`. The `commander` key holds the raw card object (name, oracle,
-type_line, mana_cost) — identity fields are NOT nested inside it.
+`is_valid_commander`, `analyzer` (THE archetype read; its `archetype_support` bands, `signals`
+and `tags` list are the source of truth), `best_archetype` (the top analyzer band, aliased to
+snake_case), `engine_profile`, `wanted_card_patterns`, `oracle_hooks`,
+`build_direction_options`. The `commander` key holds the raw card object (name, oracle,
+type_line, mana_cost) — identity fields are NOT nested inside it. (The legacy `archetype_fit`,
+`commander_tags`, `commander_type_tags`, `synergy_tags`, `anti_synergy_tags` and
+`legacy_deprecations` fields were REMOVED in v0.8.0 — use `analyzer.tags`/`analyzer.signals`.)
 
 ```text
 color identity
@@ -118,23 +120,20 @@ Do not let P/T dominate non-combat roles.
 
 ---
 
-## Archetype: `analyzer` (preferred) then `archetype_fit` (legacy hint)
+## Archetype: `analyzer.archetype_support` is THE read
 
-The analysis carries TWO archetype reads. Read them in this order:
+The analysis carries ONE archetype read — the evidence-first `analyzer`. The legacy
+`archetype_fit` weighted-score list (and `commander_tags`/`synergy_tags`) were REMOVED in
+v0.8.0; there is no legacy competitor to weigh against.
 
-**1. `analyzer` (preferred, evidence-first).** Contains `archetype_support` (ordinal bands
+**`analyzer` (evidence-first).** Contains `archetype_support` (ordinal bands
 `very_high/high/medium/low`, each backed by detected evidence), `signals` (feature IDs the
 analyzer detected in the oracle text), `tags` (the functional tag names it matched — the
-single-source replacement for the deprecated `commander_tags`/`synergy_tags`),
-`dominant_symmetry`, and `warnings`. For partners it also carries
-`partner_archetype_support` / `partner_signals`. If you need the full evidence traces
-(which rule fired on which text), run `mtg analyze-card "<Commander>"`.
-
-**2. `archetype_fit` (legacy, DEPRECATED — removal planned v0.10).** Weighted text scores
-(0-10), ordered best-first, with `low_confidence` flags. The analysis JSON carries a
-machine-readable `legacy_deprecations` block naming it and its replacement; its numeric
-scores can be confidently wrong. **When the two reads disagree, trust
-`analyzer.archetype_support`** and treat `archetype_fit` as a secondary hint (BUILDER.md §7.0b).
+single source for the commander's functions, replacing the removed
+`commander_tags`/`synergy_tags` lists), `dominant_symmetry`, and `warnings`. For partners it
+also carries `partner_archetype_support` / `partner_signals`. `best_archetype` is the top band
+aliased to snake_case. If you need the full evidence traces (which rule fired on which text),
+run `mtg analyze-card "<Commander>"`.
 
 If `archetype_support` is empty or all-low while the commander clearly has a plan, that is an
 analyzer coverage gap: note it (it is calibration signal), reason from the oracle text yourself,
@@ -157,7 +156,7 @@ A big creature commander now scores as a beatdown fit on its power/toughness alo
 
 ## Engine Package — build to the mechanical hook
 
-`engine_profile.primary_pattern`, `synergy_tags`, and `wanted_card_patterns` name *how the
+`engine_profile.primary_pattern`, `analyzer.tags`, and `wanted_card_patterns` name *how the
 commander actually wins or generates value*. Translate them into the deck's synergy package
 directly — do not flatten the commander into a generic archetype and fill with goodstuff.
 

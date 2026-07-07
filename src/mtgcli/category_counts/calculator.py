@@ -4,7 +4,6 @@ Main category-count calculation engine.
 calculate_category_counts() is the primary public API. It accepts commander
 card data directly (for testing) or a db_path for live lookups.
 """
-import math
 from typing import Any, Dict, List, Optional
 
 from .models import (
@@ -32,7 +31,6 @@ from .profiles import (
 )
 from .scoring import (
     merge_partner_scores,
-    score_archetype_fit,
     score_commander,
 )
 
@@ -50,6 +48,36 @@ def _analyzer_signal_ids(card_data: Dict[str, Any]) -> Optional[List[str]]:
         return [s["id"] for s in analyze_card(card_data).get("signals", [])]
     except Exception:
         return None
+
+
+def _supported_legacy_archetypes(card_data: Dict[str, Any]) -> set:
+    """The card's high/very_high analyzer bands, aliased to legacy snake_case names.
+
+    Guarded — returns an empty set if the analyzer fails.
+    """
+    try:
+        from mtgcli.analyzer.analyze import analyze_card
+        from mtgcli.deckbuilder.commander_analyzer import _ANALYZER_TO_LEGACY_ARCHETYPE
+        support = analyze_card(card_data).get("archetype_support", [])
+    except Exception:
+        return set()
+    out = set()
+    for s in support:
+        if s.get("band") in ("very_high", "high"):
+            arch = s.get("archetype", "")
+            if arch.endswith(" Tribal"):
+                out.add("tribal")
+            else:
+                out.add(_ANALYZER_TO_LEGACY_ARCHETYPE.get(arch, "value_engine"))
+    return out
+
+
+def _supportable_archetypes() -> set:
+    """Archetypes the analyzer can evidence (alias targets). Others — combo, control,
+    auras, equipment, lands, tokens — have no analyzer counterpart and can't be
+    fit-judged from evidence."""
+    from mtgcli.deckbuilder.commander_analyzer import _ANALYZER_TO_LEGACY_ARCHETYPE
+    return set(_ANALYZER_TO_LEGACY_ARCHETYPE.values()) | {"tribal"}
 
 
 def _resolve_power_level(
@@ -447,44 +475,34 @@ def calculate_category_counts(
         else:
             commander_scores = primary_scores
 
-    # ── Archetype fit ──────────────────────────────────────────────────────
-    oracle = (commander_card_data.get("oracle_text") or "")
-    type_line = (commander_card_data.get("type_line") or "")
-    fit_score = score_archetype_fit(
-        oracle, type_line, archetype_key,
-        power=commander_card_data.get("power"),
-        toughness=commander_card_data.get("toughness"),
-    )
-
+    # ── Archetype fit (analyzer bands; legacy score_archetype_fit removed v0.8.0) ──
+    # A truthful support check: is the requested archetype backed by a high/very_high
+    # analyzer band on the commander (or partner)? No numeric fit score and NO penalty —
+    # the category counts were never adjusted by fit anyway.
+    supported = _supported_legacy_archetypes(commander_card_data)
     if partner_name and partner_card_data:
-        partner_oracle = (partner_card_data.get("oracle_text") or "")
-        partner_type = (partner_card_data.get("type_line") or "")
-        partner_fit = score_archetype_fit(
-            partner_oracle, partner_type, archetype_key,
-            power=partner_card_data.get("power"),
-            toughness=partner_card_data.get("toughness"),
-        )
-        fit_score = max(fit_score, partner_fit)
+        supported |= _supported_legacy_archetypes(partner_card_data)
 
     forced_warning = None
     forced_archetype_notes: List[str] = []
-    if fit_score < 4.0:
-        fit_confidence = "low"
-        penalty = round(10.0 - fit_score, 1)
+    if archetype_key in supported:
+        fit_confidence = "high"
+    elif archetype_key in _supportable_archetypes():
+        # Has an analyzer counterpart, but the commander doesn't read into it.
+        fit_confidence = "medium"
         forced_warning = (
-            f"This commander has a low fit score ({fit_score:.1f}/10) for '{archetype}'. "
-            f"The deck can still be built this way, but category counts are adjusted for "
-            f"the forced-archetype penalty ({penalty} point gap)."
+            f"'{archetype}' is not an evidence-supported plan for this commander (no high "
+            f"analyzer band). The deck can still be built this way — category counts are "
+            f"unchanged; apply extra deckbuilding judgment."
         )
         forced_archetype_notes = [
-            f"Forced low-fit archetype: '{archetype}' scores only {fit_score:.1f}/10 for this commander.",
+            f"Forced archetype '{archetype}' has no high analyzer support for this commander.",
             "This is not a natural plan — apply extra deckbuilding judgment.",
-            "Consider alternate archetypes (see commander-analyze) before committing.",
+            "See commander-analyze's analyzer bands for the commander's evidenced plans.",
         ]
-    elif fit_score < 6.5:
-        fit_confidence = "medium"
     else:
-        fit_confidence = "high"
+        # No analyzer counterpart at all (e.g. combo, control) — fit can't be judged from evidence.
+        fit_confidence = "unknown"
 
     # ── Land count and nonland slots ───────────────────────────────────────
     eff_avg_mv = projected_avg_mv
@@ -527,10 +545,10 @@ def calculate_category_counts(
             notes.append("Commander dependency is high — protection/recursion are important.")
         if cat == "counterspells" and "U" not in color_identity:
             notes.append("No blue in color identity — counterspells set to 0.")
-        if cat == "archetype_core" and fit_score >= 7.0:
-            notes.append(f"Commander is a natural fit for {archetype} (fit {fit_score:.1f}/10).")
+        if cat == "archetype_core" and fit_confidence == "high":
+            notes.append(f"Commander is a natural fit for {archetype} (analyzer high band).")
         if cat == "archetype_core" and forced_warning:
-            notes.append("Archetype is forced — core count adjusted for low natural fit.")
+            notes.append("Archetype is not evidence-supported — apply extra judgment.")
 
         recommendations.append({
             "category": cat,
@@ -597,7 +615,6 @@ def calculate_category_counts(
         "commander_zone_count": commander_zone_count,
         "library_slots": library_slots,
         "chosen_archetype": archetype,
-        "archetype_fit_score": round(fit_score, 2),
         "fit_confidence": fit_confidence,
         "forced_archetype_warning": forced_warning,
         "forced_archetype_notes": forced_archetype_notes,

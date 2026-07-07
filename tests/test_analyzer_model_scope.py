@@ -769,13 +769,9 @@ def test_fase1_legacy_fields_untouched():
     if not c:
         import pytest; pytest.skip("card not in DB")
     result = analyze_commander(c)
-    # every legacy key still present (no consumer breaks)
-    for key in ("archetype_fit", "best_archetype", "role_pressures", "oracle_hooks",
+    for key in ("best_archetype", "role_pressures", "oracle_hooks",
                 "wanted_card_patterns", "commander_scores", "engine_profile"):
-        assert key in result, f"legacy key {key} missing"
-    # legacy archetype_fit still has its old shape
-    if result["archetype_fit"]:
-        assert "fit_score" in result["archetype_fit"][0]
+        assert key in result, f"key {key} missing"
 
 
 # ── recon fixes: 5 nuevas casillas + vocab falsos + polaridad hug ─────────────

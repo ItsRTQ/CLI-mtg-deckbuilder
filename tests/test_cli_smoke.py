@@ -23,13 +23,16 @@ runner = CliRunner()
 EXPECTED_COMMANDS = [
     "status", "init-data", "card", "search", "search-tags", "suggest",
     "commander-analyze", "validate", "deck-write", "deck-fill-lands", "enrich",
-    "export", "suggest-lands", "deck-check", "themes", "theme-info", "explore",
+    "export", "suggest-lands", "deck-check", "themes", "theme-info",
     "temp-clean", "final-build", "price", "cards", "cards-batch", "prices",
-    "prices-batch", "budget", "category-counts", "combos", "deck-swap",
+    "prices-batch", "budget", "category-counts", "deck-swap",
     "preflight", "similar", "complements", "deck-gaps", "analyze-card", "report",
     # v0.8.0 categorizers + Consistency-engine Fase 4 (deliberate pin 34 -> 39);
     # order = registration order (deck.py commands, then misc.py's note).
-    "deck-power", "deck-add", "deck-annotate", "deck-view", "note",
+    # v0.8.0 REMOVED explore + combos (external EDHREC-style fetches — permission
+    # liability; web research is the agent's job, recorded via `mtg note`): 39 -> 37.
+    # v0.8.0 user-bulk collection (owned cards cost the budget $0): + bulk-add -> 38.
+    "bulk-add", "deck-power", "deck-add", "deck-annotate", "deck-view", "note",
 ]
 
 

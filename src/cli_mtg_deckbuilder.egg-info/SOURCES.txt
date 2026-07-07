@@ -39,9 +39,6 @@ src/mtgcli/cli/commands/data.py
 src/mtgcli/cli/commands/deck.py
 src/mtgcli/cli/commands/misc.py
 src/mtgcli/cli/commands/search.py
-src/mtgcli/combos/__init__.py
-src/mtgcli/combos/fetcher.py
-src/mtgcli/combos/parser.py
 src/mtgcli/data/__init__.py
 src/mtgcli/data/build_sqlite.py
 src/mtgcli/data/download_cards.py
@@ -65,10 +62,7 @@ src/mtgcli/deckbuilder/ramp_rules.py
 src/mtgcli/deckbuilder/skeleton_adjuster.py
 src/mtgcli/deckbuilder/suggestion_scorer.py
 src/mtgcli/deckbuilder/theme_profiles.py
-src/mtgcli/explore/__init__.py
-src/mtgcli/explore/cleaner.py
-src/mtgcli/explore/client.py
-src/mtgcli/explore/slug.py
+src/mtgcli/deckbuilder/user_bulk.py
 src/mtgcli/export/__init__.py
 src/mtgcli/export/final_builds.py
 src/mtgcli/export/moxfield.py
@@ -92,7 +86,6 @@ tests/test_card_lookup.py
 tests/test_card_model.py
 tests/test_category_counts.py
 tests/test_cli_smoke.py
-tests/test_combos.py
 tests/test_command_logging.py
 tests/test_commander_analyzer.py
 tests/test_consistency.py
@@ -107,7 +100,6 @@ tests/test_deck_power.py
 tests/test_deck_swap_quantity.py
 tests/test_dedupe.py
 tests/test_enrichment.py
-tests/test_explore.py
 tests/test_fase1_ingest_fields.py
 tests/test_fase4_commands.py
 tests/test_final_builds.py

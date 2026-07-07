@@ -214,27 +214,9 @@ def test_deck_check_real_board_wipe_still_counts():
     assert check_deck_quality(wipes)["stats"]["board_wipe"] == 2
 
 
-# ── Archetype fit: creature-size bump (#3), fallback (#2), targeted-payoff (#7) ──
+# ── best_archetype fallback (#2), targeted-payoff (#7) ──
 
-def test_score_archetype_fit_big_creature_bump():
-    from mtgcli.category_counts.scoring import score_archetype_fit
-    base = score_archetype_fit("Vigilance", "Legendary Creature — Hydra", "stompy")
-    bumped = score_archetype_fit("Vigilance", "Legendary Creature — Hydra", "stompy", power=8)
-    assert bumped > base               # an 8-power body reads as stompy
-    assert bumped >= 4.0               # enough to avoid a forced-archetype warning
-    # P/T omitted => unchanged (keeps existing callers/tests stable)
-    assert score_archetype_fit("Vigilance", "Legendary Creature — Hydra", "stompy") == base
-
-
-def test_score_archetype_fit_bump_only_for_beaters():
-    from mtgcli.category_counts.scoring import score_archetype_fit
-    # spellslinger is not a beatdown archetype: a big body must NOT inflate its fit
-    no_pt = score_archetype_fit("", "Legendary Creature — Human", "spellslinger")
-    with_pt = score_archetype_fit("", "Legendary Creature — Human", "spellslinger", power=8)
-    assert with_pt == no_pt
-
-
-def test_archetype_fit_never_empty_for_creature_commander():
+def test_best_archetype_always_set_for_creature_commander():
     from mtgcli.deckbuilder.commander_analyzer import analyze_commander
     vanilla = {
         "name": "Big Dumb Beater", "can_be_commander": True, "commander_legal": True,
@@ -242,8 +224,9 @@ def test_archetype_fit_never_empty_for_creature_commander():
         "mana_value": 6, "color_identity": ["G"], "power": "9", "toughness": "9",
     }
     result = analyze_commander(vanilla)
-    assert len(result["archetype_fit"]) > 0          # #2: fallback fills it
-    assert len(result["build_direction_options"]) > 0
+    # best_archetype is always set (top analyzer band aliased, else the "value_engine" default).
+    assert result["best_archetype"]
+    assert isinstance(result["build_direction_options"], list)
 
 
 def test_targeted_spell_payoff_detected():
@@ -256,7 +239,9 @@ def test_targeted_spell_payoff_detected():
         "mana_value": 6, "color_identity": ["G"], "power": "8", "toughness": "7",
     }
     result = analyze_commander(gargos_like)
-    assert "targeted_spell_payoff" in result["synergy_tags"]
+    engine = result["engine_profile"]
+    assert engine["primary_pattern"] == "targeted_spell_payoff" or \
+        "targeted_spell_payoff" in engine["secondary_patterns"]
     wanted = " ".join(result["wanted_card_patterns"]).lower()
     assert "target your own creatures" in wanted or "buyback" in wanted
 
@@ -327,7 +312,7 @@ def test_format_table_includes_compressed_target_and_summary():
     from mtgcli.category_counts.output import format_table
     fake_result = {
         "land_count": 35, "nonland_slots": 64, "projected_avg_mv": 3.2,
-        "archetype_fit_score": 4.0,
+        "fit_confidence": "high",
         "category_recommendations": [
             {"display_name": "Removal", "category": "removal", "need_score": 7.1,
              "recommended_range": "4-8", "compressed_target_count": 2, "priority": "High"},
@@ -335,7 +320,7 @@ def test_format_table_includes_compressed_target_and_summary():
     }
     table = format_table(fake_result)
     assert "Removal" in table and "4-8" in table and "2" in table
-    assert "lands=35" in table and "fit=4.0" in table
+    assert "lands=35" in table and "fit=high" in table
 
 
 def test_format_table_aligns_long_category_names():

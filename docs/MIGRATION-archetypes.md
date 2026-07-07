@@ -1,9 +1,11 @@
 # Archetype migration: legacy `archetype_fit` → evidence-first `analyzer.archetype_support`
 
-Strangler-fig migration of the archetype system. The legacy `archetype_fit` (weighted text scores,
-magic numbers) is being replaced by the parallel analyzer's `archetype_support` (ordinal bands with
-evidence traces). Each phase is additive/reversible; the legacy path is only removed once nothing
-consumes it.
+**MIGRATION COMPLETE (v0.8.0).** Strangler-fig migration of the archetype system. The legacy
+`archetype_fit` (weighted text scores, magic numbers) has been fully replaced by the analyzer's
+`archetype_support` (ordinal bands with evidence traces), and the legacy fields were REMOVED in
+v0.8.0. `analyzer.archetype_support` is now the ONLY archetype read; `analyzer.tags`/`signals`
+are the single source for the commander's functions. Each phase was additive/reversible; the
+legacy path was removed once nothing consumed it.
 
 ## Status
 
@@ -30,13 +32,14 @@ consumes it.
   context cannot drift between consumers. Exact certero re-measure pending on the
   110-commander judgment dataset (not in repo); the 208-sentinel golden net is the
   standing regression evidence.
-- **Fase 3 — retire legacy `archetype_fit`: DEPRECATION SHIPPED (2026-07-04); delete in
-  v0.10.** The analysis JSON now carries a machine-readable `legacy_deprecations` block
-  (archetype_fit, commander_tags, synergy_tags → deprecated, replaced_by, removal v0.10),
-  the analyzer embed exposes `tags` (the single-source replacement for the tag lists), and
-  all agent files (BUILDER §7.0b, agents/commander_analyzer.md, agents/system.md rule 11,
-  CLAUDE.md) name the deprecation. The fields themselves remain until v0.10 so no consumer
-  breaks — the v0.10 release executes the physical delete.
+- **Fase 3 — retire legacy `archetype_fit`: REMOVAL SHIPPED (v0.8.0). Migration COMPLETE.**
+  The legacy fields were physically DELETED from `commander_analysis.json`: `archetype_fit`,
+  `commander_tags`, `commander_type_tags`, `synergy_tags`, `anti_synergy_tags`, and the
+  interim `legacy_deprecations` block (also gone). category-counts dropped its
+  `archetype_fit_score` field. The analyzer embed's `tags` list is the single source for the
+  commander's functions, and `best_archetype` is now derived from the top analyzer band. All
+  agent files (BUILDER §7.0b, agents/commander_analyzer.md, agents/system.md, CLAUDE.md,
+  README) point exclusively at `analyzer.archetype_support`/`analyzer.tags`.
 
 ## Fase 2 gate (agreed criteria — do not start Fase 2 until ALL hold)
 
@@ -895,5 +898,5 @@ mill phrasings, symmetric pingers, regex SAC_OUTLET. Sentinels pinned (68-card s
 
 - Trigger-doubler cast-context not extracted (covered today by tag redundancy — Veyran reads right
   via magecraft).
-- Legacy `archetype_fit` remains confidently wrong on some commanders; that is expected and why the
-  preference rule exists.
+- Legacy `archetype_fit` was confidently wrong on some commanders; that motivated the migration,
+  and it has now been removed (v0.8.0) — `analyzer.archetype_support` is the only read.

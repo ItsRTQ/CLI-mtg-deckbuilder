@@ -33,8 +33,7 @@ user request
 user-feedback answers
 output/commander_analysis.json
 category-counts output
-mtg explore output if useful
-mtg combos output if combo context matters
+agent web research (combos/synergies) if combo context matters — recorded via mtg note
 ```
 
 ---
@@ -132,11 +131,13 @@ Repeated filters use AND semantics.
 
 ---
 
-## Explore and Combos
+## Combo & Synergy Context
 
-`mtg explore` gives community cards. `mtg combos` gives combo packages and combo-adjacent cards.
+The former `mtg explore` / `mtg combos` fetch commands were removed (v0.8.0). Combo
+and community-card context comes from the agent's own web research when needed
+(BUILDER §12), recorded via `mtg note` — always verified against the local DB first.
 
-Use them as context, not mandatory includes.
+Use it as context, not mandatory includes.
 
 Combo policy:
 

@@ -2,6 +2,91 @@
 
 ## 0.8.0
 
+### Removed
+- **The legacy keyword-scored archetype system DELETED (pulled forward from v0.10 —
+  user decision: the improved ranking is a continuous effort, and two competing
+  archetype reads was debt the agent could read wrong).** Physical removal, not
+  deprecation. Gone from `commander_analysis.json`: `archetype_fit` (the weighted-score
+  list), `commander_tags`, `commander_type_tags`, `synergy_tags`, `anti_synergy_tags`,
+  and the whole `legacy_deprecations` block; gone from category-counts output:
+  `archetype_fit_score`. Deleted from code: `score_archetype_fit` +
+  `_compute_archetype_fit` + `_ALL_ARCHETYPES` + `_ARCHETYPE_REASONS` + the
+  `_build_synergy_tags`/`_build_commander_type_tags`/`_build_anti_synergy_tags` builders
+  and their tables. `analyzer.archetype_support` is now the SINGLE archetype read.
+  The migration was **evidence-gated**, not blind: a divergence measurement on two
+  commanders (Grand Arbiter Augustin IV, Meren of Clan Nel Toth) showed the legacy read
+  was often confidently wrong (GAAIV scored `aristocrats`/`artifacts` at the 1.0 floor —
+  zero keyword hits — while the analyzer correctly reads `Stax / Prison high`), and the
+  `suggest --synergy` A/B across four roles dropped **zero** cards (analyzer-sourced
+  signals strictly improved coverage — GAAIV, previously signal-starved with an empty
+  `synergy_tags`, gained on-plan tax pieces). What replaced each piece:
+  - **`best_archetype`** — no longer picked by the keyword scorer. Derived from the top
+    `very_high`/`high` analyzer band via a new alias table
+    (`_ANALYZER_TO_LEGACY_ARCHETYPE`, analyzer Title-Case → the snake_case vocabulary
+    `score_commander`/`_WIN_CONVERSION_MAP` still use internally); the user's `--archetype`
+    still wins, else the top band, else the historical `value_engine` default. `combo` and
+    `control` have no analyzer counterpart — the two genuine gaps.
+  - **`suggest --synergy`** — `extract_commander_synergy_signals` now sources its vocabulary
+    from `analyzer.tags` (expanded to `card_tags.json` phrases), not `synergy_tags`.
+  - **category-counts warnings** — `fit_confidence` is now band-derived (`high` when the
+    archetype has a high analyzer band, `medium` when supportable but absent, `unknown` for
+    combo/control), and the "forced-archetype penalty" text (which never actually adjusted
+    any count) is replaced with a truthful note. Category targets are byte-identical — the
+    fit score never touched `_compute_raw_score`.
+  - **`_ARCHETYPE_FIT_KEYWORDS`** is retained (not part of the public read): `_score_dependency`
+    still uses it as a mild keyword-count heuristic for the internal `commander_scores`.
+  Docs synced (intentional redundancy preserved): BUILDER §7.0b, CLAUDE.md, agents/system.md,
+  agents/commander_analyzer.md, agents/deck_builder.md, README.md, CALIMAX.md,
+  docs/{MIGRATION-archetypes,ROADMAP-v0.9,DESIGN-smarter-search}.md. Suite **1241 green**
+  (net −12 legacy tests removed/rewritten across test_commander_analyzer, test_category_counts,
+  test_v7_fixes, test_analyzer_model_scope, test_m3_deprecation). (`deckbuilder/commander_analyzer.py`,
+  `deckbuilder/suggestion_scorer.py`, `category_counts/{scoring,calculator,output}.py`)
+
+### Added
+- **The user-bulk collection: cards the user OWNS cost the budget $0 (user
+  design).** New `user-bulk/collection.txt` (plain decklist — hand-editable by
+  design, `#` comments allowed) + `mtg bulk-add` (38th command): validated
+  batch add/remove against the DB (atomic, fuzzy did-you-mean), `--list` with
+  prices + known value. `build_budget_summary` gains `owned=` — each deck entry
+  bills only the quantity beyond what's owned, NEVER silently: summary carries
+  `owned_cards_count` / `owned_value_excluded`, breakdown lines carry
+  `owned_excluded`, and the human output prints an `Owned (user-bulk)` line;
+  owned unknown-price cards stop poisoning `budget_confidence`. Wired into
+  `mtg budget` (default ON when the collection exists; `--no-bulk` disables)
+  and `preflight`'s budget gate. Contract synced: BUILDER §11 "Owned cards"
+  (prefer an owned staple over buying a weaker substitute; draft-TO-budget
+  applies to the BILLED total; never assume ownership), user-feedback.md owned-
+  cards question (Detailed Build), deck_builder step 7, CLAUDE step 7, README
+  (bulk-add section + budget notes + Quick Start), `user-bulk/README.md`.
+  Matching is case-insensitive (manual entries vs canonical deck names).
+  7 regression tests (loader roundtrip, partial ownership, atomic CLI,
+  --no-bulk); suite **1253 green**. (`config.py`, `deckbuilder/{user_bulk,
+  pricing}.py`, `cli/commands/{cards,deck}.py`, `user-bulk/README.md`,
+  `BUILDER.md`, `CLAUDE.md`, `agents/{user-feedback,deck_builder}.md`,
+  `tests/{test_user_bulk,test_cli_smoke}.py`)
+
+### Removed
+- **`mtg explore` and `mtg combos` REMOVED (user decision: release liability).**
+  Both commands fetched community data from external sites (EDHREC URLs lived in
+  `.env`) without permission — a legal/ToS liability for shipping the tool, and
+  measured dead weight: 0 calls across all 5 audited full builds. Physical
+  removal, not deprecation (deprecated-but-functional code still scrapes):
+  commands deleted from the CLI (39 → **37**, smoke pin updated), packages
+  `mtgcli/explore/` + `mtgcli/combos/` deleted with their 61 tests,
+  `.env`/`.env.example` purged of the EDHREC URLs, and **`deck-power` dropped
+  its external combo fetch + `--no-fetch` flag** (same fetcher, same liability;
+  in practice it always degraded to noted-combos anyway since `COMBOURL` was
+  the only wire). Combo/high-synergy research is now explicitly the AGENT's
+  job: BUILDER §12 rewritten ("Combo & Synergy Research Contract" — exhaust the
+  local tool first, web-search yourself when needed, VERIFY every card against
+  the DB, record adoptions with `mtg note --type combo` / rejections with
+  `--type decision`); synced in deck_builder.md (step 6 + section),
+  theme_detector.md, card_ranker.md, README (index, sections replaced by a
+  removal note, counts), artifact lists drop `commander_combos.json`.
+  Suite 1246 green. (`cli/{_shared,__init__}.py`, `cli/commands/{search,deck}.py`,
+  `BUILDER.md`, `README.md`, `agents/{deck_builder,theme_detector,card_ranker}.md`,
+  `.env.example`, `tests/{test_cli_smoke,test_fase4_commands}.py`)
+
 ### Changed
 - **README brought up to date with everything shipped since 2026-07-04, plus a
   Quick Start.** New "Quick Start — Install & Use" section at the top (fresh

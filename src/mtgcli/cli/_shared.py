@@ -8,8 +8,8 @@ byte-for-byte the code it was before the split, with the same names in scope.
 
 Because these names become real globals of each command module, the test
 suite's ``monkeypatch.setattr``/``patch`` on e.g. ``SQLITE_PATH`` /
-``CardRepository`` / ``build_explore_url`` still works — it just targets the
-module that now owns the command.
+``CardRepository`` still works — it just targets the module that now owns
+the command.
 """
 import typer
 import json
@@ -18,8 +18,6 @@ from rich import print
 from typing import Optional, List, Any, Dict
 from pathlib import Path
 from mtgcli.config import PROJECT_ROOT, RAW_CARDS_PATH, SQLITE_PATH, SEED_DATA_DIR, OUTPUT_DIR, LOGS_DIR
-from mtgcli.explore.client import build_explore_url, fetch_commander_page
-from mtgcli.explore.cleaner import extract_target_cards_from_html, sanitize_json_string
 from mtgcli.utils.temp_cleaner import clean_output_files
 from mtgcli.export.final_builds import (
     normalize_bracket, next_final_build_name, create_final_build_directory,
@@ -58,9 +56,6 @@ from mtgcli.utils.deck_io import normalize_deck_input, load_deck_file
 from mtgcli.utils.decklist_parser import parse_decklist_text
 from mtgcli.category_counts import calculate_category_counts, format_human_readable
 from mtgcli.category_counts.output import format_table
-from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
-from mtgcli.combos.parser import parse_combos, filter_combos, USE_GUIDANCE
-from mtgcli.explore.slug import commander_to_slug
 
 from mtgcli.cli._app import app
 

@@ -579,10 +579,12 @@ def preflight(
     quality = check_deck_quality(hydrated)
     quality_warnings = quality.get("warnings", [])
 
-    # Budget gate (only if a limit was given).
+    # Budget gate (only if a limit was given). Owned cards (user-bulk) don't bill.
     budget_check = None
     if budget_limit is not None:
-        bsum = build_budget_summary(hydrated, budget_limit=budget_limit)
+        from mtgcli.deckbuilder.user_bulk import load_user_bulk, owned_lookup
+        bsum = build_budget_summary(hydrated, budget_limit=budget_limit,
+                                    owned=owned_lookup(load_user_bulk()))
         ok = bsum.get("budget_status") in ("under_budget", "within_overage")
         budget_check = {
             "check": f"Within budget (${budget_limit})",
@@ -791,15 +793,14 @@ def deck_power(
     commander: str = typer.Option(..., "--commander", help="Name of the commander"),
     deck_path: Path = typer.Option(..., "--deck", help="Path to the deck JSON or .txt decklist"),
     bracket: Optional[str] = typer.Option(None, "--bracket", help="Target official bracket (1-5) to check compliance against; omit (n/a) to skip the verdict"),
-    no_fetch: bool = typer.Option(False, "--no-fetch", help="Skip the external combo fetch (offline mode; noted combos still count)"),
     json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
 ):
     """The two categorizers: official BRACKET compliance (deterministic rules) and a
     TIER score (synergy + combos + game changers; 0.0-10.0 in 0.5 bands, F below 5.0).
 
     The tier is CONSIDER-ONLY — a heuristic efficiency read, never a gate. Combo
-    sources: the agent's build notes (`mtg note --type combo`) plus the external
-    fetch (degrades gracefully offline).
+    source: the agent's build notes (`mtg note --type combo`) — the agent researches
+    combos itself (web when needed) and records them; there is no external fetch.
     """
     require_database(SQLITE_PATH, json_output)
 
@@ -841,18 +842,9 @@ def deck_power(
     tag_defs = _json.load(open(_SD / "card_tags.json", encoding="utf-8"))
     deck_names = {c.get("name", "") for c in deck_cards}
 
-    # Combos: external fetch (graceful) + the agent's noted combos.
-    fetched = []
-    external_status = "skipped" if no_fetch else "unavailable"
-    if not no_fetch:
-        try:
-            from mtgcli.combos.fetcher import build_combo_url, fetch_combo_data
-            from mtgcli.combos.parser import parse_combos
-            fetched = parse_combos(fetch_combo_data(build_combo_url(commander)))
-            external_status = "ok"
-        except Exception:
-            fetched = []
-    combos = cross_check_combos(fetched, combo_notes(), deck_names, cmd_card.get("name", commander))
+    # Combos: the agent's noted combos ONLY (mtg note --type combo). The external
+    # fetch was removed in v0.8.0 — web research is the agent's job.
+    combos = cross_check_combos([], combo_notes(), deck_names, cmd_card.get("name", commander))
 
     # Synergy density (guarded: analyzer failure only drops the component).
     coverage = None
@@ -910,7 +902,7 @@ def deck_power(
         "tier": tier,
         "consistency_tier": consistency,
         "draw_odds": odds,
-        "combos": {**combos, "external_status": external_status},
+        "combos": {**combos, "source": "agent notes (mtg note --type combo)"},
         "plan_coverage": ({"synergy_density": coverage["synergy_density"],
                            "nonland_count": coverage["nonland_count"],
                            "bands": [{k: b[k] for k in ("archetype", "band", "have")}
@@ -979,7 +971,7 @@ def deck_power(
             print(f"    - [yellow]{r}[/yellow]")
 
     c = combos
-    print(f"\n[bold]Combos[/bold] [dim](external: {external_status}; noted via `mtg note`)[/dim]")
+    print(f"\n[bold]Combos[/bold] [dim](source: agent notes via `mtg note`)[/dim]")
     print(f"  complete: {len(c['complete'])}")
     for cb in c["complete"][:8]:
         # parens, not brackets: rich eats [class]-style tokens as markup

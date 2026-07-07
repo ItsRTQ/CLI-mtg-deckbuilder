@@ -72,7 +72,6 @@ output/deck.moxfield.txt
 output/deck_explanation.md
 output/validation_report.json
 output/commander_analysis.json
-output/commander_combos.json
 output/build-notes.json
 final-builds/<build-name>/
 ```
@@ -244,12 +243,9 @@ mtg category-counts \
   --json-output
 ```
 
-Optional context:
-
-```bash
-mtg explore --commander "<Commander>" --json-output
-mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
-```
+Optional context: if the build wants combo/synergy ideas beyond what the analyzer
+surfaces, research the web yourself (see §12) and record findings with `mtg note` —
+there is no fetch command for this (removed in v0.8.0).
 
 **MANDATORY STEP — verify the drafted list BEFORE building** (catches misspelled/hallucinated/
 illegal names cheaply, before the deck-write → fill → validate cycle; the Gargos and Anowon test
@@ -365,22 +361,22 @@ Budget Upgrade Review flow (see Section 11):
 
 ## 7. Commander Analysis Contract
 
-### 7.0b Archetype: prefer `analyzer.archetype_support` over `archetype_fit`
+### 7.0b Archetype: `analyzer.archetype_support` is the read
 
-`commander_analysis.json` now carries TWO archetype reads:
+`commander_analysis.json` carries a SINGLE, evidence-first archetype read:
 
-- **`analyzer` (preferred)** — the evidence-first analyzer: `archetype_support` as ordinal bands
-  (`very_high/high/medium/low`), plus `signals` (detected feature IDs), `dominant_symmetry`, and
-  `warnings`. Every band is backed by detected evidence; run `mtg analyze-card "<Commander>"` if
-  you need the full traces (which rule fired on which text).
-- **`archetype_fit` (legacy, DEPRECATED)** — weighted text scores. Formally deprecated as of
-  v0.8.0 (the analysis JSON carries a machine-readable `legacy_deprecations` block; removal
-  planned for v0.10). Its numeric scores can be confidently wrong (e.g. reminder text once read
-  as a lands/mill plan). The same block deprecates `commander_tags`/`synergy_tags` — their
-  single-source replacement is `analyzer.tags` (+ `analyzer.signals`).
+- **`analyzer`** — `archetype_support` as ordinal bands (`very_high/high/medium/low`), plus
+  `signals` (detected feature IDs), `dominant_symmetry`, and `warnings`. Every band is backed by
+  detected evidence; run `mtg analyze-card "<Commander>"` if you need the full traces (which rule
+  fired on which text). `best_archetype` is derived from the top band; `analyzer.tags`
+  (+ `analyzer.signals`) is the functional-tag vocabulary.
 
-**Rule: when the two disagree, trust `analyzer.archetype_support`.** Treat `archetype_fit` as a
-secondary hint at most. **Toolbox commanders:** if `archetype_support` includes `Toolbox / Goodstuff` (or the analyzer
+The legacy keyword-scored reads (`archetype_fit`, `commander_tags`, `synergy_tags`,
+`anti_synergy_tags`) and the `legacy_deprecations` block were **REMOVED in v0.8.0** — there is no
+longer a competing numeric ranking to reconcile. Use `analyzer.archetype_support` /
+`analyzer.tags` / `best_archetype` directly.
+
+**Toolbox commanders:** if `archetype_support` includes `Toolbox / Goodstuff` (or the analyzer
 warns "multi-mode commander"), the per-mode bands are OPTIONS on a menu, not the theme. Resolve
 the menu with the user's answers from the build questions (§5 User Feedback Flow): pick the mode
 that best aligns with their requested direction (user wants aggro -> the aggro-adjacent mode).
@@ -703,6 +699,23 @@ then re-run `budget` and `deck-view` to confirm the landing. The same lens works
 reverse for any type bucket (e.g. $40 in creatures on a spellslinger plan is the
 same conversation).
 
+### Owned cards (user-bulk): they cost the budget $0
+
+`user-bulk/collection.txt` holds the cards the user already OWNS (maintained with
+`mtg bulk-add`, or edited by hand — see `user-bulk/README.md`). `mtg budget` and
+preflight's budget gate automatically exclude owned copies from the bill (up to the
+owned quantity) and show it on a visible `Owned (user-bulk)` line; `--no-bulk`
+disables per run.
+
+Agent rules:
+- In Detailed Build mode (or when the user mentions owning cards), ask ONCE whether
+  they have a collection to record; if yes, help them load it with `mtg bulk-add`
+  (validated, fuzzy did-you-mean) before budgeting.
+- An owned expensive staple is FREE for this deck — prefer it over buying a weaker
+  substitute; the budget freed is real money for other slots (draft-TO-budget
+  applies to the BILLED total, not the sticker total).
+- Never assume ownership: only what's in the collection file counts.
+
 ### Budget Tolerance Modes
 
 Classify the user's budget tolerance during feedback or Budget Upgrade Review.
@@ -802,21 +815,24 @@ A recommended upgrade must improve at least one: commander synergy, engine stren
 
 ---
 
-## 12. Explore and Combos Contract
+## 12. Combo & Synergy Research Contract
 
-`explore` and `combos` are optional context.
+The former `explore` / `combos` commands were REMOVED in v0.8.0 (they fetched from
+external community sites without permission — a liability for the tool). **Combo and
+high-synergy research is the AGENT's job now:**
 
-```bash
-mtg explore --commander "<Commander>" --json-output
-mtg combos --commander "<Commander>" --output output/commander_combos.json --json-output
-```
+1. First exhaust the local tool: `commander-analyze` (archetype bands, oracle hooks,
+   `wanted_card_patterns`), `search-tags`, `similar` / `complements` — most synergy
+   packages come straight from these.
+2. If the build genuinely needs outside ideas (combo lines, meta staples for the
+   commander), use your own web search — cite what you found and VERIFY every card
+   against the local DB before considering it (`mtg card` / `cards-batch --verify`;
+   never trust remembered lists).
+3. **Record what you adopt with `mtg note`**: combos as
+   `--type combo --cards "A;B" --combo-class ...` (they become first-class
+   `deck-power` sources), rejected ideas as `--type decision`.
 
-Use combo data for two reasons:
-
-1. If the user wants combos, evaluate compact combo packages.
-2. If the user does not want combos, individual combo pieces may still signal useful cards.
-
-Rules:
+Rules (unchanged):
 
 - Do not force combos into every deck.
 - Do not include full combos in low-salt/friendly builds unless requested.

@@ -2,6 +2,103 @@
 
 ## 0.8.0
 
+### Added
+- **The RANK power-meter — a deterministic POWER/speed rank (FUEL-SPINE v1),
+  ORTHOGONAL to the consistency tier (user design).** Where the tier asks "how
+  reliably does the deck run its OWN plan" (needs annotation), RANK asks "how
+  fast/strong is it vs the metagame" and needs NO annotation — it reads DB facts.
+  0–10 score → **7 bands (1 Scrap · 2 Dormant · 3 Awakened · 4 Charged · 5
+  Ascendant · 6 Forbidden · 7 Mythic = cEDH)**. Formula:
+  `10·(0.55·fuel + 0.20·tutor + 0.10·gc + 0.10·curve + 0.05·free)`, where **fast_mana
+  (rocks/rituals) is the spine** — the ONE axis measured with zero false positives
+  across a 24-deck calibration corpus (cEDH fast_mana 8–26, everything else ≤5, a
+  clean chasm). **Draw is deliberately EXCLUDED** (measured HIGHER in casual than
+  cEDH — a grind signal the consistency tier already owns). New `models/rank.py`
+  (`rank_report` + pure `compose_score` + `rank_band` + `simulate_upgrades`),
+  `Deck.rank()`, and all constants DECLARED in `data/seed/rank_weights.json`
+  (`calibrated:false` — mid bands 3–5 interpolated). Reuses the tutor detection
+  (incl. the impulse/dig fix below). Tests pin the math to the corpus (dihada 9.55
+  Mythic, magda 7.34 Forbidden). (`models/rank.py`, `models/deck.py`,
+  `data/seed/rank_weights.json`, `tests/test_rank.py`)
+- **`mtg deck-rank` — the RANK as a command (39th), + the Rank Upgrade Review.**
+  `mtg deck-rank --deck <deck.json>` prints score/band/metrics/components on any
+  deck JSON (no annotation). `--target-band <1-7>` reports the gap to the user's
+  target (the agent's "norte"). `--with-candidate "A;B"` SIMULATES upgrades: each
+  candidate's EXACT rank before→after delta (the deck is never modified), whether it
+  crosses a band, and whether it's off the commander's color identity — the
+  deterministic "expected increase" for the Rank Upgrade Review (mirror of the
+  Budget Upgrade Review; budget always wins, over-budget upgrades shown not applied).
+  A new §5 core question asks the target RANK (`--set-config rank_target=<1-7|n/a>`):
+  a GUIDE that steers the draft toward that power but NEVER overrides the budget.
+  Contract synced (BUILDER §5/§16, CLAUDE, agents/{system,user-feedback,deck_builder,
+  deck_explainer,deck_fixer}); the explanation now opens with an at-a-glance header
+  table `| Deck commander | TIER | RANK | Bracket | Total cost |`. (`cli/commands/deck.py`,
+  `tests/{test_rank,test_cli_smoke}.py`)
+- **`mtg update-data` — wipe + re-download the card data from scratch (40th command).**
+  Deletes the current raw bulk + SQLite DB (everything under `data/raw` and
+  `data/processed` except each `.gitkeep`), then re-downloads ~2GB from Scryfall and
+  rebuilds — a fresh `init-data` for when the bulk is stale. Destructive: requires
+  `--yes` (non-interactive) or an interactive confirm; `--json-output` without
+  `--yes` returns `confirmation_required`. Mocked regression test (no network) pins
+  the delete/rebuild wiring and `.gitkeep` preservation. (`cli/commands/data.py`,
+  `cli/__init__.py`, `tests/test_cli_smoke.py`)
+- **`deck-add --import <list.txt>` — port an existing/bought deck into the annotated
+  JSON, card-by-card.** Unlike the atomic `--cards` package add, `--import` skips
+  not-found / incompatible cards (color identity / singleton / size) with a WARNING
+  instead of aborting — one bad card never blocks the port; the commander line is
+  treated as command-zone; exempt from the §5 contract gate (it's a port, not
+  drafting); purpose defaults to FLEX. A skip surfaces the real reason (e.g. `size
+  would be 100/99`). Then score the result with `deck-rank`. (`cli/commands/deck.py`,
+  `tests/test_fase4_commands.py`)
+- **`bulk-add --import <deck>` — add a whole BOUGHT deck to the collection.** Imports
+  a `.txt` decklist OR a deck `.json` (its `main_deck` AND commander(s) become owned)
+  card-by-card, warning+skipping names not in the DB. (`cli/commands/cards.py`,
+  `tests/test_user_bulk.py`)
+
+### Changed
+- **user-bulk is now OWNERSHIP, not quantity — plus default-owned staples and a
+  synced JSON (user design).** The collection tracks whether you OWN a card, not how
+  many: an owned card is excluded from the budget ENTIRELY (all copies free — Commander
+  is singleton, basics unlimited), so `bulk-add` stores presence (a leading `N ` is
+  tolerated but ignored). **Everyone is assumed to own the 5 basic lands + Sol Ring +
+  Arcane Signet by default** (free even with an empty collection; `--no-bulk` disables).
+  Every save now writes BOTH `collection.txt` (hand-editable) and `collection.json`
+  (structured, agent-friendly — a names list); the loader reads the txt canonically and
+  falls back to the json. `build_budget_summary`'s owned param became a presence set
+  (all copies free). Contract synced (BUILDER §11, CLAUDE, `user-bulk/README.md`).
+  (`config.py`, `deckbuilder/{user_bulk,pricing}.py`, `cli/commands/cards.py`,
+  `tests/test_user_bulk.py`)
+- **`final-build` folder convention → `<Commander>-<TIER>-<RANK>-<COST>`.** The command
+  computes the deck's TIER (consistency band), RANK (power band) and known-price cost
+  itself; a MISSING segment is OMITTED, never written as `na` (an unannotated deck has no
+  TIER → `Dihada-Binder-of-Wills-Mythic-4776usd`). Exact-name collisions get a rising
+  number right after the commander name (`<Commander>1-…`, `<Commander>2-…`). `--theme`
+  / `--bracket` now feed only the explanation, not the folder name. Docs synced (BUILDER
+  §14, deck_builder). (`export/final_builds.py`, `cli/commands/misc.py`,
+  `tests/test_final_builds.py`)
+
+### Fixed
+- **Tutor detection: impulse/dig false positives excluded (materialized the standing
+  known-gap on a green landfall deck).** The `put that card into your hand` tutor phrase
+  (added for Demonic Consultation / Tainted Pact) also caught FORCED top-of-library
+  reveals with no card selection — Coiling Oracle, Nissa Resurgent Animist, the Explore
+  creatures, Dark Confidant, Ad Nauseam, Necropotence… over-reading "tutors" (consistency)
+  on green/value decks (Yarok read 7). New `_is_impulse_dig` excludes a `put that card into
+  your hand` match off a top reveal with no choice marker (search / name-a-card / chosen
+  name / exiled this way). **Measured on the DB: 74 impulse/dig FPs excluded, 0 chosen-card
+  tutors lost** (Demonic Consultation, Tainted Pact, Vampiric/Grim survive). Fixes both the
+  RANK tutor count AND deck-power bracket compliance; live: Yarok 7→5, dihada 18→16, cEDH
+  scores intact. (`deckbuilder/deck_power.py`, `tests/test_deck_power.py`)
+- **Snow-Covered basics no longer read as a `singleton_violation`.** `_is_basic_land`
+  now checks the `Basic` supertype in the type line, not just the plain basic-land name
+  set — Snow-Covered Forest/Island/Swamp/Mountain/Plains may repeat legally.
+  (`validator/deck_validator.py`, `tests/test_validator.py`)
+- **Strict land-fetch tutor detection (`_searches_only_land`).** A library search that
+  targets ONLY lands (Cultivate, Farseek, Scapeshift, Crop Rotation…) no longer counts as
+  a wincon tutor — it's ramp; a clause naming a nonland type stays a tutor. Deflates casual
+  green/fixing decks in bracket + rank tutor counts. (`deckbuilder/deck_power.py`,
+  `tests/test_deck_power.py`)
+
 ### Removed
 - **The legacy keyword-scored archetype system DELETED (pulled forward from v0.10 —
   user decision: the improved ranking is a continuous effort, and two competing

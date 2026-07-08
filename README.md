@@ -17,7 +17,7 @@ The app should not try to fully replace deckbuilding judgment. It should act as 
 - [Project Goal](#project-goal)
 - [Core Architecture](#core-architecture)
 - [Requirements](#requirements) · [Setup](#setup) · [Initialize Card Data](#initialize-card-data)
-- [**Command Reference**](#command-reference) — all 38 commands, with a clickable [index](#index)
+- [**Command Reference**](#command-reference) — all 40 commands, with a clickable [index](#index)
 - [Agent Usage](#agent-usage)
 - [Power Level Brackets](#power-level-brackets) · [Budget Handling](#budget-handling)
 - [Deck Identity Model](#deck-identity-model) · [Engine-First Deckbuilding](#engine-first-deckbuilding) · [Broad Archetypes](#broad-archetypes)
@@ -105,8 +105,9 @@ Using BUILDER.md as your main context, build a "Krenko, Mob Boss" deck.
    validated at entry (exists / color identity / singleton / size), annotated with
    its purpose, and priced — a running total shows budget utilization live.
 4. Record combos and rejected candidates as it goes (`note`), annotate the finished
-   draft (`deck-annotate`), and score it (`deck-power`: bracket compliance + a
-   hypergeometric **consistency tier**).
+   draft (`deck-annotate`), and score it two orthogonal ways: `deck-power` (bracket
+   compliance + a hypergeometric **consistency tier**) and `deck-rank` (a **POWER/speed
+   rank**, 7 bands Scrap..Mythic).
 5. Fill lands, validate, quality-check, audit against the commander's own plan
    (`deck-gaps`), and pass the one finalization gate: `preflight` → `READY`.
 6. Save a versioned folder under `final-builds/` (decklist + explanation +
@@ -327,7 +328,7 @@ This makes it easier to test imports without processing the entire bulk file.
 
 ## Command Reference
 
-The `mtg` CLI exposes **38 commands** (v0.8.0). This index links to a detailed section for
+The `mtg` CLI exposes **40 commands** (v0.8.0). This index links to a detailed section for
 each one. Every command supports `--json-output`, and any command accepts the global
 `--log` flag (see [Global flags](#global-flags)).
 
@@ -339,6 +340,7 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 |---|---|
 | [`mtg status`](#mtg-status) | Show project paths and whether the card database exists. |
 | [`mtg init-data`](#mtg-init-data) | Download Scryfall bulk data (~550MB) and build the local SQLite database. |
+| [`mtg update-data`](#mtg-update-data) | Delete the current raw + processed data and re-download/rebuild from scratch. |
 | [`mtg temp-clean`](#mtg-temp-clean) | Clean temporary / generated files from `output/`. |
 
 **Card lookup & prices**
@@ -352,7 +354,7 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | [`mtg prices`](#mtg-prices) | Batch price lookup for several names given inline. |
 | [`mtg prices-batch`](#mtg-prices-batch) | Prices for every card in a deck file. |
 | [`mtg budget`](#mtg-budget) | Deck cost summary vs a budget: total, per-card breakdown, high-cost flags. |
-| [`mtg bulk-add`](#mtg-bulk-add) | Maintain the user-bulk collection: cards you OWN cost the budget $0. |
+| [`mtg bulk-add`](#mtg-bulk-add) | Maintain the user-bulk collection (ownership, not quantity); `--import` adds a bought deck. |
 
 **Search & discovery**
 
@@ -391,10 +393,11 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 
 | Command | What it does |
 |---|---|
-| [`mtg deck-add`](#mtg-deck-add) | THE drafting primitive: add a validated PACKAGE with purpose + running budget. |
+| [`mtg deck-add`](#mtg-deck-add) | THE drafting primitive: add a validated PACKAGE with purpose + running budget; `--import` ports a .txt deck. |
 | [`mtg deck-annotate`](#mtg-deck-annotate) | Seed/refine purposes on the drafted deck; sync noted combos into it. |
 | [`mtg deck-view`](#mtg-deck-view) | View the annotated deck: purposes, types, curve, **cost by type**, combos. |
 | [`mtg deck-power`](#mtg-deck-power) | Bracket compliance (deterministic) + consistency TIER (hypergeometric). |
+| [`mtg deck-rank`](#mtg-deck-rank) | POWER/speed RANK (FUEL-SPINE): 7 bands Scrap..Mythic; ORTHOGONAL to the tier; upgrade sim. |
 | [`mtg note`](#mtg-note) | Record combos/decisions/findings WHILE drafting (the carpenter's tally). |
 
 **Export & reporting**
@@ -448,6 +451,20 @@ mtg init-data --json-output   # quiet; final summary JSON
 Notes:
 - Re-running refreshes the database from the (possibly re-downloaded) raw data.
 - If the process is killed, see [Troubleshooting](#mtg-init-data-gets-killed).
+
+#### `mtg update-data`
+
+Refresh the card data **from scratch** when the Scryfall bulk is stale: deletes the current
+raw bulk and SQLite DB (everything under `data/raw/` and `data/processed/` except each
+`.gitkeep`), then re-downloads (~2GB) and rebuilds — a clean `init-data`.
+
+```bash
+mtg update-data            # asks for confirmation (destructive)
+mtg update-data --yes      # skip the prompt (required non-interactively)
+```
+
+Destructive, so it guards: without `--yes` it prompts (interactive) or refuses; with
+`--json-output` and no `--yes` it returns `{"ok": false, "error": "confirmation_required"}`.
 
 #### `mtg temp-clean`
 
@@ -584,28 +601,35 @@ Notes:
 - Output includes `budget_status` (`under_budget` / `over_budget` / …) and
   `budget_confidence` (`complete` when every card has a known price).
 - **Unknown price means unknown — not free and not forbidden.**
-- **Owned cards cost $0**: copies in the [user-bulk collection](#mtg-bulk-add) are
-  excluded from the bill (up to the owned quantity), always on a visible
-  `Owned (user-bulk)` line — the same applies inside `preflight`'s budget gate.
+- **Owned cards cost $0**: cards in the [user-bulk collection](#mtg-bulk-add) are
+  excluded from the bill ENTIRELY (ownership, not quantity — all copies free), always on
+  a visible `Owned (user-bulk)` line; the same applies inside `preflight`'s budget gate.
+  The 5 basics + Sol Ring + Arcane Signet are owned by default (`--no-bulk` disables).
 
 #### `mtg bulk-add`
 
-Maintains the **user-bulk collection** (`user-bulk/collection.txt`) — the cards you
-already OWN. The budget commands price owned copies at $0, so the money in the
-budget goes to cards you actually need to buy.
+Maintains the **user-bulk collection** — the cards you already OWN. It tracks
+**ownership, not quantity**: an owned card is priced at $0 for ALL its copies (Commander
+is singleton, basics unlimited). Even with an empty collection you're assumed to own the
+**5 basic lands + Sol Ring + Arcane Signet**. Saved in two synced forms:
+`user-bulk/collection.txt` (hand-editable) and `user-bulk/collection.json` (agent-friendly).
 
 ```bash
-mtg bulk-add --cards "Sol Ring;2 Arcane Signet;Rhystic Study"   # add (validated, atomic)
-mtg bulk-add --remove "Rhystic Study"                            # remove / decrement
-mtg bulk-add --list                                              # view with prices + known value
+mtg bulk-add --cards "Sol Ring;Arcane Signet;Rhystic Study"   # add (validated, atomic)
+mtg bulk-add --remove "Rhystic Study"                          # remove
+mtg bulk-add --import bought-deck.txt                          # BOUGHT a deck? import it whole (.txt or deck .json)
+mtg bulk-add --list                                            # view with prices + known value
 ```
 
 Notes:
-- Names validate against the DB with fuzzy did-you-mean on typos; any bad name
-  rejects the whole batch (nothing changes).
-- The file is a plain decklist (`2 Sol Ring` per line, `#` comments) — you can also
-  edit it **by hand**; run `mtg cards-batch user-bulk/collection.txt --verify`
-  afterwards to catch typos. See `user-bulk/README.md`.
+- `--cards`/`--remove` validate against the DB with fuzzy did-you-mean on typos; any bad
+  name rejects the whole batch (atomic).
+- `--import` ports an entire bought deck card-by-card — a `.txt` decklist OR a deck `.json`
+  (its `main_deck` AND commander(s) become owned); names not found are warned and skipped
+  (the rest still import).
+- The file is a plain name-per-line list (`#` comments; a leading `N ` is tolerated but
+  ignored) — hand-editable; run `mtg cards-batch user-bulk/collection.txt --verify`
+  afterwards. See `user-bulk/README.md`.
 
 ---
 
@@ -1044,6 +1068,11 @@ Notes:
   `--note` applies an agent note to the whole batch.
 - The contract lives in the deck's `config` — it survives context loss and travels
   with the file.
+- `--import <list.txt>` ports an EXISTING/bought deck into the JSON card-by-card instead
+  of the atomic package add: cards not found or incompatible (color identity / singleton /
+  size) are WARNED and SKIPPED (the rest still import), the commander line is treated as
+  command-zone, and it's exempt from the contract gate (a port, not drafting). Score the
+  result with [`deck-rank`](#mtg-deck-rank).
 
 #### `mtg deck-annotate`
 
@@ -1102,6 +1131,29 @@ Notes:
   back to a text-census tier with a notice.
 - The tier is CONSIDER-ONLY — report it, never gate on it.
 
+#### `mtg deck-rank`
+
+The deterministic **POWER/speed** meter (FUEL-SPINE v1), **ORTHOGONAL to the tier**: the tier
+asks "how reliably does the deck run its OWN plan"; RANK asks "how fast/strong is it vs the
+metagame". 0–10 → **7 bands: 1 Scrap · 2 Dormant · 3 Awakened · 4 Charged · 5 Ascendant ·
+6 Forbidden · 7 Mythic (= cEDH)**, from `fast_mana` (rocks/rituals — the spine) + tutors + game
+changers + curve. **Draw is excluded by design** (a grind signal, measured higher in casual than
+cEDH). Needs NO annotation — it reads DB facts, so it runs on any deck JSON. Consider-only,
+`calibrated:false` (mid bands interpolated).
+
+```bash
+mtg deck-rank --deck output/deck.json
+mtg deck-rank --deck output/deck.json --target-band 5 \
+  --with-candidate "Mana Crypt;Jeweled Lotus;Demonic Tutor"   # Rank Upgrade Review
+```
+
+- `--target-band <1-7>` reports the gap to the user's target rank (the agent's "norte").
+- `--with-candidate "A;B"` SIMULATES upgrades: each card's EXACT rank before→after delta, whether
+  it crosses a band, and whether it's off the commander's color identity — the deck is never
+  modified. This is the deterministic "expected increase" for the Rank Upgrade Review.
+- Blind spots to flag when reporting: `fast_mana` is a name-list (a brand-new fast-mana card or
+  commander-granted acceleration reads as invisible fuel); land-ramp/dorks are excluded by design.
+
 #### `mtg note`
 
 The carpenter's tally: record combos, decisions, and findings the moment you see them
@@ -1148,25 +1200,28 @@ mtg export output/deck.json --output output/deck.moxfield.txt --json-output
 
 #### `mtg final-build`
 
-Validates the deck and saves a versioned final build folder:
+Validates the deck and saves a versioned final build folder. The folder name is built from
+the deck's own scores — `<Commander>-<TIER>-<RANK>-<COST>` — computed by the command:
 
 ```text
-final-builds/<Commander>-<Theme>-<Bracket>-v<N>/
+final-builds/<Commander>-<TIER>-<RANK>-<COST>/      e.g. Dihada-Binder-of-Wills-+S-Mythic-4776usd
 ├── <build-name>.txt                # Moxfield-compatible decklist
 ├── <build-name>.explanation.md     # the deck explanation
 └── deck_list.json                  # the ANNOTATED deck: purposes, notes, config, combos
 ```
 
-`deck_list.json` means the build's judgment travels with it — reload it any time with
-[`mtg deck-view`](#mtg-deck-view) to see why every card is there.
+A MISSING segment is OMITTED (never `na`): an unannotated deck has no TIER, so its folder is
+`<Commander>-<RANK>-<COST>`. Exact-name collisions get a rising number right after the
+commander name (`<Commander>1-…`, `<Commander>2-…`). `--theme` / `--bracket` feed the
+explanation, not the folder. `deck_list.json` means the build's judgment travels with it —
+reload it any time with [`mtg deck-view`](#mtg-deck-view).
 
 ```bash
 mtg final-build --deck output/deck.json --commander "Krenko, Mob Boss" \
     --theme "goblin-swarm" --bracket T3 --explanation output/deck_explanation.md
 ```
 
-Never final-build a deck that hasn't passed [`mtg preflight`](#mtg-preflight). Version
-numbers auto-increment per build name.
+Never final-build a deck that hasn't passed [`mtg preflight`](#mtg-preflight).
 
 #### `mtg report`
 

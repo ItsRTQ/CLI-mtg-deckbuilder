@@ -283,3 +283,11 @@ class Deck:
         purposes and combos → 0-10 score in 0.5 bands (F below 5.0). Consider-only."""
         from mtgcli.models.consistency import consistency_report
         return consistency_report(self)
+
+    def rank(self) -> Dict[str, Any]:
+        """POWER/speed rank (FUEL-SPINE v1): 0-10 score → 7 bands (1 Scrap … 7 Mythic
+        = cEDH), driven by fast_mana + tutors + game changers + curve. ORTHOGONAL to
+        tier() (power vs reliability). Needs no annotation — reads DB-hydrated facts.
+        Consider-only; calibrated:false."""
+        from mtgcli.models.rank import rank_report
+        return rank_report(self)

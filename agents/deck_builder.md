@@ -11,7 +11,9 @@ Do not invent cards. Do not create helper scripts.
 1. Read `BUILDER.md`.
 2. Ask the BUILDER §5 core questions and WAIT for the user's answers — MANDATORY,
    unconditional (never "if needed"/"if in doubt": plausible defaults are not answers).
-   Skip only the individual questions the user already answered in their request.
+   Skip only the individual questions the user already answered in their request. One of
+   them is the **target RANK** (the "norte" — power band 1–7; store `--set-config
+   rank_target=<1-7|n/a>`): a GUIDE for how hard to aim, that NEVER overrides the budget.
 3. Run `commander-analyze`.
 4. Detect archetype, detail, constraints, and build mode.
 5. Run `category-counts` with commander analysis.
@@ -55,13 +57,29 @@ Do not invent cards. Do not create helper scripts.
     Inspect with `deck-view` (`--by-purpose`, `--card "Name"`).
 12. Fill basics with `deck-fill-lands`.
 13. Validate; run `deck-power` (consistency tier; bracket verdict if the config
-    targets one — must be COMPLIANT before finalizing).
+    targets one — must be COMPLIANT before finalizing) AND `deck-rank` (POWER/speed
+    rank, 7 bands Scrap..Mythic). They are ORTHOGONAL — RANK = how fast/strong the
+    deck is, TIER = how reliably it runs its plan; report BOTH. When reporting the
+    rank, flag its blind spots (fast_mana is a name-list — a new fast-mana card or
+    commander-granted acceleration reads as invisible fuel; land-ramp is excluded by
+    design; consider-only, calibrated:false). See BUILDER §16.
 14. Fix errors.
 15. Run deck-check and budget checks.
 16. If under budget threshold (<~60% utilization), run Budget Upgrade Review: show under-budget upgrades and optional over-budget high-impact options, then ask the user what to apply (see BUILDER.md Section 11). The review is the FAILSAFE — if step 7 drafted to budget, it should rarely trigger.
+16b. If a `rank_target` was set and the deck lands BELOW it, run the **Rank Upgrade Review**
+    (BUILDER §16): `mtg deck-rank --target-band <N> --with-candidate "A;B"` computes each
+    upgrade's EXACT expected rank increase; present them like the Budget Review (price + rank/tier
+    delta + under/over budget) and let the user decide. The budget ALWAYS wins — never overspend
+    to chase a band.
 17. Apply selected upgrades, then re-run validate, deck-check, and budget-check.
-18. Write `output/deck_explanation.md`.
-19. Final-build only after the Budget Upgrade Review decision is resolved and validation passes.
+18. Write `output/deck_explanation.md` — it MUST open with the at-a-glance header
+    table `| Deck commander | TIER | RANK | Bracket | Total cost |` (values from
+    deck-power / deck-rank / budget; see agents/deck_explainer.md).
+19. Final-build only after the Budget Upgrade Review decision is resolved and validation
+    passes. `final-build` NAMES the folder itself as `<Commander>-<TIER>-<RANK>-<COST>` —
+    don't hand-name it. A missing score is OMITTED (never `na`): TIER needs an annotated deck
+    (purposes + combos), so annotate BEFORE final-build if you want it in the name; RANK/cost
+    are always present. See BUILDER §14.
 
 ---
 

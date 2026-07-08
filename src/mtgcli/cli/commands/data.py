@@ -65,6 +65,72 @@ def init_data(
 
 
 @app.command()
+def update_data(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt (required non-interactively)"),
+    json_output: bool = typer.Option(False, "--json-output", help="Suppress progress; emit a final JSON summary"),
+):
+    """Delete the current raw + processed card data and RE-DOWNLOAD it from scratch
+    (a fresh init-data). Use when the Scryfall bulk is stale. Destructive: removes the
+    bulk file and the SQLite DB, then re-downloads ~2GB and rebuilds."""
+    import sys
+    from mtgcli.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+
+    if not yes:
+        if json_output:
+            print_json({"ok": False, "error": "confirmation_required",
+                        "message": "update-data is destructive (deletes data + re-downloads ~2GB). Pass --yes."})
+            raise typer.Exit(code=1)
+        print("[bold yellow]WARNING:[/bold yellow] update-data DELETES the current raw bulk "
+              f"({RAW_CARDS_PATH.name}) and database ({SQLITE_PATH.name}), then RE-DOWNLOADS "
+              "~2GB from Scryfall and rebuilds.")
+        if not sys.stdin.isatty():
+            print("[red]Non-interactive environment. Rerun with --yes to confirm.[/red]")
+            raise typer.Exit(code=1)
+        if typer.prompt("Continue? [y/N]", default="N").strip().lower() != "y":
+            print("[yellow]Cancelled.[/yellow]")
+            raise typer.Exit(code=0)
+
+    # 1. Delete current raw + processed data (keep each dir's .gitkeep).
+    deleted = []
+    for d in (RAW_DATA_DIR, PROCESSED_DATA_DIR):
+        if not d.exists():
+            continue
+        for f in d.iterdir():
+            if f.is_file() and f.name != ".gitkeep":
+                f.unlink()
+                deleted.append(str(f))
+    if not json_output:
+        print(f"[green]Deleted {len(deleted)} data file(s).[/green]")
+
+    # 2. Re-download + rebuild (same as init-data with the raw file now absent).
+    if not json_output:
+        print("[yellow]Downloading Scryfall bulk data...[/yellow]")
+        print("[bold red]Disclaimer: ~2GB download, a few minutes depending on your connection.[/bold red]")
+    path = download_default_cards()
+    if not json_output:
+        print(f"[green]Downloaded cards to {path}[/green]")
+        print("[yellow]Building SQLite database (aggregating prices across all printings)...[/yellow]")
+    result = build_sqlite_database()
+
+    if json_output:
+        print_json({
+            "ok": True,
+            "deleted": deleted,
+            "downloaded": True,
+            "database_path": result["path"],
+            "unique_card_identities": result["unique_card_identities"],
+            "cards_processed": result["cards_processed"],
+            "cards_with_known_usd_price": result["cards_with_known_usd_price"],
+            "cards_with_unknown_price": result["cards_with_unknown_price"],
+        })
+    else:
+        print(f"[green]Rebuilt SQLite database at {result['path']}[/green]")
+        print(f"[green]  {result['unique_card_identities']} unique cards from {result['cards_processed']} printings[/green]")
+        print(f"[green]  {result['cards_with_known_usd_price']} cards with known USD price, {result['cards_with_unknown_price']} unknown[/green]")
+
+
+
+@app.command()
 def enrich(
     input_path: Path = typer.Argument(..., help="Path to deck JSON file"),
     output_path: Optional[Path] = typer.Option(None, "--output", "-o", help="Output JSON file path"),

@@ -49,6 +49,47 @@ def test_deck_add_creates_validates_and_tracks_budget(tmp_path):
 
 
 @needs_db
+def test_deck_add_import_ports_card_by_card_and_skips(tmp_path):
+    # Import a .txt: commander line -> command zone (skipped); not-found and
+    # color-violating cards -> WARNED and SKIPPED (not added); rest ports. No
+    # build contract required (importing a finished deck, not drafting).
+    lst = tmp_path / "list.txt"
+    lst.write_text(
+        "1 Ragost, Deft Gastronaut\n"   # commander -> command zone
+        "1 Sol Ring\n"                    # ok
+        "1x Boros Signet\n"               # ok (1x qty syntax)
+        "1 Counterspell\n"                # blue -> color identity violation -> skip
+        "1 Definitely Not A Real Card\n"  # not found -> skip
+    )
+    deck = tmp_path / "d.json"
+    r = runner.invoke(app, ["deck-add", "--deck", str(deck),
+                            "--commander", "Ragost, Deft Gastronaut",
+                            "--import", str(lst), "--json-output"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    added = {c["name"] for c in data["added"]}
+    skipped = {s["name"] for s in data["skipped"]}
+    assert added == {"Sol Ring", "Boros Signet"}
+    assert skipped == {"Counterspell", "Definitely Not A Real Card"}
+    # commander is command-zone, not in the main deck
+    saved = json.loads(deck.read_text())
+    assert saved["commander"] == "Ragost, Deft Gastronaut"
+    assert all(e["name"] != "Ragost, Deft Gastronaut" for e in saved["main_deck"])
+
+
+@needs_db
+def test_deck_add_import_and_cards_are_mutually_exclusive(tmp_path):
+    lst = tmp_path / "l.txt"
+    lst.write_text("1 Sol Ring\n")
+    deck = tmp_path / "d.json"
+    r = runner.invoke(app, ["deck-add", "--deck", str(deck),
+                            "--commander", "Ragost, Deft Gastronaut",
+                            "--import", str(lst), "--cards", "Sol Ring"])
+    assert r.exit_code == 1
+    assert "either --cards or --import" in r.output
+
+
+@needs_db
 def test_deck_add_first_use_requires_build_contract(tmp_path):
     deck = tmp_path / "new.json"
     r = runner.invoke(app, ["deck-add", "--deck", str(deck), "--cards", "Sol Ring",

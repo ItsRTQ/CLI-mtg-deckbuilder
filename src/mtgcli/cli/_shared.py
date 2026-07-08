@@ -20,7 +20,8 @@ from pathlib import Path
 from mtgcli.config import PROJECT_ROOT, RAW_CARDS_PATH, SQLITE_PATH, SEED_DATA_DIR, OUTPUT_DIR, LOGS_DIR
 from mtgcli.utils.temp_cleaner import clean_output_files
 from mtgcli.export.final_builds import (
-    normalize_bracket, next_final_build_name, create_final_build_directory,
+    normalize_bracket, next_final_build_name, build_final_name,
+    create_final_build_directory,
     save_final_build_decklist, save_final_build_explanation,
     build_minimal_explanation, deck_entries_to_moxfield_text, sanitize_filename_part
 )

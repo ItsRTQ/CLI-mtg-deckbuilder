@@ -4,7 +4,7 @@ Purpose: collect only preferences that materially change deckbuilding.
 
 Use multiple choice. Always include `Agent choice`. Do not ask open-ended questions unless required.
 
-**MANDATORY: ask the 4 core questions and WAIT for the answers before building** — every
+**MANDATORY: ask the 5 core questions and WAIT for the answers before building** — every
 build, unconditionally. This never depends on the agent "having doubts": an agent with
 plausible defaults has no doubts, and its defaults are not answers. If the user already
 answered something in their request, do not ask it again — the remaining core questions
@@ -42,6 +42,33 @@ Internal power mapping for slot planning (category-counts `--power-level`):
 Bracket 1-2 -> power 4-5      Bracket 3 -> power 6-7
 Bracket 4-5 -> power 8-10     n/a       -> agent judgment from the other answers
 ```
+
+---
+
+## Core Question 1b: Target RANK (the agent's "norte")
+
+Ask the FUEL-SPINE power band the build should aim for (BUILDER §16). Distinct from the
+bracket: bracket is the social-contract compliance check; RANK is the deterministic
+power/speed meter (1 Scrap … 7 Mythic = cEDH).
+
+```text
+How powerful do you want this deck (RANK 1 Scrap … 7 Mythic = cEDH)?
+
+a) Build to theme/budget — rank lands wherever it lands (default)
+b) A target band (a number, or "as high as the budget allows")
+c) Push for cEDH / Mythic (rank-first)
+d) Agent choice
+```
+
+Default: a (n/a). Store the answer with `--set-config rank_target=<1-7|n/a>`.
+
+- The target is a GUIDE, **never a guarantee, and it NEVER overrides the budget** — raising
+  rank costs fast mana, so a high target on a small budget is impossible; the budget wins.
+- Use it to steer the draft TOWARD that power from the first list (bias allocation to fast
+  mana / tutors / low curve), as high as the budget allows.
+- If the deck lands below the target, run the **Rank Upgrade Review** (BUILDER §16):
+  `mtg deck-rank --target-band <N> --with-candidate "A;B"` gives the EXACT expected rank
+  increase per upgrade; present them like the Budget Upgrade Review and let the user decide.
 
 ---
 

@@ -36,9 +36,11 @@ The agent makes deckbuilding decisions, but it must not invent factual card data
 6. Do not create helper scripts (`build_*.py`, `temp_*.py`) that generate or decide deck content. Read-only inspection of CLI output (piping `--json-output` to `jq` / `json.tool` to filter or pretty-print) is allowed.
 7. Do not edit source code, seed files, README, `.env`, `.gitignore`, or agent docs during normal deckbuilding.
 8. Use official CLI commands instead of manual scripts: `deck-add` (the drafting
-   primitive: batch per package, validates at entry, purposes + running budget),
+   primitive: batch per package, validates at entry, purposes + running budget;
+   `--import <list.txt>` ports an existing .txt deck card-by-card, WARNING+SKIPPING
+   not-found/incompatible cards instead of aborting),
    `deck-annotate`, `deck-view`, `deck-write`, `deck-fill-lands`, `validate`,
-   `deck-check`, `deck-power`, `export`, `final-build`, and `preflight`. To edit the list, use `deck-swap` (validates before writing) — never a `sed`/`python` replace. To read without scripting, use `cards-batch --verify`, `card --field`, `category-counts --table`, `budget --by-card`, and `prices-batch --name "A" --name "B"` (cost hand-picked candidates BEFORE summing — never draft on memory prices; search results print each card's price). For analysis, use `analyze-card` (evidence-based card read), `deck-gaps` (audit vs commander plan), `similar` / `complements` (functional neighbors). Every command supports `--json-output`, and `--log` (any command) appends to the audit trail consolidated by `mtg report`.
+   `deck-check`, `deck-power`, `deck-rank`, `export`, `final-build`, and `preflight`. To edit the list, use `deck-swap` (validates before writing) — never a `sed`/`python` replace. To read without scripting, use `cards-batch --verify`, `card --field`, `category-counts --table`, `budget --by-card`, and `prices-batch --name "A" --name "B"` (cost hand-picked candidates BEFORE summing — never draft on memory prices; search results print each card's price). For analysis, use `analyze-card` (evidence-based card read), `deck-gaps` (audit vs commander plan), `similar` / `complements` (functional neighbors). Every command supports `--json-output`, and `--log` (any command) appends to the audit trail consolidated by `mtg report`.
 9. `synergy` is not a role. Use `--synergy` on a real role.
 10. Commander-zone cards are metadata, not `main_deck` cards.
 11. `commander_analysis.json` carries a SINGLE archetype read: `analyzer.archetype_support`
@@ -87,6 +89,8 @@ deck-view (inspect the annotated deck)
 fill lands
 deck-gaps (audit vs plan)
 deck-power (bracket compliance if targeted; consistency tier is consider-only)
+deck-rank (POWER/speed rank, 7 bands Scrap..Mythic — ORTHOGONAL to the tier: RANK = how
+  fast/strong, TIER = how reliably it runs its plan; consider-only, calibrated:false; report BOTH)
 validate
 fix
 explain

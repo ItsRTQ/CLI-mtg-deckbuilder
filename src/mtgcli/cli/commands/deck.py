@@ -986,8 +986,9 @@ def deck_add(
     deck_path: Path = typer.Option(..., "--deck", help="Path to the annotated deck JSON (created on first use)"),
     commander: Optional[str] = typer.Option(None, "--commander", help="Commander name (required on FIRST use; read from the file afterwards)"),
     partner: Optional[str] = typer.Option(None, "--partner", help="Partner/background commander (first use only)"),
-    cards: str = typer.Option(..., "--cards", help="Card names separated by ';' (names contain commas). Basics may repeat or use 'N Name' (e.g. '12 Mountain')"),
-    purpose: str = typer.Option(..., "--purpose", help="Purpose(s) for THIS batch, comma-separated (the package IS the role): ramp,synergy"),
+    cards: Optional[str] = typer.Option(None, "--cards", help="Card names separated by ';' (names contain commas). Basics may repeat or use 'N Name' (e.g. '12 Mountain'). Omit when using --import."),
+    import_path: Optional[Path] = typer.Option(None, "--import", help="Port a .txt decklist into the deck JSON CARD-BY-CARD. Cards not found or incompatible (color identity / singleton / size) are WARNED and SKIPPED — not added (the deck is left that many cards short). A line matching the commander is treated as command-zone and skipped. Bypasses the §5 build-contract gate (importing a finished deck, not drafting)."),
+    purpose: Optional[str] = typer.Option(None, "--purpose", help="Purpose(s) for THIS batch, comma-separated (the package IS the role): ramp,synergy. Defaults to FLEX when --import and omitted (annotate later with deck-annotate)."),
     note: Optional[str] = typer.Option(None, "--note", help="Optional agent_note applied to every card in the batch"),
     set_config: Optional[List[str]] = typer.Option(None, "--set-config", help="key=value build-contract entries (budget=150, budget_mode=soft, bracket=n/a...) — stored IN the deck"),
     deck_note: Optional[str] = typer.Option(None, "--deck-note", help="The deck's theme/gameplan note (set/overwrite)"),
@@ -998,22 +999,47 @@ def deck_add(
     validates at entry (exists / color identity / singleton / size), annotates the
     purpose at entry, and prints the batch price + RUNNING deck total (the
     draft-TO-budget mechanism, full build #3 lesson).
+
+    With --import, ports a .txt decklist card-by-card instead: invalid/incompatible
+    cards are SKIPPED with a warning (not atomic — the rest still port).
     """
     require_database(SQLITE_PATH, json_output)
 
     import re as _re
     from mtgcli.models import Card as _Card, CardNotFoundError as _CNF, Deck as _Deck, DeckError as _DE
 
-    # parse the batch: "Name; Name; 12 Mountain"
-    raw_items = [c.strip() for c in cards.split(";") if c.strip()]
-    if not raw_items:
-        _msg = "Provide at least one card in --cards (';'-separated)."
+    def _fail(msg):
         if json_output:
-            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+            _emit_json_error({"error": {"type": "validation", "message": msg}})
         else:
-            print(f"[red]{_msg}[/red]")
+            print(f"[red]{msg}[/red]")
         raise typer.Exit(code=1)
-    purposes = [p.strip() for p in purpose.split(",") if p.strip()]
+
+    is_import = import_path is not None
+    if is_import and cards:
+        _fail("Use either --cards or --import, not both.")
+    if not is_import and not cards:
+        _fail("Provide --cards (';'-separated) or --import <path.txt>.")
+
+    # gather the raw item lines
+    if is_import:
+        if not import_path.exists():
+            _fail(f"Import file not found: {import_path}")
+        raw_items = [ln.strip() for ln in import_path.read_text(encoding="utf-8").splitlines()
+                     if ln.strip() and not ln.strip().startswith("#")]
+        if not raw_items:
+            _fail(f"Import file has no card lines: {import_path}")
+    else:
+        raw_items = [c.strip() for c in cards.split(";") if c.strip()]
+        if not raw_items:
+            _fail("Provide at least one card in --cards (';'-separated).")
+
+    if purpose:
+        purposes = [p.strip() for p in purpose.split(",") if p.strip()]
+    elif is_import:
+        purposes = ["flex"]
+    else:
+        _fail("--purpose is required (the package IS the role).")
 
     repo = CardRepository(str(SQLITE_PATH))
 
@@ -1022,45 +1048,31 @@ def deck_add(
         try:
             deck_obj = _Deck.load(deck_path, repo=repo)
         except Exception as e:
-            print(f"[red]Failed to load deck: {e}[/red]")
-            raise typer.Exit(code=1)
+            _fail(f"Failed to load deck: {e}")
     else:
         if not commander:
-            _msg = "First use: --commander is required to create the deck."
-            if json_output:
-                _emit_json_error({"error": {"type": "validation", "message": _msg}})
-            else:
-                print(f"[red]{_msg}[/red]")
-            raise typer.Exit(code=1)
-        # Build-contract gate (BUILDER §5): the first call must carry the user's
-        # ANSWERED contract — budget + bracket — so a draft cannot start before
-        # the core questions were asked. "n/a" / "none" are valid explicit answers.
-        _contract_keys = {kv.split("=", 1)[0].strip()
-                          for kv in (set_config or []) if "=" in kv}
-        _missing = [k for k in ("budget", "bracket") if k not in _contract_keys]
-        if _missing:
-            _msg = (
-                "First use: no build contract — missing: " + ", ".join(_missing) + ". "
-                "Ask the user the BUILDER.md §5 core questions (bracket, budget, theme, "
-                "detail level) and WAIT for their answers, then create the deck with "
-                "--set-config budget=<USD or n/a> --set-config bracket=<1-5 or n/a>. "
-                "Do not draft on assumed defaults."
-            )
-            if json_output:
-                _emit_json_error({"error": {"type": "validation", "message": _msg}})
-            else:
-                print(f"[red]{_msg}[/red]")
-            raise typer.Exit(code=1)
+            _fail("First use: --commander is required to create the deck.")
+        # Build-contract gate (BUILDER §5): the first DRAFTING call must carry the
+        # user's ANSWERED contract — budget + bracket. --import is a PORT of a finished
+        # deck (not drafting), so it is exempt from the gate.
+        if not is_import:
+            _contract_keys = {kv.split("=", 1)[0].strip()
+                              for kv in (set_config or []) if "=" in kv}
+            _missing = [k for k in ("budget", "bracket") if k not in _contract_keys]
+            if _missing:
+                _fail(
+                    "First use: no build contract — missing: " + ", ".join(_missing) + ". "
+                    "Ask the user the BUILDER.md §5 core questions (bracket, budget, theme, "
+                    "detail level) and WAIT for their answers, then create the deck with "
+                    "--set-config budget=<USD or n/a> --set-config bracket=<1-5 or n/a>. "
+                    "Do not draft on assumed defaults."
+                )
         try:
             cmds = [_Card(commander, ["WINCON"], repo=repo)]
             if partner:
                 cmds.append(_Card(partner, ["WINCON"], repo=repo))
         except _CNF as e:
-            if json_output:
-                _emit_json_error({"error": {"type": "validation", "message": str(e)}})
-            else:
-                print(f"[red]{e}[/red]")
-            raise typer.Exit(code=1)
+            _fail(str(e))
         deck_obj = _Deck(cmds)
 
     if deck_note:
@@ -1070,31 +1082,47 @@ def deck_add(
             k, v = kv.split("=", 1)
             deck_obj.config[k.strip()] = v.strip()
 
-    # build the Card batch (fail loud per contract, whole batch rejected)
-    batch, errors = [], []
-    for item in raw_items:
-        m = _re.match(r"^(\d+)\s+(.*)$", item)
-        qty, name = (int(m.group(1)), m.group(2)) if m else (1, item)
-        try:
-            batch.append(_Card(name, purposes, agent_note=note, quantity=qty, repo=repo))
-        except (_CNF, ValueError) as e:
-            errors.append(str(e))
-    if errors:
-        _msg = "Batch rejected (nothing added):\n  - " + "\n  - ".join(errors)
-        if json_output:
-            _emit_json_error({"error": {"type": "validation", "message": _msg}})
-        else:
-            print(f"[red]{_msg}[/red]")
-        raise typer.Exit(code=1)
+    def _front(n):
+        return n.lower().split("//")[0].split("/")[0].strip()
+    _cmd_fronts = {_front(c.name) for c in deck_obj.commanders}
 
-    try:
-        deck_obj.add(batch)
-    except _DE as e:
-        if json_output:
-            _emit_json_error({"error": {"type": "validation", "message": str(e)}})
+    def _reason(e):
+        # DeckError formats as "Batch rejected (nothing added):\n  - <detail>";
+        # surface the DETAIL (color / singleton / size), not the generic header.
+        lines = [ln.strip().lstrip("- ").strip() for ln in str(e).splitlines() if ln.strip()]
+        detail = [ln for ln in lines if not ln.startswith("Batch rejected")]
+        return (detail or lines or [str(e)])[0]
+
+    # build/add the cards. --cards: ATOMIC (whole package rejected on any error).
+    # --import: CARD-BY-CARD, skip invalid/incompatible with a warning.
+    batch, errors, skipped = [], [], []
+    for item in raw_items:
+        m = _re.match(r"^(\d+)\s*[xX]?\s+(.+)$", item)
+        qty, name = (int(m.group(1)), m.group(2).strip()) if m else (1, item)
+        if is_import and _front(name) in _cmd_fronts:
+            continue  # commander line -> command zone, not main_deck
+        try:
+            card = _Card(name, purposes, agent_note=note, quantity=qty, repo=repo)
+        except (_CNF, ValueError) as e:
+            (skipped if is_import else errors).append(
+                {"name": name, "reason": _reason(e)} if is_import else str(e))
+            continue
+        if is_import:
+            try:
+                deck_obj.add([card])
+                batch.append(card)
+            except _DE as e:
+                skipped.append({"name": name, "reason": _reason(e)})
         else:
-            print(f"[red]{e}[/red]")
-        raise typer.Exit(code=1)
+            batch.append(card)
+
+    if not is_import:
+        if errors:
+            _fail("Batch rejected (nothing added):\n  - " + "\n  - ".join(errors))
+        try:
+            deck_obj.add(batch)
+        except _DE as e:
+            _fail(str(e))
 
     deck_obj.save(deck_path)
     batch_price = round(sum((c.usd_price or 0.0) * c.quantity for c in batch), 2)
@@ -1108,6 +1136,9 @@ def deck_add(
         "max_size": deck_obj.max_size,
         "by_purpose": deck_obj.total_by_purpose(),
     }
+    if is_import:
+        result["skipped"] = skipped
+        result["imported_from"] = str(import_path)
     budget = deck_obj.config.get("budget")
     if budget:
         try:
@@ -1118,11 +1149,17 @@ def deck_add(
     if json_output:
         print_json(result)
     else:
-        print(f"[green]Added {len(batch)} card(s) as {', '.join(result['purpose'])} "
+        verb = "Imported" if is_import else "Added"
+        print(f"[green]{verb} {len(batch)} card(s) as {', '.join(result['purpose'])} "
               f"— batch ${batch_price:.2f}[/green]")
         for c in batch:
             p = f"${c.usd_price:.2f}" if c.usd_price is not None else "$?"
             print(f"  + {c.quantity}x {c.name} [dim]{p}[/dim]")
+        if skipped:
+            print(f"[yellow]Skipped {len(skipped)} card(s) — NOT added (deck left "
+                  f"{len(skipped)} short):[/yellow]")
+            for s in skipped:
+                print(f"  [yellow]! {s['name']}[/yellow] [dim]— {s['reason']}[/dim]")
         util = f" ({result['budget_utilization_pct']}% of ${result['budget']:.0f})" \
             if "budget_utilization_pct" in result else ""
         print(f"[bold]Deck: {deck_obj.size()}/{deck_obj.max_size} cards — running total "
@@ -1372,3 +1409,105 @@ def deck_view(
                 print(f"  {line}")
     else:
         print(str(deck_obj))
+
+
+@app.command()
+def deck_rank(
+    deck_path: Path = typer.Option(..., "--deck",
+        help="Path to a deck JSON (structured; needs a commander)."),
+    with_candidate: Optional[str] = typer.Option(None, "--with-candidate",
+        help="';'-separated card names to SIMULATE as upgrades (Rank Upgrade Review): "
+             "shows each one's EXACT rank before->after delta. The deck is NOT modified."),
+    target_band: Optional[int] = typer.Option(None, "--target-band", min=1, max=7,
+        help="Target RANK band 1-7 (the agent's 'norte'): report the gap to it."),
+    json_output: bool = typer.Option(False, "--json-output", help="Full rank report as JSON"),
+):
+    """POWER/speed RANK (FUEL-SPINE v1): 0-10 score -> 7 bands (1 Scrap ... 7 Mythic = cEDH),
+    from fast_mana + tutors + game changers + curve. ORTHOGONAL to deck-power's consistency
+    tier (power vs reliability) and needs NO annotation -- it reads DB facts, so it runs on any
+    deck JSON. Consider-only; calibrated:false (mid bands interpolated).
+
+    --with-candidate simulates upgrades and prints each card's exact rank delta (the deck is
+    never modified) — the deterministic 'expected increase' for the Rank Upgrade Review."""
+    require_database(SQLITE_PATH, json_output)
+
+    if not deck_path.exists():
+        _msg = f"Deck file not found: {deck_path}"
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]{_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    from mtgcli.models import Deck as _Deck, Card as _Card, CardNotFoundError as _CNF
+
+    repo = CardRepository(str(SQLITE_PATH))
+    try:
+        deck_obj = _Deck.load(deck_path, repo=repo)
+    except Exception as e:
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": str(e)}})
+        else:
+            print(f"[red]Failed to load deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    r = deck_obj.rank()
+
+    # Upgrade simulation (Rank Upgrade Review): exact before->after per candidate.
+    sim = None
+    sim_skipped = []
+    if with_candidate:
+        from mtgcli.models.rank import simulate_upgrades
+        cand_cards = []
+        for nm in [c.strip() for c in with_candidate.split(";") if c.strip()]:
+            try:
+                cand_cards.append(_Card(nm, ["FLEX"], repo=repo))
+            except (_CNF, ValueError) as e:
+                sim_skipped.append({"name": nm, "reason": str(e).split("\n")[0]})
+        sim = simulate_upgrades(deck_obj, cand_cards)
+
+    if json_output:
+        payload = dict(r)
+        if target_band is not None:
+            payload["target_band"] = target_band
+            payload["meets_target"] = r["band"] >= target_band
+        if sim is not None:
+            payload["upgrade_simulation"] = sim
+            payload["upgrade_not_found"] = sim_skipped
+        print_json(payload)
+        return
+
+    cmds = " + ".join(c.name for c in deck_obj.commanders)
+    print(f"[bold blue]{cmds}[/bold blue]")
+    print(f"[bold]RANK {r['score']}/10 — band {r['band']} {r['band_name']}[/bold]  [dim](consider-only, calibrated:false)[/dim]")
+    if target_band is not None:
+        gap = "MEETS target" if r["band"] >= target_band else f"BELOW target (band {target_band})"
+        print(f"target: band {target_band} — [bold]{gap}[/bold]")
+    m = r["metrics"]
+    print(f"fast_mana={m['fast_mana']}  tutors={m['tutors']}  game_changers={m['game_changers']}"
+          f"  free_int={m['free_interaction']}  avg_mv(nonland)={m['avg_mv_nonland']}")
+    print("points: " + "  ".join(f"{k}={v['points']}" for k, v in r["components"].items()))
+    if r["cards"]["fast_mana"]:
+        print(f"[dim]fuel: {', '.join(r['cards']['fast_mana'])}[/dim]")
+    if r["cards"]["tutors"]:
+        print(f"[dim]tutors: {', '.join(r['cards']['tutors'])}[/dim]")
+
+    if sim is not None:
+        print("\n[bold]Rank Upgrade Review — expected increase per candidate[/bold]")
+        for row in sorted(sim["candidates"], key=lambda x: -x["rank_delta"]):
+            price = f"${row['usd_price']:.2f}" if row["usd_price"] is not None else "$?"
+            cross = " [green]→ crosses band![/green]" if row["crosses_band"] else ""
+            illegal = "" if row["legal_in_identity"] else " [red](OFF color identity!)[/red]"
+            print(f"  + {row['name']} [dim]{price}[/dim]{illegal} — rank "
+                  f"{row['rank_before']}→{row['rank_after']} "
+                  f"({row['rank_delta']:+.2f}) band {row['band_after']} "
+                  f"{row['band_name_after']}{cross}")
+        print(f"[dim]all together: rank {sim['base']['score']}→{sim['combined_rank']} "
+              f"({sim['combined_delta']:+.2f}) band {sim['combined_band']} "
+              f"{sim['combined_band_name']}[/dim]")
+        for s in sim_skipped:
+            print(f"  [yellow]! {s['name']} — {s['reason']}[/yellow]")
+
+    print("[dim]orthogonal to the consistency tier (deck-power) — power vs reliability. "
+          "fast_mana is a name-list: a fast-mana card not on it, or commander-granted "
+          "acceleration, reads as invisible fuel.[/dim]")

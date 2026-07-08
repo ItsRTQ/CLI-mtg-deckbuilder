@@ -109,8 +109,10 @@ def build_budget_summary(
     known_count = 0
     unknown_cards: List[str] = []
     breakdown: List[Dict[str, Any]] = []
-    owned = owned or {}
-    owned_remaining = dict(owned)
+    # `owned` is a PRESENCE container of lowercased names (a set from owned_lookup, or a
+    # dict whose keys are names): an owned card is free for ALL its copies (no per-copy
+    # counting — the collection tracks ownership, not quantity).
+    owned = owned or set()
     owned_count = 0
     owned_value = 0.0
 
@@ -123,9 +125,8 @@ def build_budget_summary(
             known_count += quantity
             continue
 
-        own = min(quantity, owned_remaining.get(name.lower(), 0))
+        own = quantity if name.lower() in owned else 0
         if own:
-            owned_remaining[name.lower()] -= own
             owned_count += own
             if usd is not None:
                 owned_value += usd * own

@@ -18,6 +18,7 @@ Calibration honesty (n=4 real builds): synergy density measured 0.25–0.43 on t
 four finished decks; density reads TEXT-VISIBLE plan service only — commander-granted
 synergy (Ragost's rocks-are-Foods) is invisible to card text and underreads.
 """
+import re
 from typing import Any, Dict, List, Optional, Set
 
 from mtgcli.utils.phrase_match import any_phrase_matches
@@ -55,6 +56,56 @@ def tier_band(score: float) -> str:
 def _card_text(card: Dict[str, Any]) -> str:
     return " ".join([card.get("name", "") or "", card.get("type_line", "") or "",
                      card.get("oracle_text", "") or ""]).lower()
+
+
+# A land-fetch "tutor" (Cultivate, Farseek, Nature's Lore, Scapeshift, Realms Uncharted,
+# Crop Rotation, Expedition Map) is RAMP/fixing, not a wincon tutor: its library search
+# targets only lands. Excluding it stops green ramp from reading as tutor-dense (the
+# tutor count conflates the two otherwise). A clause naming a nonland card type is a real
+# tutor and is kept (Demonic/Vampiric, Green Sun's Zenith, Chord, Natural Order, Finale).
+_LAND_SEARCH_RE = re.compile(r"search(?:es)? (?:your|their) library for ([^.,;\n]{0,90})")
+_TUTOR_NONLAND_TYPES = ("creature", "artifact", "enchantment", "instant", "sorcery",
+                        "planeswalker")
+_TUTOR_LAND_WORDS = ("land", "forest", "island", "swamp", "mountain", "plains",
+                     "gate", "desert", "wastes")
+
+
+def _searches_only_land(text: str) -> bool:
+    """True when the card's library-search clauses target ONLY lands (ramp/fixing),
+    so it should not count as a wincon tutor. If any clause names a nonland card type
+    it is a real tutor -> False."""
+    matched_land = False
+    for m in _LAND_SEARCH_RE.finditer(text):
+        obj = m.group(1)
+        if any(t in obj for t in _TUTOR_NONLAND_TYPES):
+            return False
+        if any(w in obj for w in _TUTOR_LAND_WORDS):
+            matched_land = True
+    return matched_land
+
+
+# Impulse / dig / explore FALSE POSITIVES: "reveal the top card ... put that card into
+# your hand" gives you a FORCED, non-chosen card (Coiling Oracle, Nissa Resurgent Animist,
+# the Explore creatures, Dark Confidant, Ad Nauseam, Necropotence...). The 'put that card
+# into your hand' tutor phrase catches these, over-reading consistency on green/value decks.
+# A REAL chosen-card tutor either searches the library, names/chooses the card, or digs and
+# lets you keep it (Demonic Consultation -> "chosen name"; Tainted Pact -> "exiled this
+# way"); those markers exempt the card. Measured on the DB: 74 impulse/dig FPs excluded,
+# 0 chosen-card tutors lost (Demonic Consultation / Tainted Pact / Vampiric / Grim survive).
+_TOP_REVEAL = ("top of your library", "reveal the top", "top card of your library",
+               "from the top of your")
+_TUTOR_CHOICE_MARKERS = ("search your library", "name a card", "names a card",
+                         "card name", "chosen name", "named card", "exiled this way")
+
+
+def _is_impulse_dig(text: str) -> bool:
+    """True when a 'put that card into your hand' match comes from a FORCED top-of-library
+    reveal with no card selection -> impulse/dig/explore, not a wincon tutor."""
+    if "put that card into your hand" not in text:
+        return False
+    if any(k in text for k in _TUTOR_CHOICE_MARKERS):
+        return False
+    return any(k in text for k in _TOP_REVEAL)
 
 
 def classify_fetched_combo(results: List[str]) -> str:
@@ -150,7 +201,9 @@ def bracket_compliance(deck_cards: List[Dict[str, Any]], complete_combos: List[D
     tutor_phrases = tag_defs.get("tutor", ["search your library for"])
     tutors = [c.get("name", "") for c in deck_cards
               if any_phrase_matches(tutor_phrases, _card_text(c))
-              and "land" not in (c.get("type_line") or "").lower()]
+              and "land" not in (c.get("type_line") or "").lower()
+              and not _searches_only_land(_card_text(c))
+              and not _is_impulse_dig(_card_text(c))]
     two_card = [c for c in complete_combos
                 if len(c.get("cards", [])) <= 2 and c.get("class") in ("infinite", "auto_win")]
 

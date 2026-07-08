@@ -160,6 +160,27 @@ When replacing a card:
 
 ---
 
+## Raising the RANK (Rank Upgrade Review)
+
+If the deck lands below the user's `rank_target`, don't guess the fix — the rank is
+deterministic, so COMPUTE each upgrade's expected increase:
+
+```bash
+mtg deck-rank --deck output/deck.json --target-band <N> \
+  --with-candidate "Mana Crypt;Jeweled Lotus;Grim Monolith;Demonic Tutor"
+```
+
+It prints each candidate's EXACT rank before→after delta, whether it crosses a band, and whether
+it's off the commander's color identity (the deck is never modified). Present the winners like the
+Budget Upgrade Review (§11): name, price, expected rank/tier delta, under/over budget — and **the
+budget ALWAYS wins** (never overspend to chase a band; over-budget upgrades are shown, not
+auto-applied). The lever is real **fuel** (rocks/rituals/fast lands) + tutors — NOT draw (excluded
+by design) nor land-ramp/dorks. Apply the user's choices with `deck-swap`, re-run `deck-rank`.
+Remember RANK ⊥ TIER: raising raw power can leave the consistency tier unchanged, and vice versa —
+report both. See BUILDER §16.
+
+---
+
 ## Final Rule
 
 After any fix:

@@ -203,8 +203,21 @@ def final_build(
         else:
             explanation_text = build_minimal_explanation(commander, theme, resolved_bracket, partner)
 
-    # Create versioned build folder and save files
-    build_name = next_final_build_name(commander, theme, resolved_bracket, FINAL_BUILDS_DIR)
+    # Folder name convention: <commander>-<TIER>-<RANK>-<COST> (guarded — a scoring
+    # failure falls back to 'na' tokens so final-build never crashes). Exact-name
+    # collisions get a rising number right after the commander name.
+    tier_tok = rank_tok = None   # None -> segment omitted from the folder name
+    cost_val = 0.0
+    try:
+        from mtgcli.models import Deck as _Deck
+        _deck = _Deck.load(deck_path, repo=repo)
+        cost_val = _deck.total_price() or 0.0
+        tier_tok = (_deck.tier() or {}).get("band") or None
+        rank_tok = (_deck.rank() or {}).get("band_name") or None
+    except Exception:
+        pass
+    cost_tok = f"{int(round(cost_val))}usd"
+    build_name = build_final_name(commander, tier_tok, rank_tok, cost_tok, FINAL_BUILDS_DIR)
     build_dir = create_final_build_directory(build_name, FINAL_BUILDS_DIR)
     decklist_text = deck_entries_to_moxfield_text(deck_entries)
     decklist_path = save_final_build_decklist(decklist_text, build_dir, build_name)
@@ -215,8 +228,6 @@ def final_build(
     deck_json_path = build_dir / "deck_list.json"
     import shutil as _shutil
     _shutil.copyfile(deck_path, deck_json_path)
-
-    version = build_name.rsplit("-", 1)[-1]
 
     if json_output:
         print_json({
@@ -230,7 +241,9 @@ def final_build(
             "commander": commander,
             "theme": theme,
             "bracket": resolved_bracket,
-            "version": version,
+            "tier": tier_tok,
+            "rank": rank_tok,
+            "cost": cost_tok,
         })
     else:
         print("[bold green]Deck validated successfully.[/bold green]")

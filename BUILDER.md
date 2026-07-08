@@ -160,7 +160,29 @@ mass land denial, extra turns, 2-card combos); with n/a, skip the verdict and ju
 show the TIER (consider-only). See agents/user-feedback.md for the exact wording and
 the bracket→power-level mapping for category-counts.
 
-The 4th question is always:
+**Core question — target POWER RANK (the agent's "norte")**, always asked with an
+`n/a — agent choice` default. This is the FUEL-SPINE rank (§16), the power band the build
+aims for as high as possible:
+
+```text
+How powerful do you want this deck (RANK 1 Scrap … 7 Mythic = cEDH)?
+
+a) Just build to the theme/budget — rank lands wherever it lands (default)
+b) A target band (say a number, or "as high as the budget allows")
+c) Push hard for cEDH / Mythic (rank-first — will spend on fast mana)
+d) Agent choice
+```
+
+The target is a **GUIDE, not a guarantee, and it NEVER overrides the budget**: raising rank
+means fast mana (expensive), so a high target on a small budget is impossible — the budget
+ceiling always wins. Use the answer to steer the draft TOWARD that power as much as the budget
+allows (bias package allocation to fast mana / tutors / low curve), and store it in the deck
+(`--set-config rank_target=<1-7|n/a>`). If the finished deck lands below the target band, run
+the **Rank Upgrade Review** (§16): propose concrete upgrades with their EXACT expected rank/tier
+increase (`mtg deck-rank --with-candidate "A;B"`), respecting the budget, and let the user
+decide — never silently overspend to chase a band.
+
+The last question is always:
 
 ```text
 How much build detail do you want?
@@ -197,6 +219,14 @@ mtg deck-add --deck output/deck.json --commander "<Commander>" \
 mtg deck-add --deck output/deck.json --cards "..." --purpose draw     # ~8-12 packages total
 mtg deck-add --deck output/deck.json --cards "12 Mountain;11 Plains" --purpose flex
 
+# 2b. IMPORT an existing .txt decklist (port an external/finished list, not drafting):
+mtg deck-add --deck output/deck.json --commander "<Commander>" --import path/to/list.txt
+#    Ports card-by-card. Cards not found or incompatible (color identity / singleton /
+#    size) are WARNED and SKIPPED — NOT added (the deck is left that many cards short,
+#    slot blank), so ONE bad card never aborts the port. The commander line is treated as
+#    command-zone and skipped. Exempt from the §5 contract gate (it's a port). Purpose
+#    defaults to FLEX (run deck-annotate --auto afterwards). Then score with deck-rank.
+
 # 3. WHILE drafting: note combos the moment you see them (the carpenter's tally)
 mtg note "<what you saw>" --type combo --cards "A;B" --combo-class infinite
 #    ...and note REJECTED candidates too (--type decision) — that evaluation work
@@ -211,6 +241,7 @@ mtg deck-annotate --deck output/deck.json --sync-notes                # combos -
 mtg deck-view  --deck output/deck.json [--by-purpose | --card "Name"]
 mtg deck-power --deck output/deck.json --commander "<Commander>"     # consistency tier
 #    (bracket target reads from the deck's config; n/a skips the compliance verdict)
+mtg deck-rank  --deck output/deck.json                               # POWER/speed rank (see §16)
 
 # 6. Close as always: deck-fill-lands, validate, deck-check, deck-gaps, preflight,
 #    final-build (the build folder ships deck_list.json — the annotated judgment).
@@ -270,6 +301,7 @@ mtg prices-batch --name "Card A" --name "Card B"          # cost hand-picked can
 mtg deck-swap --deck output/decklist.txt --commander "<Commander>" --swap "Old=New"
 mtg note "<finding>" [--type combo --cards "A;B" --combo-class infinite]   # building notes: RECORD combos/decisions while drafting, don't memorize them
 mtg deck-power --deck output/deck.json --commander "<Commander>" [--bracket <N>]   # the two categorizers: bracket compliance + tier (consider-only)
+mtg deck-rank --deck output/deck.json      # POWER/speed rank, 7 bands (Scrap..Mythic) — ORTHOGONAL to tier (§16); no annotation needed
 ```
 
 **Building notes (the carpenter's tally):** whenever you SPOT a combo or make a
@@ -701,11 +733,16 @@ same conversation).
 
 ### Owned cards (user-bulk): they cost the budget $0
 
-`user-bulk/collection.txt` holds the cards the user already OWNS (maintained with
-`mtg bulk-add`, or edited by hand — see `user-bulk/README.md`). `mtg budget` and
-preflight's budget gate automatically exclude owned copies from the bill (up to the
-owned quantity) and show it on a visible `Owned (user-bulk)` line; `--no-bulk`
+`user-bulk/collection.txt` (+ synced `collection.json`) holds the cards the user
+already OWNS (maintained with `mtg bulk-add` — incl. `--import <deck>` to add a whole
+bought deck — or edited by hand; see `user-bulk/README.md`). It tracks OWNERSHIP, not
+quantity: an owned card is excluded from the bill ENTIRELY (all copies free — Commander
+is singleton, basics unlimited). `mtg budget` and preflight's budget gate exclude owned
+cards automatically and show it on a visible `Owned (user-bulk)` line; `--no-bulk`
 disables per run.
+
+**Assumed by default:** even with an empty collection, the five basic lands, **Sol Ring**,
+and **Arcane Signet** are always treated as owned/free.
 
 Agent rules:
 - In Detailed Build mode (or when the user mentions owning cards), ask ONCE whether
@@ -714,7 +751,7 @@ Agent rules:
 - An owned expensive staple is FREE for this deck — prefer it over buying a weaker
   substitute; the budget freed is real money for other slots (draft-TO-budget
   applies to the BILLED total, not the sticker total).
-- Never assume ownership: only what's in the collection file counts.
+- Never assume ownership beyond the collection file + the default staples above.
 
 ### Budget Tolerance Modes
 
@@ -877,8 +914,23 @@ Common errors:
 Final builds go under:
 
 ```text
-final-builds/<Commander>-<Theme>-<Bracket>-<Version>/
+final-builds/<Commander>-<TIER>-<RANK>-<COST>/
 ```
+
+**`final-build` builds this name ITSELF from the deck — do NOT hand-construct it.** It reads:
+`<Commander>` + the consistency TIER band (e.g. `+S`) + the RANK power band (e.g. `Mythic`) +
+the known-price cost (e.g. `4776usd`).
+
+- **A missing segment is OMITTED, never written as `na`.** The TIER needs an ANNOTATED deck
+  (purposes + combos); an unannotated deck simply has no TIER segment, e.g.
+  `Dihada-Binder-of-Wills-Mythic-4776usd` (RANK + cost only). RANK and cost need no annotation
+  and are always present. So if you want the TIER in the folder name, annotate the deck
+  (`deck-add --purpose` / `deck-annotate` / `note --type combo`) BEFORE `final-build` — a bare
+  `--import`ed or purpose-less deck will drop it, and that is correct, not a bug.
+- **Collisions** (same commander AND tier AND rank AND cost) get a rising number right after the
+  commander name — the numberless folder is the first copy, then `<Commander>1-...`,
+  `<Commander>2-...`.
+- `--theme` / `--bracket` still feed the explanation and the JSON output, NOT the folder name.
 
 Each folder contains:
 
@@ -920,3 +972,54 @@ Deck-check limitation
 ```
 
 If the build went smoothly, do not invent feedback.
+
+---
+
+## 16. The RANK power-meter (`mtg deck-rank`)
+
+`mtg deck-rank --deck output/deck.json` gives a deterministic **POWER/speed** estimate,
+0-10 mapped to 7 bands: **1 Scrap · 2 Dormant · 3 Awakened · 4 Charged · 5 Ascendant ·
+6 Forbidden · 7 Mythic (= cEDH ceiling)**. Driven by `fast_mana` (rocks/rituals — the
+spine) + tutors + game changers + curve. Draw is deliberately EXCLUDED (measured HIGHER in
+casual than cEDH — a grind signal, not speed). Consider-only; `calibrated:false` (mid bands
+3-5 interpolated). Works on ANY deck JSON — it needs **no annotation** (reads DB facts),
+unlike the consistency tier.
+
+**RANK vs the consistency TIER (`deck-power`) — they are ORTHOGONAL, report BOTH:**
+- **RANK** = how fast/strong is the deck (absolute, vs the metagame): "is this cEDH-fast?"
+- **TIER** = how reliably it runs *its own declared plan* (relative, needs purposes+combos):
+  "does it do its thing well?"
+- They diverge: a reliable budget combo (e.g. Kiki) is **TIER +S but RANK band 2** — it
+  executes its plan impeccably yet doesn't run the fast-mana hardware of a Mythic deck. A
+  cEDH deck is high on BOTH (a powerful plan run fast).
+
+**When reporting the rank, flag its blind spots (it is text/name-based):**
+- `fast_mana` is a NAME LIST — a brand-new fast-mana card not yet on the list, or
+  acceleration *granted by the commander*, reads as invisible fuel (the rank under-reads).
+- Land-ramp (Cultivate/Exploration/dorks) is EXCLUDED by design — a landfall deck reads low
+  fuel on purpose (rocks/rituals is the chosen spine, the clean cEDH separator).
+- To raise a band, the lever is real fuel (rocks/rituals/fast lands) + tutors, not draw.
+
+### Draft TOWARD the target rank + the Rank Upgrade Review
+
+The user's answered `rank_target` (§5) is the agent's **norte**: from the FIRST draft, bias
+package allocation toward the power the target implies (more fast mana / tutors / lower curve)
+**as high as the budget allows** — but the budget ceiling ALWAYS wins (you cannot buy Mythic on
+a $50 budget, and you never overspend to chase a band).
+
+If the finished deck lands **below the target band**, run the Rank Upgrade Review (mirror of the
+Budget Upgrade Review §11) — the rank is deterministic, so the "expected increase" is COMPUTED,
+not guessed:
+
+```bash
+mtg deck-rank --deck output/deck.json --target-band <N> \
+  --with-candidate "Mana Crypt;Jeweled Lotus;Grim Monolith;Demonic Tutor"
+```
+
+It prints each candidate's EXACT rank before→after delta (and whether it crosses a band or is
+off the commander's color identity), plus the cumulative "all together" landing — the deck is
+never modified. Present the upgrades like §11: name, price, expected rank/tier delta, whether it
+crosses the target band, under/over budget (over-budget flagged, never auto-applied). Then ask
+the user what to apply, and apply with `deck-swap`. Rules unchanged: an upgrade must fit the
+color identity and the budget decision, and a card that raises the rank number without improving
+the actual gameplan is not a real upgrade (spend on the PLAN, not on the meter).

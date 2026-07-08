@@ -11,6 +11,7 @@ OUTPUT_DIR = PROJECT_ROOT / "output"
 FINAL_BUILDS_DIR = PROJECT_ROOT / "final-builds"
 USER_BULK_DIR = PROJECT_ROOT / "user-bulk"
 USER_BULK_FILE = USER_BULK_DIR / "collection.txt"
+USER_BULK_JSON = USER_BULK_DIR / "collection.json"
 LOGS_DIR = PROJECT_ROOT / "logs"
 
 RAW_CARDS_PATH = RAW_DATA_DIR / "scryfall_cards.json"

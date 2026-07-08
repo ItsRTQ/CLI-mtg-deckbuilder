@@ -21,7 +21,7 @@ runner = CliRunner()
 # The commands the CLI exposes, as the user types them (kebab-case). This is the
 # public contract referenced by BUILDER.md / agents/*.md — keep it exhaustive.
 EXPECTED_COMMANDS = [
-    "status", "init-data", "card", "search", "search-tags", "suggest",
+    "status", "init-data", "update-data", "card", "search", "search-tags", "suggest",
     "commander-analyze", "validate", "deck-write", "deck-fill-lands", "enrich",
     "export", "suggest-lands", "deck-check", "themes", "theme-info",
     "temp-clean", "final-build", "price", "cards", "cards-batch", "prices",
@@ -32,7 +32,8 @@ EXPECTED_COMMANDS = [
     # v0.8.0 REMOVED explore + combos (external EDHREC-style fetches — permission
     # liability; web research is the agent's job, recorded via `mtg note`): 39 -> 37.
     # v0.8.0 user-bulk collection (owned cards cost the budget $0): + bulk-add -> 38.
-    "bulk-add", "deck-power", "deck-add", "deck-annotate", "deck-view", "note",
+    # RANK power-meter (FUEL-SPINE): + deck-rank -> 39.
+    "bulk-add", "deck-power", "deck-add", "deck-annotate", "deck-view", "deck-rank", "note",
 ]
 
 
@@ -75,3 +76,48 @@ def test_module_entrypoint_help_via_subprocess():
     )
     assert proc.returncode == 0, proc.stderr
     assert "commander-analyze" in proc.stdout
+
+
+def test_update_data_deletes_and_rebuilds(tmp_path, monkeypatch):
+    """update-data wipes raw+processed (keeping .gitkeep) then re-downloads/rebuilds.
+    Network + build are mocked — this pins the delete/rebuild wiring, not the download."""
+    import json
+    import mtgcli.config as cfg
+    import mtgcli.cli.commands.data as datacmd
+    raw, proc = tmp_path / "raw", tmp_path / "processed"
+    raw.mkdir(); proc.mkdir()
+    (raw / ".gitkeep").write_text(""); (proc / ".gitkeep").write_text("")
+    (raw / "scryfall_cards.json").write_text("OLD bulk")
+    (proc / "mtg.sqlite").write_text("OLD db")
+    monkeypatch.setattr(cfg, "RAW_DATA_DIR", raw)
+    monkeypatch.setattr(cfg, "PROCESSED_DATA_DIR", proc)
+    calls = {"dl": 0, "build": 0}
+
+    def fake_dl():
+        calls["dl"] += 1
+        (raw / "scryfall_cards.json").write_text("NEW bulk")
+        return raw / "scryfall_cards.json"
+
+    def fake_build():
+        calls["build"] += 1
+        (proc / "mtg.sqlite").write_text("NEW db")
+        return {"path": str(proc / "mtg.sqlite"), "unique_card_identities": 5,
+                "cards_processed": 9, "cards_with_known_usd_price": 4,
+                "cards_with_unknown_price": 1}
+
+    monkeypatch.setattr(datacmd, "download_default_cards", fake_dl)
+    monkeypatch.setattr(datacmd, "build_sqlite_database", fake_build)
+
+    # destructive -> requires --yes (json mode errors instead of prompting)
+    r0 = runner.invoke(app, ["update-data", "--json-output"])
+    assert r0.exit_code == 1 and "confirmation_required" in r0.output
+    assert calls == {"dl": 0, "build": 0}                 # nothing happened
+
+    r = runner.invoke(app, ["update-data", "--yes", "--json-output"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    assert data["ok"] and data["downloaded"] and calls == {"dl": 1, "build": 1}
+    assert any("scryfall_cards.json" in d for d in data["deleted"])
+    assert any("mtg.sqlite" in d for d in data["deleted"])
+    assert (raw / ".gitkeep").exists() and (proc / ".gitkeep").exists()   # .gitkeep preserved
+    assert (raw / "scryfall_cards.json").read_text() == "NEW bulk"        # re-downloaded

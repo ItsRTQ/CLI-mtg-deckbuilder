@@ -16,7 +16,7 @@ from mtgcli.cli import app
 from mtgcli.deckbuilder.build_notes import add_note, combo_notes, load_notes, save_notes
 from mtgcli.deckbuilder.deck_power import (
     bracket_compliance, classify_fetched_combo, compute_tier, cross_check_combos,
-    tier_band,
+    tier_band, _searches_only_land, _is_impulse_dig,
 )
 
 runner = CliRunner()
@@ -118,6 +118,78 @@ def test_bracket_mld_and_two_card_combo_push_4_5():
 def test_bracket_four_gcs_push_4_5():
     deck = [_c(f"GC{i}", gc=True) for i in range(4)]
     assert bracket_compliance(deck, [], {})["computed_min_bracket"] == "4-5"
+
+
+def test_searches_only_land_excludes_land_ramp():
+    # Land-ramp / fixing: search targets ONLY lands -> not a wincon tutor.
+    for txt in ("cultivate search your library for up to two basic land cards, reveal",
+                "farseek search your library for a plains, island, swamp, or mountain card",
+                "nature's lore search your library for a forest card and put it onto the battlefield",
+                "crop rotation sacrifice a land: search your library for a land card"):
+        assert _searches_only_land(txt) is True, txt
+    # Real tutors: search names a nonland card type or a generic card -> kept.
+    for txt in ("demonic tutor search your library for a card, then shuffle",
+                "green sun's zenith search your library for a green creature card",
+                "chord of calling search your library for a creature card"):
+        assert _searches_only_land(txt) is False, txt
+
+
+def test_tutor_count_excludes_land_only_search():
+    tutor_tags = {"tutor": ["search your library"]}
+    deck = [
+        _c("Demonic Tutor", oracle="Search your library for a card, then shuffle.",
+           type_line="Sorcery"),
+        _c("Cultivate", oracle="Search your library for up to two basic land cards, reveal "
+           "those cards, put one onto the battlefield tapped and the other into your hand.",
+           type_line="Sorcery"),
+        _c("Sol Ring", oracle="{T}: Add {C}{C}.", type_line="Artifact"),
+    ]
+    b = bracket_compliance(deck, [], tutor_tags)
+    assert b["tutors"]["count"] == 1
+    assert b["tutors"]["cards"] == ["Demonic Tutor"]
+
+
+def test_is_impulse_dig_excludes_forced_reveal():
+    # Forced top-of-library reveal, no card selection -> impulse/dig, NOT a tutor.
+    for txt in (
+        "coiling oracle reveal the top card of your library. if it's a land card, put "
+        "it onto the battlefield. otherwise, put that card into your hand.",
+        "nissa reveal cards from the top of your library until you reveal an elf or "
+        "elemental card. put that card into your hand and the rest on the bottom.",
+        "hermit druid reveal cards from the top of your library until you reveal a basic "
+        "land card. put that card into your hand.",
+    ):
+        assert _is_impulse_dig(txt) is True, txt
+    # Chosen-card digs ARE real tutors: you name/choose or keep-from-exile.
+    for txt in (
+        "demonic consultation choose a card name. exile the top six cards of your "
+        "library, then reveal cards from the top of your library until you reveal a card "
+        "with the chosen name. put that card into your hand.",
+        "tainted pact exile the top card of your library. you may put that card into your "
+        "hand unless it has the same name as another card exiled this way.",
+        "vampiric tutor search your library for a card, then put that card on top.",
+    ):
+        assert _is_impulse_dig(txt) is False, txt
+
+
+def test_tutor_count_excludes_impulse_dig():
+    tutor_tags = {"tutor": ["search your library", "put that card into your hand",
+                            "reveal it"]}
+    deck = [
+        _c("Demonic Consultation", type_line="Instant",
+           oracle="Choose a card name. Exile the top six cards of your library, then "
+           "reveal cards from the top of your library until you reveal a card with the "
+           "chosen name. Put that card into your hand and exile the rest."),
+        _c("Coiling Oracle",
+           oracle="When this enters, reveal the top card of your library. If it's a land "
+           "card, put it onto the battlefield. Otherwise, put that card into your hand."),
+        _c("Nissa, Resurgent Animist", type_line="Legendary Creature",
+           oracle="Reveal cards from the top of your library until you reveal an Elf or "
+           "Elemental card. Put that card into your hand and the rest on the bottom."),
+    ]
+    b = bracket_compliance(deck, [], tutor_tags)
+    assert b["tutors"]["count"] == 1
+    assert b["tutors"]["cards"] == ["Demonic Consultation"]
 
 
 # ---------- build notes ----------

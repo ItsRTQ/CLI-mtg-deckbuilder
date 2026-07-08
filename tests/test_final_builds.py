@@ -211,3 +211,39 @@ def test_moxfield_text_no_set_code():
     text = deck_entries_to_moxfield_text(entries)
     assert "set_code" not in text
     assert text.startswith("1 Sol Ring")
+
+
+# --- build_final_name: <commander>-<TIER>-<RANK>-<COST> + collision numbering ---
+
+def test_build_final_name_new_convention(tmp_path):
+    from mtgcli.export.final_builds import build_final_name
+    n = build_final_name("Dihada, Binder of Wills", "+S", "Mythic", "4776usd", tmp_path)
+    assert n == "Dihada-Binder-of-Wills-+S-Mythic-4776usd"
+
+
+def test_build_final_name_collision_numbers_after_commander(tmp_path):
+    from mtgcli.export.final_builds import build_final_name
+    # first copy: numberless base
+    n1 = build_final_name("Kess, Dissident Mage", "F", "Dormant", "760usd", tmp_path)
+    (tmp_path / n1).mkdir()
+    assert n1 == "Kess-Dissident-Mage-F-Dormant-760usd"
+    # exact copy -> number right after the commander name, rising
+    n2 = build_final_name("Kess, Dissident Mage", "F", "Dormant", "760usd", tmp_path)
+    (tmp_path / n2).mkdir()
+    assert n2 == "Kess-Dissident-Mage1-F-Dormant-760usd"
+    n3 = build_final_name("Kess, Dissident Mage", "F", "Dormant", "760usd", tmp_path)
+    assert n3 == "Kess-Dissident-Mage2-F-Dormant-760usd"
+    # a DIFFERENT tier/rank/cost is not a collision -> its own numberless base
+    other = build_final_name("Kess, Dissident Mage", "F", "Dormant", "999usd", tmp_path)
+    assert other == "Kess-Dissident-Mage-F-Dormant-999usd"
+
+
+def test_build_final_name_omits_missing_tier(tmp_path):
+    from mtgcli.export.final_builds import build_final_name
+    # unannotated deck: no TIER -> segment dropped entirely (not 'na')
+    n = build_final_name("Dihada, Binder of Wills", None, "Mythic", "4776usd", tmp_path)
+    assert n == "Dihada-Binder-of-Wills-Mythic-4776usd"
+    # collision still numbers right after the commander
+    (tmp_path / n).mkdir()
+    n2 = build_final_name("Dihada, Binder of Wills", None, "Mythic", "4776usd", tmp_path)
+    assert n2 == "Dihada-Binder-of-Wills1-Mythic-4776usd"

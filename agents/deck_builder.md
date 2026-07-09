@@ -74,7 +74,9 @@ Do not invent cards. Do not create helper scripts.
 17. Apply selected upgrades, then re-run validate, deck-check, and budget-check.
 18. Write `output/deck_explanation.md` — it MUST open with the at-a-glance header
     table `| Deck commander | TIER | RANK | Bracket | Total cost |` (values from
-    deck-power / deck-rank / budget; see agents/deck_explainer.md).
+    deck-power / deck-rank / budget; see agents/deck_explainer.md). Write card names as
+    PLAIN TEXT — never wrap them in Markdown links or file paths (no
+    `[Card](file://…/deck.json)`); the explanation must stay clean and readable.
 19. Final-build only after the Budget Upgrade Review decision is resolved and validation
     passes. `final-build` NAMES the folder itself as `<Commander>-<TIER>-<RANK>-<COST>` —
     don't hand-name it. A missing score is OMITTED (never `na`): TIER needs an annotated deck
@@ -156,7 +158,12 @@ Partner:
 
 ## Package Planning
 
-Use category-counts for ranges, not hard locks.
+Use category-counts for ranges, not hard locks. Its targets are experience-grounded
+GUIDANCE (hand-tuned baselines, not corpus-calibrated) — YOU are the final arbiter; if the
+commander's plan or the user's answers say otherwise, follow judgment and say why. For **cEDH /
+high-power combo** it's the wrong primary lens (a casual slot-template planner) — lean on
+`deck-power` / `deck-rank` / `deck-gaps` + combo/tutor/fast-mana density, and use category-counts
+only as a light interaction/wincon sanity check (BUILDER §10).
 
 Prioritize:
 

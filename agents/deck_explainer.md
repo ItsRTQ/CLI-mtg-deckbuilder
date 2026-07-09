@@ -10,6 +10,24 @@ output/deck_explanation.md
 
 Do not claim the deck is complete unless validation passed.
 
+## Formatting rule — plain card names, NO links (mandatory)
+
+Write every card name as **plain text** (bold is fine for emphasis). **NEVER** wrap a card
+name in a Markdown link, and NEVER attach a file path or URL to it. Do not do this:
+
+```text
+[Phyrexian Altar](file:///…/output/deck.json)      ← WRONG: path is noise, unreadable
+```
+
+Do this:
+
+```text
+Phyrexian Altar          or          **Phyrexian Altar**
+```
+
+The explanation is a clean human-readable document — no `file://` paths, no `output/deck.json`
+links, no clickable card names anywhere in it (headings, tables, prose, or lists).
+
 ---
 
 ## Inputs

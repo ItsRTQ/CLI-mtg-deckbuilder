@@ -627,6 +627,21 @@ Rules:
 
 Use `category-counts` for package planning.
 
+**These targets are experience-grounded GUIDANCE, not law.** The base needs, power-level
+deltas and priority thresholds are a skilled player's baseline heuristics (hand-tuned, not
+corpus-calibrated) — a good starting map, but **the agent is the final arbiter**. Treat every
+number as a soft range to reason against, never a hard-set count: if judgment (the commander's
+plan, the user's answers, the archetype) says a category wants more or fewer than the template,
+follow the judgment and say why. The numbers propose; the agent disposes.
+
+**For cEDH / high-power combo builds, category-counts is the WRONG primary lens.** It is a
+slot-template planner (how many ramp / draw / removal — a casual-to-optimized distribution). A
+cEDH deck is defined by combo/wincon density + fast mana + tutors + interaction, which the
+template does not measure. There, lean on `deck-power` (bracket compliance + consistency tier),
+`deck-rank` (POWER band — is the fast-mana engine there?), `deck-gaps` (does the deck serve the
+commander's plan?) and combo/tutor density — and use category-counts only as a light sanity
+check on interaction/wincon presence, not as the build's skeleton.
+
 Use:
 
 ```text

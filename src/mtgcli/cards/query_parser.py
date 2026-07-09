@@ -29,6 +29,10 @@ def empty_parsed() -> Dict[str, Any]:
         "mana_value_eq": None,
         "mana_value_lte": None,
         "mana_value_gte": None,
+        "power_lte": None,
+        "power_gte": None,
+        "toughness_lte": None,
+        "toughness_gte": None,
     }
 
 
@@ -53,6 +57,10 @@ def merge_parsed(base: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any]:
 
     merged["mana_value_lte"] = _pick("mana_value_lte", min)
     merged["mana_value_gte"] = _pick("mana_value_gte", max)
+    merged["power_lte"] = _pick("power_lte", min)
+    merged["power_gte"] = _pick("power_gte", max)
+    merged["toughness_lte"] = _pick("toughness_lte", min)
+    merged["toughness_gte"] = _pick("toughness_gte", max)
 
     eq_a, eq_b = base.get("mana_value_eq"), extra.get("mana_value_eq")
     if eq_a is not None and eq_b is not None and eq_a != eq_b:
@@ -111,6 +119,26 @@ def parse_search_query(query: str) -> Dict[str, Any]:
                 result["mana_value_gte"] = float(token[4:])
             except ValueError:
                 result["free_text"].append(token)
+        elif lower.startswith("pow<="):
+            try:
+                result["power_lte"] = float(token[5:])
+            except ValueError:
+                result["free_text"].append(token)
+        elif lower.startswith("pow>="):
+            try:
+                result["power_gte"] = float(token[5:])
+            except ValueError:
+                result["free_text"].append(token)
+        elif lower.startswith("tou<="):
+            try:
+                result["toughness_lte"] = float(token[5:])
+            except ValueError:
+                result["free_text"].append(token)
+        elif lower.startswith("tou>="):
+            try:
+                result["toughness_gte"] = float(token[5:])
+            except ValueError:
+                result["free_text"].append(token)
         elif re.match(r'^mv:[0-9]+(\.[0-9]+)?$', lower):
             try:
                 result["mana_value_eq"] = float(token[3:])
@@ -160,6 +188,26 @@ def build_search_conditions(
     if parsed["mana_value_gte"] is not None:
         conditions.append("mana_value >= ?")
         params.append(parsed["mana_value_gte"])
+
+    # power/toughness are stored as text and may be '*', '1+*', or NULL (non-creatures).
+    # A value is a plain non-negative integer iff it round-trips through INTEGER unchanged
+    # (e.g. '5'->5->'5' matches; '*'->0->'0' and '1+*'->1->'1' do not). Robust & portable —
+    # avoids GLOB negation-syntax quirks. '*'/null/variable rows never match a numeric bound.
+    def _numeric(col: str) -> str:
+        return f"({col} = CAST(CAST({col} AS INTEGER) AS TEXT) AND CAST({col} AS INTEGER)"
+
+    if parsed.get("power_lte") is not None:
+        conditions.append(_numeric("power") + " <= ?)")
+        params.append(parsed["power_lte"])
+    if parsed.get("power_gte") is not None:
+        conditions.append(_numeric("power") + " >= ?)")
+        params.append(parsed["power_gte"])
+    if parsed.get("toughness_lte") is not None:
+        conditions.append(_numeric("toughness") + " <= ?)")
+        params.append(parsed["toughness_lte"])
+    if parsed.get("toughness_gte") is not None:
+        conditions.append(_numeric("toughness") + " >= ?)")
+        params.append(parsed["toughness_gte"])
 
     return conditions, params
 

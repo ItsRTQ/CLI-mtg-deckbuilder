@@ -17,6 +17,7 @@ from mtgcli.deckbuilder.ramp_rules import (
     land_matches_allowed_ramp_tags,
     resolve_tag_keys,
 )
+from mtgcli.utils.phrase_match import phrase_matches, phrase_to_like
 
 
 # Broad card types matched against type_line via LOWER(type_line) LIKE.
@@ -217,6 +218,60 @@ def search_commander_legal_cards(
     return results
 
 
+
+def search_by_trigger(
+    family: str,
+    colors: Optional[str] = None,
+    type_filter: Optional[str] = None,
+    max_mana_value: Optional[int] = None,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """Find commander-legal cards whose oracle text contains a trigger of the given event
+    `family` (one of oracle_hooks' trigger families: permanent_dies, attacks_or_combat,
+    you_cast_spell, etc.). A broad SQL prefilter on trigger words narrows the pool, then each
+    candidate is classified with the same `extract_trigger_events` used for commander analysis."""
+    from mtgcli.deckbuilder.oracle_hooks import extract_trigger_events
+    if not SQLITE_PATH.exists():
+        return []
+
+    conn = sqlite3.connect(str(SQLITE_PATH))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    sql = ("SELECT * FROM cards WHERE commander_legal = 1 AND ("
+           "LOWER(oracle_text) LIKE '%whenever%' OR LOWER(oracle_text) LIKE '%at the beginning%' "
+           "OR LOWER(oracle_text) LIKE '% when %' OR LOWER(oracle_text) LIKE 'when %')")
+    params: List[Any] = []
+    if type_filter:
+        clause, clause_params = build_type_filter_clause(type_filter)
+        sql += f" AND {clause}"
+        params.extend(clause_params)
+    if max_mana_value is not None:
+        sql += " AND mana_value <= ?"
+        params.append(float(max_mana_value))
+
+    cursor.execute(sql, params)
+    allowed_colors = set(colors.upper()) if colors else None
+    results: List[Dict[str, Any]] = []
+    seen_ids = set()
+    for row in cursor:
+        card = row_to_card(row)
+        dedup_id = card.get("oracle_id") or card["name"].lower()
+        if dedup_id in seen_ids:
+            continue
+        if allowed_colors is not None and not set(card.get("color_identity", [])).issubset(allowed_colors):
+            continue
+        if family not in extract_trigger_events(card.get("oracle_text", "") or ""):
+            continue
+        results.append(card)
+        seen_ids.add(dedup_id)
+        if len(results) >= limit:
+            break
+
+    conn.close()
+    return results
+
+
 def _load_role_definitions() -> Dict[str, Any]:
     role_file = SEED_DATA_DIR / "role_definitions.json"
     if not role_file.exists():
@@ -254,12 +309,18 @@ def search_by_tags(
     max_mana_value: Optional[int] = None,
     exclude_names: Optional[List[str]] = None,
     dedupe: bool = True,
-    type_filter: Optional[str] = None
+    type_filter: Optional[str] = None,
+    rank: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Searches for commander-legal cards matching specified tags.
     Tags may be direct card_tags keys, role names, or literal phrases.
     `type_filter` is a broad card-type filter (see normalize_type_filter).
+
+    Every result carries `tag_match_count` (how many of the requested tags' phrases it hits).
+    When `rank=True`, results are sorted by that count (most on-function first) before the limit
+    is applied; when False (default) results keep DB order with the limit applied as before, so
+    existing callers like `suggest` are unaffected.
     """
     tag_file = SEED_DATA_DIR / "card_tags.json"
     if not tag_file.exists():
@@ -316,7 +377,9 @@ def search_by_tags(
     phrase_conditions = []
     for phrase in search_phrases:
         phrase_conditions.append("(name LIKE ? OR type_line LIKE ? OR oracle_text LIKE ?)")
-        like_query = f"%{phrase}%"
+        # phrase_to_like maps the " * " qualifier wildcard to LIKE's % (recall-oriented;
+        # the rank count below re-checks with the bounded same-clause gap).
+        like_query = phrase_to_like(phrase)
         params.extend([like_query, like_query, like_query])
     
     sql += " OR ".join(phrase_conditions) + ")"
@@ -356,13 +419,31 @@ def search_by_tags(
             card, tag_definitions, allowed_land_tags
         ):
             continue
-        
+
+        # Rank signal: how many of the requested tags' phrases this card actually hits.
+        text = " ".join([
+            card.get("name", "") or "",
+            card.get("type_line", "") or "",
+            card.get("oracle_text", "") or "",
+        ]).lower()
+        card["tag_match_count"] = sum(1 for p in search_phrases if phrase_matches(p, text))
         results.append(card)
         if dedupe:
             seen_ids.add(dedup_id)
-        
-        if len(results) >= limit:
+
+        # Default (unranked) path keeps DB order and stops at the limit, as before.
+        if not rank and len(results) >= limit:
             break
 
     conn.close()
+    if rank:
+        def _popularity(c):
+            # edhrec_rank: lower = more played (Sol Ring #1). NULL (digital-only / no EDHREC
+            # data) sinks to the bottom of its tie group.
+            r = c.get("edhrec_rank")
+            return r if isinstance(r, int) else 10**9
+        # Within the same tag-match count, prefer what Commander players actually play —
+        # the definitive fix for the F3 chaff-flood (price proxy was the interim).
+        results.sort(key=lambda c: (-c.get("tag_match_count", 0), _popularity(c), c.get("name", "")))
+        return results[:limit]
     return results

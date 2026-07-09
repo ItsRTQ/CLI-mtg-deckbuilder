@@ -72,13 +72,25 @@ def can_be_commander(card: Dict[str, Any]) -> bool:
     """Determines if a card can be a commander."""
     type_line = get_type_line(card)
     oracle_text = get_oracle_text(card)
-    
-    if "Legendary Creature" in type_line:
+
+    # "Legendary" and "Creature" may be separated by other supertypes ("Legendary Enchantment
+    # Creature" — Theros Gods; "Legendary Artifact Creature") so the contiguous substring
+    # "Legendary Creature" misses 180+ legal commanders.
+    if "Legendary" in type_line and "Creature" in type_line:
         return True
-    
+
     if "can be your commander" in oracle_text.lower():
         return True
-    
+
+    # Curated allowlist for face commanders the heuristic can't detect (non-creature
+    # commanders with no oracle signal, e.g. some Legendary Vehicles).
+    try:
+        from mtgcli.cards.repository import _commander_overrides
+        if card.get("name") in _commander_overrides():
+            return True
+    except Exception:
+        pass
+
     return False
 
 
@@ -94,6 +106,56 @@ def min_known_price(current: Optional[float], candidate: Optional[float]) -> Opt
 def _price_status(prices: Dict[str, Any]) -> str:
     fields = ["usd", "usd_foil", "usd_etched", "eur", "eur_foil", "tix"]
     return "known" if any(parse_price(prices.get(f)) is not None for f in fields) else "unknown"
+
+
+def get_loyalty(card: Dict[str, Any]):
+    """Planeswalker loyalty, preferring top-level and falling back to faces (the same
+    pattern as get_power_toughness — DFC walkers store it per face)."""
+    loy = card.get("loyalty")
+    if loy is not None:
+        return loy
+    for face in card.get("card_faces", []) or []:
+        if face.get("loyalty") is not None:
+            return face.get("loyalty")
+    return None
+
+
+def get_image_url(card: Dict[str, Any]):
+    """Front-face 'normal' image URL (PARKED for v0.9.0 consumption — ingested only).
+
+    image_uris is PER-PRINTING and lives on card_faces for true DFCs; we take the
+    top-level normal, else the first face's."""
+    uris = card.get("image_uris") or {}
+    if uris.get("normal"):
+        return uris["normal"]
+    for face in card.get("card_faces", []) or []:
+        furis = face.get("image_uris") or {}
+        if furis.get("normal"):
+            return furis["normal"]
+    return None
+
+
+def get_all_parts(card: Dict[str, Any]):
+    """Related-card list (PARKED for v0.9.0 — ingested, not yet consumed).
+
+    Slimmed to the identifying fields (component/name/type_line/id); the object/uri
+    keys are constant noise / per-printing API links."""
+    parts = card.get("all_parts")
+    if not parts:
+        return None
+    return [{k: p.get(k) for k in ("component", "name", "type_line", "id")}
+            for p in parts if isinstance(p, dict)]
+
+
+# Scryfall objects that are never deck-playable cards: token printings (they SHADOW real
+# card names — the M5 'Timeless Witness' bug: the eternalize TOKEN row resolved in exact-
+# name lookup instead of the real card, reporting commander_legal=False for a legal card),
+# emblems, art-series cards, and the Vanguard/Planechase/Archenemy non-deck objects.
+# Excluding them at ingest keeps name lookups and search pools clean. Measured in the
+# shipped DB: 4,020 rows, 88 of them shadowing a real card's name.
+NONPLAYABLE_LAYOUTS = frozenset({
+    "token", "double_faced_token", "emblem", "art_series", "vanguard", "scheme", "planar",
+})
 
 
 def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
@@ -115,6 +177,22 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         "commander_legal": card.get("legalities", {}).get("commander") == "legal",
         "can_be_commander": can_be_commander(card),
         "usd_price": parse_price((card.get("prices") or {}).get("usd")),
+        "edhrec_rank": card.get("edhrec_rank"),
+        # WotC's official Commander Brackets "Game Changers" flag. Consumed by
+        # deck-power as BRACKET COMPLIANCE data (deterministic rule, like singleton)
+        # and as a small tier component — never as a power verdict by itself.
+        "game_changer": bool(card.get("game_changer", False)),
+        # Consistency-engine Fase 1 fields (2026-07-06):
+        # keywords — Scryfall's PARSED keyword list (Flying, Storm, Ninjutsu...);
+        # the analyzer currently regexes oracle text for keywords that arrive
+        # structured here. Oracle-level (same across printings).
+        "keywords": card.get("keywords", []) or [],
+        "loyalty": get_loyalty(card),
+        # produced_mana — exact colors a land/rock can produce (None when absent).
+        "produced_mana": card.get("produced_mana"),
+        # all_parts + image_url — PARKED for v0.9.0 (ingested, not consumed yet).
+        "all_parts": get_all_parts(card),
+        "image_url": get_image_url(card),
         "usd_foil_price": parse_price((card.get("prices") or {}).get("usd_foil")),
         "usd_etched_price": parse_price((card.get("prices") or {}).get("usd_etched")),
         "eur_price": parse_price((card.get("prices") or {}).get("eur")),

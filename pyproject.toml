@@ -1,6 +1,6 @@
 [project]
 name = "cli-mtg-deckbuilder"
-version = "0.7.0"
+version = "0.8.0"
 description = "Local CLI tool for building Magic: The Gathering Commander decks."
 requires-python = ">=3.11"
 dependencies = [
@@ -19,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-mtg = "mtgcli.cli:app"
+mtg = "mtgcli.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -38,7 +38,7 @@ def normalize_deck_input(raw_deck: Any) -> Dict[str, Any]:
     CLI flags always take precedence over file-embedded commander metadata.
     """
     if isinstance(raw_deck, list):
-        return {"commanders": [], "main_deck": raw_deck, "metadata": {}}
+        return {"commanders": [], "main_deck": _normalize_entries(raw_deck), "metadata": {}}
 
     if not isinstance(raw_deck, dict):
         raise ValueError(f"Unsupported deck format: {type(raw_deck).__name__}")
@@ -51,6 +51,7 @@ def normalize_deck_input(raw_deck: Any) -> Dict[str, Any]:
 
     if not isinstance(main_deck, list):
         raise ValueError("'main_deck' must be a list of card entries.")
+    main_deck = _normalize_entries(main_deck)
 
     # Extract commander(s)
     commanders: List[str] = []
@@ -69,3 +70,18 @@ def normalize_deck_input(raw_deck: Any) -> Dict[str, Any]:
     metadata = {k: v for k, v in raw_deck.items() if k not in skip}
 
     return {"commanders": commanders, "main_deck": main_deck, "metadata": metadata}
+
+
+def _normalize_entries(entries):
+    """Accept card entries as plain strings OR {name, quantity} dicts — a deck JSON written by
+    hand or by an agent naturally uses ["Sol Ring", ...]; every consumer downstream expects
+    dicts. Normalizing HERE (the single load point) means no command can crash on the shape."""
+    out = []
+    for e in entries:
+        if isinstance(e, str):
+            out.append({"name": e, "quantity": 1})
+        elif isinstance(e, dict):
+            out.append(e)
+        else:
+            raise ValueError(f"Unsupported deck entry: {e!r} (expected string or object)")
+    return out

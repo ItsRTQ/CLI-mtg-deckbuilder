@@ -356,6 +356,25 @@ def test_all_basic_land_types_allowed_multiple():
         assert not any(e["type"] == "singleton_violation" for e in result["errors"]), f"Failed for {land}"
 
 
+def test_snow_covered_basic_quantity_greater_than_1_passes():
+    """Snow-Covered basics carry the Basic supertype in type_line but are not in
+    the BASIC_LANDS name set — multiple copies must still be Commander-legal."""
+    cmd = make_commander("Lumra, Bellow of the Woods", ["G"])
+    snow = make_card("Snow-Covered Forest", [])
+    snow["type_line"] = "Basic Snow Land — Forest"
+    db = {cmd["name"]: cmd, "Snow-Covered Forest": snow}
+    db.update(_colorless_cards(89))
+    entries = (
+        [make_entry(cmd["name"])]
+        + [make_entry(n) for n in list(_colorless_cards(89).keys())]
+        + [make_entry("Snow-Covered Forest", 10)]
+    )
+    repo = make_repo(db)
+    result = validate_commander_deck("Lumra, Bellow of the Woods", entries, repo)
+    assert not any(e["type"] == "singleton_violation" for e in result["errors"])
+    assert result["actual_main_deck_size"] == 99
+
+
 # --- Error type names (spec compliance) ---
 
 def test_error_type_card_not_found():

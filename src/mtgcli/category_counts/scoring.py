@@ -5,7 +5,7 @@ All scores are floats 0-10 before clamping. These are heuristics derived from
 oracle text and type line — not ground truth. The AI agent may override or
 adjust these based on deeper commander analysis.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Iterable
 from .models import MV_PRESSURE_TABLE, MV_PRESSURE_HIGH
 
 # ─── Archetype fit keyword patterns ───────────────────────────────────────────
@@ -122,54 +122,27 @@ _ARCHETYPE_FIT_KEYWORDS: Dict[str, list] = {
 }
 
 
-def score_archetype_fit(
-    oracle_text: str,
-    type_line: str,
-    archetype: str,
-    power=None,
-    toughness=None,
-) -> float:
-    """Return 0-10 fit score for the commander/archetype combination.
-
-    ``power``/``toughness`` are optional; when provided, beatdown archetypes get a
-    creature-size bump so a big creature commander (e.g. an 8/7 Hydra) reads as
-    stompy even when its oracle text is mostly about something else. Callers that
-    omit P/T get the pure keyword score (keeps existing behavior and tests stable).
-    """
-    if archetype not in _ARCHETYPE_FIT_KEYWORDS:
-        return 5.0
-    keywords = _ARCHETYPE_FIT_KEYWORDS[archetype]
-    text = (oracle_text or "").lower() + " " + (type_line or "").lower()
-    matches = sum(1 for kw in keywords if kw.lower() in text)
-    if not keywords:
-        return 5.0
-    ratio = matches / len(keywords)
-    # 0 matches → 1.0, all match → 10.0
-    score = 1.0 + ratio * 9.0
-
-    # Creature-size bump: a big body is itself a stompy/voltron/battlecruiser signal,
-    # which pure keyword matching misses (P/T isn't in oracle/type_line text).
-    _BEATER_ARCHETYPES = {"stompy", "go_tall_aggro", "voltron", "battlecruiser"}
-    if archetype in _BEATER_ARCHETYPES and power is not None:
-        try:
-            p = float(power)
-        except (TypeError, ValueError):
-            p = 0.0
-        if p >= 7:
-            score += 3.0
-        elif p >= 5:
-            score += 2.0
-        elif p >= 4:
-            score += 1.0
-
-    return min(10.0, score)
+# The legacy public archetype-fit scorer (score_archetype_fit) was removed in v0.8.0;
+# best_archetype and fit_confidence now derive from the evidence-first analyzer's bands.
+# _ARCHETYPE_FIT_KEYWORDS above is retained — _score_dependency still uses it as a mild
+# keyword-count heuristic for the internal commander_scores.
 
 
 # ─── Commander provides (reduces category need) ───────────────────────────────
 
-def _score_provides(oracle: str) -> Dict[str, float]:
-    """Estimate how much the commander provides each category intrinsically."""
+def _score_provides(oracle: str, signals: Optional[Iterable[str]] = None) -> Dict[str, float]:
+    """Estimate how much the commander provides each category intrinsically.
+
+    Fase 2 (M2 consumer #1): when the universal analyzer's signal IDs are passed in, the
+    signal-backed branches take precedence — they carry evidence and traces (run
+    `mtg analyze-card` for provenance). Semantics are per-branch fallback: a present
+    signal REPLACES its oracle-heuristic twin (no double counting); an absent signal
+    falls back to the oracle read, which also keeps callers without an analyzer
+    (signals=None) at exact legacy behavior. Branches with no analyzer signal yet
+    (removal, protection, board wipes, most of draw) stay pure oracle heuristics.
+    """
     provides: Dict[str, float] = {}
+    sig = set(signals) if signals else set()
 
     # Draw
     draw_strength = 0.0
@@ -186,7 +159,11 @@ def _score_provides(oracle: str) -> Dict[str, float]:
 
     # Ramp
     ramp_strength = 0.0
-    if "add {" in oracle or "add mana" in oracle:
+    if "MANA_ABILITY" in sig:
+        # Analyzer: "{T}: Add ..." — also catches "Add one mana of any color" (the Esika
+        # class), which the substring twins below miss.
+        ramp_strength += 2.5
+    elif "add {" in oracle or "add mana" in oracle:
         ramp_strength += 2.5
     if "search your library for a" in oracle and "land" in oracle:
         ramp_strength += 2.0
@@ -205,11 +182,21 @@ def _score_provides(oracle: str) -> Dict[str, float]:
         removal_strength += 1.5
     if "-x/-x" in oracle or "-1/-1 counter" in oracle:
         removal_strength += 1.0
+    # Fight/bite is repeatable removal (Gargos "fights up to one target creature" — the
+    # legacy heuristic scored it 0.0 until the v0.8 Gargos test build caught it).
+    if "fights up to" in oracle or "fights target" in oracle or "fight up to" in oracle:
+        removal_strength += 2.0
     if removal_strength:
         provides["targeted_removal"] = min(5.0, removal_strength)
 
-    # Tutors
-    if "search your library for a card" in oracle:
+    # Tutors — analyzer signals first (1:1 ports of the strong/conditional split), oracle
+    # substrings as fallback (they also cover forms the conditional regex doesn't, e.g.
+    # "search your library for two basic lands").
+    if "TUTOR_UNCONDITIONAL" in sig:
+        provides["tutors"] = 3.0
+    elif "TUTOR_CONDITIONAL" in sig:
+        provides["tutors"] = 1.5
+    elif "search your library for a card" in oracle:
         provides["tutors"] = 3.0
     elif "search your library for" in oracle:
         provides["tutors"] = 1.5
@@ -402,18 +389,22 @@ def score_mv_pressure(mv: float) -> float:
 
 # ─── Main commander scoring entry point ──────────────────────────────────────
 
-def score_commander(card_data: Dict[str, Any], archetype: str) -> Dict[str, Any]:
+def score_commander(card_data: Dict[str, Any], archetype: str,
+                    signals: Optional[Iterable[str]] = None) -> Dict[str, Any]:
     """
     Compute commander scores from card data.
 
     Returns a dict with dependency, threat_reputation, mana_value_pressure,
     built_in_* convenience fields, combo_potential, provides, requires, rewards.
+
+    `signals` (Fase 2): the universal analyzer's signal IDs for this card; when given,
+    signal-backed provides branches take precedence over the oracle heuristics.
     """
     oracle = (card_data.get("oracle_text") or "").lower()
     type_line = (card_data.get("type_line") or "").lower()
     mv = float(card_data.get("mana_value") or 0)
 
-    provides = _score_provides(oracle)
+    provides = _score_provides(oracle, signals=signals)
     requires = _score_requires(oracle, mv)
     rewards = _score_rewards(oracle, type_line, archetype)
     dependency = _score_dependency(oracle, type_line, mv, archetype)

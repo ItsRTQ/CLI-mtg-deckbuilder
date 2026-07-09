@@ -13,6 +13,8 @@ Consumers:
 """
 from typing import Any, Dict, Iterable, List, Set
 
+from mtgcli.utils.phrase_match import phrase_matches
+
 
 # Tags that produce mana but are NOT land-oriented. Their presence in a search or role
 # means any land in scope must qualify through a land-oriented tag, not through these.
@@ -50,7 +52,7 @@ def land_matches_allowed_ramp_tags(
     text = _card_text(card)
     for tag in allowed_tags:
         for phrase in tag_definitions.get(tag, []):
-            if phrase.lower() in text:
+            if phrase_matches(phrase, text):
                 return True
     return False
 

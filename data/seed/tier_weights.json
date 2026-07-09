@@ -1,0 +1,35 @@
+{
+  "_doc": "Consistency-tier policy (user design 2026-07-07). Every constant here is DECLARED JUDGMENT, tunable without code. Provenance notes inline. Probabilities in the engine are exact hypergeometrics; only these parameters are opinion. Calibration practice: each test build, compare computed tier vs the user's judgment and adjust.",
+  "core_weights": {
+    "_doc": "Exponents of the multiplicative CORE (they sum to 1). Geometric on purpose: consistency is conjunctive — a weak link drags the whole deck; wincon access dominates per the user's thesis.",
+    "wincon_access": 0.45,
+    "function_bundle": 0.30,
+    "curve": 0.25
+  },
+  "turn_targets": {
+    "_doc": "The turn by which each function must be online — the main judgment constants (Magic-argumentable, unlike a bare multiplier). RAMP per the user's table rule: anything that brings mana, INCLUDING land-search like Cultivate (an extra land that turn).",
+    "RAMP": 2,
+    "DRAW": 3,
+    "REMOVAL": 3,
+    "SYNERGY": 4,
+    "wincon_turn": 7
+  },
+  "route_strengths": {
+    "_doc": "Win-route quality by class (user refinement: reaching an auto-win infinite is STRONGER than reaching a value wincon like Toxrill). Multiplies the route's assembly probability inside Q_wincon = 1 - prod(1 - P*s). Utility combos are value, not win routes.",
+    "auto_win": 1.0,
+    "infinite": 0.85,
+    "wincon_single": 0.6,
+    "non_infinite": 0.55
+  },
+  "velocity": {
+    "_doc": "Cards seen by turn T: 7 + T + expected DRAW sources seen * yield. The yield (extra cards a draw engine nets once seen) is the model's one mechanistic assumption.",
+    "draw_yield": 1.5
+  },
+  "bonus": {
+    "_doc": "Additive, small, capped — things that help but must not define (a zero here never nukes the deck). GC deliberately LOW per the user (good cards, not that important; the consistency-relevant GCs already score as SEARCH/DRAW).",
+    "arsenal_per_extra_route": 0.25,
+    "arsenal_cap": 0.5,
+    "gc_each": 0.125,
+    "gc_cap": 0.5
+  }
+}

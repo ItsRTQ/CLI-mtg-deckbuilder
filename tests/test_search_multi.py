@@ -71,7 +71,7 @@ def fixture_db(tmp_path, monkeypatch):
             return str(db_path)
 
     monkeypatch.setattr(search_mod, "SQLITE_PATH", FakePath())
-    import mtgcli.cli as cli_mod
+    import mtgcli.cli.commands.search as cli_mod  # `search` command now lives here (cli.py split)
     monkeypatch.setattr(cli_mod, "SQLITE_PATH", FakePath())
     return db_path
 

@@ -1,0 +1,58 @@
+{
+  "_doc": "RANK power-meter policy (FUEL-SPINE v1, user design 2026-07-07/08). Deterministic POWER/speed estimate — ORTHOGONAL to the consistency tier. calibrated:false: constants provisional, tunable without code. Provenance in data/rank-calibration/NOTES.md (24-deck corpus). Thesis: power = speed; fast_mana (rocks/rituals) is THE cEDH separator (0 false positives across 24 decks), tutors a CAPPED secondary (consistency), never co-spine.",
+  "calibrated": false,
+  "weights": {
+    "_doc": "Composite = fast·0.55 + tutor·0.20 + gc·0.10 + curve·0.10 + free·0.05, ×10. fast dominates (the spine). Draw deliberately EXCLUDED: measured HIGHER in casual than cEDH (a grind signal owned by the consistency tier), not a speed signal.",
+    "fuel": 0.55,
+    "tutor": 0.20,
+    "game_changers": 0.10,
+    "curve": 0.10,
+    "free_interaction": 0.05
+  },
+  "denominators": {
+    "_doc": "Saturation points: metric/denominator, capped at 1.0. fast_mana 12 = a fully-committed cEDH mana engine; tutor 12; gc 10; free 6.",
+    "fast_mana": 12,
+    "tutors": 12,
+    "game_changers": 10,
+    "free_interaction": 6
+  },
+  "curve": {
+    "_doc": "curve = clamp((pivot - avg_mv_nonland) / span, 0, 1). avg_mv 2.0 → 1.0, 3.5 → 0. Low curve is universal in cEDH (2.05-2.70) but NOT sufficient (battlecruisers also curve low), hence low weight.",
+    "pivot": 3.5,
+    "span": 1.5
+  },
+  "bands": {
+    "_doc": "7-band scale on the 0..1 composite (score/10). Top/bottom anchored to the corpus; mid interpolated (calibrated:false). Names: user design.",
+    "thresholds": [
+      {"band": 7, "name": "Mythic", "min": 0.85},
+      {"band": 6, "name": "Forbidden", "min": 0.72},
+      {"band": 5, "name": "Ascendant", "min": 0.58},
+      {"band": 4, "name": "Charged", "min": 0.44},
+      {"band": 3, "name": "Awakened", "min": 0.30},
+      {"band": 2, "name": "Dormant", "min": 0.16},
+      {"band": 1, "name": "Scrap", "min": 0.0}
+    ]
+  },
+  "fast_mana": {
+    "_doc": "NONCREATURE acceleration only (rocks / rituals / fast lands). Dorks & auras excluded on purpose: 'fuel' = mana that doesn't die to creature removal / isn't summoning-sick; the corpus average baseline is ~1 with this list. Name-matched (case-insensitive, DFC front-face).",
+    "names": [
+      "Sol Ring", "Mana Crypt", "Mana Vault", "Grim Monolith", "Chrome Mox", "Mox Diamond",
+      "Mox Opal", "Mox Amber", "Mox Emerald", "Mox Jet", "Mox Pearl", "Mox Ruby", "Mox Sapphire",
+      "Mox Tantalite", "Jeweled Lotus", "Lotus Petal", "Lion's Eye Diamond", "Black Lotus",
+      "Ancient Tomb", "City of Traitors", "Gemstone Caverns", "Gaea's Cradle", "Serra's Sanctum",
+      "Lotus Field",
+      "Dark Ritual", "Cabal Ritual", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual",
+      "Seething Song", "Jeska's Will", "Mana Geyser", "Simian Spirit Guide", "Elvish Spirit Guide",
+      "Culling the Weak", "Songs of the Damned", "Bubbling Muck", "Burnt Offering"
+    ]
+  },
+  "free_interaction": {
+    "_doc": "Free / pitch interaction (0-mana or alternative-cost). Color-bound (blue-heavy) → weighted low, additive only, never required.",
+    "names": [
+      "Force of Will", "Force of Negation", "Fierce Guardianship", "Deflecting Swat",
+      "Deadly Rollick", "Flare of Denial", "Flare of Duplication", "Flare of Fortitude",
+      "Mental Misstep", "Mindbreak Trap", "Pact of Negation", "Slaughter Pact", "Intervention Pact",
+      "Misdirection", "Foil", "Commandeer", "Snapback", "Pyrokinesis", "Snuff Out"
+    ]
+  }
+}

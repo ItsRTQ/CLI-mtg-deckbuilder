@@ -84,6 +84,8 @@ def build_budget_summary(
     treat_basics_as_free: bool = True,
     budget_limit: Optional[float] = None,
     overage_percent: float = 10.0,
+    high_cost_pct: float = 0.20,
+    owned: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """
     Summarizes USD budget for a list of card dicts (each may have quantity).
@@ -91,10 +93,28 @@ def build_budget_summary(
 
     If budget_limit is provided, evaluates the total against it and returns
     budget_status. Budget is a maximum constraint, not a spending target.
+
+    `owned` (user-bulk collection, lowercase name -> qty): copies the user already
+    OWNS cost the budget nothing — each deck entry is billed only for the quantity
+    beyond what's owned. Owned exclusions surface in `owned_cards_count` /
+    `owned_value_excluded` and as `owned_excluded` on breakdown lines, so the
+    discount is always visible, never silent.
+
+    Always returns a `breakdown` list (priced cards, with line_total = usd_price *
+    quantity, sorted most-expensive first) so callers don't have to re-derive it. When
+    budget_limit is set, also returns `high_cost_cards`: single cards whose line_total
+    is >= high_cost_pct of the budget (default 20%), each with its pct_of_budget.
     """
     known_total = 0.0
     known_count = 0
     unknown_cards: List[str] = []
+    breakdown: List[Dict[str, Any]] = []
+    # `owned` is a PRESENCE container of lowercased names (a set from owned_lookup, or a
+    # dict whose keys are names): an owned card is free for ALL its copies (no per-copy
+    # counting — the collection tracks ownership, not quantity).
+    owned = owned or set()
+    owned_count = 0
+    owned_value = 0.0
 
     for entry in deck_entries:
         name = entry.get("name", "")
@@ -105,12 +125,33 @@ def build_budget_summary(
             known_count += quantity
             continue
 
-        if usd is not None:
-            known_total += usd * quantity
-            known_count += quantity
-        else:
-            unknown_cards.append(name)
+        own = quantity if name.lower() in owned else 0
+        if own:
+            owned_count += own
+            if usd is not None:
+                owned_value += usd * own
+        bill_qty = quantity - own
 
+        if usd is not None:
+            line_total = round(usd * bill_qty, 2)
+            known_total += usd * bill_qty
+            known_count += quantity
+            if bill_qty or own:
+                line = {
+                    "name": name,
+                    "quantity": bill_qty,
+                    "usd_price": usd,
+                    "line_total": line_total,
+                }
+                if own:
+                    line["owned_excluded"] = own
+                if bill_qty:
+                    breakdown.append(line)
+        else:
+            if bill_qty:
+                unknown_cards.append(name)
+
+    breakdown.sort(key=lambda c: -c["line_total"])
     budget_confidence = "complete" if not unknown_cards else "partial"
 
     result: Dict[str, Any] = {
@@ -120,10 +161,19 @@ def build_budget_summary(
         "unknown_price_cards_count": len(unknown_cards),
         "unknown_price_cards": unknown_cards,
         "budget_confidence": budget_confidence,
+        "breakdown": breakdown,
+        "owned_cards_count": owned_count,
+        "owned_value_excluded": round(owned_value, 2),
     }
 
     if budget_limit is not None:
         budget_eval = evaluate_budget(known_total, budget_limit, overage_percent)
         result.update(budget_eval)
+        threshold = high_cost_pct * budget_limit
+        result["high_cost_cards"] = [
+            {**c, "pct_of_budget": round(c["line_total"] / budget_limit * 100, 1)}
+            for c in breakdown
+            if c["line_total"] >= threshold
+        ]
 
     return result

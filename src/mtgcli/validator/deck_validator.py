@@ -6,6 +6,16 @@ from mtgcli.deckbuilder.land_filler import remove_command_zone_cards_from_main_d
 BASIC_LANDS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
 
 
+def _is_basic_land(card: Dict[str, Any]) -> bool:
+    """A card is basic if its type line carries the Basic supertype (covers
+    Snow-Covered Forest = "Basic Snow Land — Forest") or it is a named basic.
+    Multiple copies of a basic are always Commander-legal."""
+    type_line = (card.get("type_line") or "").lower()
+    if "basic" in type_line:
+        return True
+    return card.get("name") in BASIC_LANDS
+
+
 def validate_commander_deck(
     commander_name: str,
     deck_entries: List[Dict[str, Any]],
@@ -139,7 +149,7 @@ def validate_commander_deck(
         card_identity = set(card.get("color_identity", []))
 
         # Singleton rule
-        if name not in BASIC_LANDS:
+        if not _is_basic_land(card):
             if name in seen_cards or quantity > 1:
                 errors.append({
                     "type": "singleton_violation",
@@ -165,7 +175,7 @@ def validate_commander_deck(
                 "card_color_identity": sorted(card_identity),
                 "allowed_color_identity": sorted(combined_identity),
                 "message": (
-                    f"Card color identity {sorted(card_identity)} is outside "
+                    f"'{name}' has color identity {sorted(card_identity)}, outside "
                     f"commander color identity {sorted(combined_identity)}."
                 ),
             })

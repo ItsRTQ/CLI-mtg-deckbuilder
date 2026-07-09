@@ -56,6 +56,47 @@ def normalize_bracket(power_level: Optional[str] = None, bracket: Optional[str] 
     return "T4"
 
 
+def _safe_token(value: str) -> str:
+    """Filename-safe token that PRESERVES tier markers like '+'/'-' (e.g. '+S') and the
+    dot in a cost. Empty/None -> 'na'."""
+    v = re.sub(r"\s+", "", str(value))
+    v = re.sub(r"[^A-Za-z0-9+.-]", "", v)
+    return v or "na"
+
+
+def build_final_name(
+    commander: str,
+    tier: str,
+    rank: str,
+    cost: str,
+    final_builds_dir: Path = Path("final-builds"),
+) -> str:
+    """Final-build folder name, convention `<commander>-<TIER>-<RANK>-<COST>`.
+
+    A MISSING segment is omitted entirely (not written as 'na'): an unannotated deck has
+    no TIER, so its folder is just `<commander>-<RANK>-<COST>`. On an EXACT-name collision,
+    a rising number is inserted right after the commander name: the numberless base is the
+    first copy, then `<commander>1-...`, `<commander>2-...` in rising order.
+    """
+    final_builds_dir.mkdir(parents=True, exist_ok=True)
+    cmd = sanitize_filename_part(commander)
+    tokens = []
+    for x in (tier, rank, cost):
+        if x is None:
+            continue
+        tok = _safe_token(x)
+        if tok and tok != "na":
+            tokens.append(tok)
+    tail = "-".join(tokens)
+    n = 0
+    while True:
+        prefix = cmd if n == 0 else f"{cmd}{n}"
+        candidate = f"{prefix}-{tail}" if tail else prefix
+        if not (final_builds_dir / candidate).exists():
+            return candidate
+        n += 1
+
+
 def next_final_build_name(
     commander: str,
     theme: str,

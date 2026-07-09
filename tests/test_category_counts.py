@@ -9,7 +9,6 @@ from mtgcli.category_counts.calculator import (
     calculate_land_count,
 )
 from mtgcli.category_counts.scoring import (
-    score_archetype_fit,
     score_commander,
     score_mv_pressure,
 )
@@ -583,19 +582,6 @@ class TestPartnerDecks:
 # ─── Archetype fit scoring ────────────────────────────────────────────────────
 
 class TestArchetypeFit:
-    def test_teysa_high_aristocrats_fit(self):
-        fit = score_archetype_fit(TEYSA["oracle_text"], TEYSA["type_line"], "aristocrats")
-        assert fit >= 4.0
-
-    def test_ardenn_high_voltron_fit(self):
-        fit = score_archetype_fit(ARDENN["oracle_text"], ARDENN["type_line"], "voltron")
-        assert fit >= 4.0
-
-    def test_vanilla_low_fit_for_specific_archetype(self):
-        vanilla = _make_card(oracle="", type_line="Legendary Creature — Human")
-        fit = score_archetype_fit(vanilla["oracle_text"], vanilla["type_line"], "spellslinger")
-        assert fit < 4.0
-
     def test_forced_archetype_warning_set(self):
         """Vanilla commander with spellslinger archetype → forced_archetype_warning."""
         vanilla = _make_card(oracle="", type_line="Legendary Creature — Human", color_identity=["W"])
@@ -620,7 +606,7 @@ class TestOutputShape:
         )
         for key in [
             "commander", "commander_zone_count", "library_slots", "chosen_archetype",
-            "archetype_fit_score", "forced_archetype_warning", "power_level",
+            "forced_archetype_warning", "power_level",
             "power_tier", "deckbuilding_philosophy", "meta", "color_identity",
             "commander_scores", "land_count", "nonland_slots",
             "category_recommendations", "slot_budget", "multi_tag_policy",
@@ -793,10 +779,10 @@ class TestForcedArchetypeOutput:
         result = calculate_category_counts(
             "Vanilla", "spellslinger", commander_card_data=vanilla, power_level=6
         )
-        assert result["fit_confidence"] == "low"
+        assert result["fit_confidence"] == "medium"
         assert result["forced_archetype_warning"] is not None
         assert result["forced_archetype_notes"]
-        assert any("alternate archetypes" in n.lower() for n in result["forced_archetype_notes"])
+        assert any("analyzer" in n.lower() for n in result["forced_archetype_notes"])
 
     def test_good_fit_has_high_confidence_and_no_forced_notes(self):
         result = calculate_category_counts(

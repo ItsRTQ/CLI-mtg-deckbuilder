@@ -40,6 +40,16 @@ mtg commander-analyze \
 
 Use `output/commander_analysis.json` for:
 
+**Exact top-level paths** (don't guess nested locations — these live at the ROOT of the JSON):
+`color_identity` (e.g. `["B","U"]`), `combined_color_identity` (with partner),
+`is_valid_commander`, `analyzer` (THE archetype read; its `archetype_support` bands, `signals`
+and `tags` list are the source of truth), `best_archetype` (the top analyzer band, aliased to
+snake_case), `engine_profile`, `wanted_card_patterns`, `oracle_hooks`,
+`build_direction_options`. The `commander` key holds the raw card object (name, oracle,
+type_line, mana_cost) — identity fields are NOT nested inside it. (The legacy `archetype_fit`,
+`commander_tags`, `commander_type_tags`, `synergy_tags`, `anti_synergy_tags` and
+`legacy_deprecations` fields were REMOVED in v0.8.0 — use `analyzer.tags`/`analyzer.signals`.)
+
 ```text
 color identity
 commander slots / library slots
@@ -110,12 +120,27 @@ Do not let P/T dominate non-combat roles.
 
 ---
 
-## Archetype Fit
+## Archetype: `analyzer.archetype_support` is THE read
 
-Use `archetype_fit` to identify natural paths. Entries are ordered best-first; each has a
-`fit_score` (0-10). Entries flagged `low_confidence: true` mean nothing scored as a strong
-natural fit — they are the best available directions, not endorsements. Use them for
-`build_direction_options`, but lean harder on `engine_profile` and `synergy_tags` for card choices.
+The analysis carries ONE archetype read — the evidence-first `analyzer`. The legacy
+`archetype_fit` weighted-score list (and `commander_tags`/`synergy_tags`) were REMOVED in
+v0.8.0; there is no legacy competitor to weigh against.
+
+**`analyzer` (evidence-first).** Contains `archetype_support` (ordinal bands
+`very_high/high/medium/low`, each backed by detected evidence), `signals` (feature IDs the
+analyzer detected in the oracle text), `tags` (the functional tag names it matched — the
+single source for the commander's functions, replacing the removed
+`commander_tags`/`synergy_tags` lists), `dominant_symmetry`, and `warnings`. For partners it
+also carries `partner_archetype_support` / `partner_signals`. `best_archetype` is the top band
+aliased to snake_case. If you need the full evidence traces (which rule fired on which text),
+run `mtg analyze-card "<Commander>"`.
+
+If `archetype_support` is empty or all-low while the commander clearly has a plan, that is an
+analyzer coverage gap: note it (it is calibration signal), reason from the oracle text yourself,
+and proceed with your own judgment.
+
+A `Toolbox / Goodstuff` band (multi-mode commander, 4+ activated abilities) means the per-mode
+bands are options, not the theme — hand the mode choice to the user-feedback flow.
 
 If the user forces a low-fit archetype, respect it but flag the risk.
 
@@ -131,11 +156,14 @@ A big creature commander now scores as a beatdown fit on its power/toughness alo
 
 ## Engine Package — build to the mechanical hook
 
-`engine_profile.primary_pattern`, `synergy_tags`, and `wanted_card_patterns` name *how the
+`engine_profile.primary_pattern`, `analyzer.tags`, and `wanted_card_patterns` name *how the
 commander actually wins or generates value*. Translate them into the deck's synergy package
 directly — do not flatten the commander into a generic archetype and fill with goodstuff.
 
-Read `wanted_card_patterns` as a shopping list and turn each entry into `suggest`/`search-tags`
+Read `wanted_card_patterns` as a shopping list and turn each entry into `suggest`/`search-tags`.
+Entries suffixed "(analyzer high/very_high)" come from the evidence-first analyzer and already
+carry a ready-to-run command (e.g. `Go Wide (analyzer high): mtg search-tags go_wide_payoff
+token_maker anthem`) — run those first; they are the commander's detected plan. Turn the rest into `suggest`/`search-tags`
 queries. Examples of hooks the analyzer surfaces:
 
 ```text

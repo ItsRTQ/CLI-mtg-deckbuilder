@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from mtgcli.config import SEED_DATA_DIR
 from mtgcli.deckbuilder.ramp_rules import RAMP_LAND_ALLOWED_TAGS as _RAMP_LAND_ALLOWED_TAGS
+from mtgcli.utils.phrase_match import phrase_matches
 
 _DEFAULT_ANALYSIS_PATH = Path("output/commander_analysis.json")
 
@@ -22,6 +23,35 @@ _SYNERGY_MECHANICS = [
 ]
 
 
+def _analyzer_synergy_phrases(archetype_support) -> Set[str]:
+    """Synergy phrases for the analyzer's high/very_high plans (M2 consumer #3).
+
+    Translates each high band into the measured card_tags phrases of its archetype rule
+    tokens (mapping._ARCHETYPE_RULES ∩ card_tags) — the analyzer's own vocabulary, the
+    same map deck-gaps audits against, so the synergy matcher cannot drift from the
+    archetype system. Tribal bands contribute the creature type itself (matched against
+    the candidate's type line/text). Guarded: returns an empty set on any failure.
+    """
+    try:
+        from mtgcli.analyzer.mapping import _ARCHETYPE_RULES
+        tag_defs = _load_tag_definitions()
+        out: Set[str] = set()
+        for s in archetype_support or []:
+            if s.get("band") not in ("high", "very_high"):
+                continue
+            arch = s.get("archetype", "")
+            if arch.endswith(" Tribal"):
+                out.add(arch[: -len(" Tribal")].lower())
+                continue
+            rules = _ARCHETYPE_RULES.get(arch, {})
+            for t in list(rules.get("defining", [])) + list(rules.get("supporting", [])):
+                for p in tag_defs.get(t, []):
+                    out.add(p.lower())
+        return out
+    except Exception:
+        return set()
+
+
 def extract_commander_synergy_signals(
     commander_card: Dict[str, Any],
     analysis_path: Optional[Path] = _DEFAULT_ANALYSIS_PATH,
@@ -29,8 +59,9 @@ def extract_commander_synergy_signals(
     """
     Extract synergy keywords for the given commander.
 
-    If analysis_path exists, uses analysis["synergy_tags"] + ["commander_type_tags"]
-    + engine profile patterns for richer signal coverage.
+    If analysis_path exists, sources signals from the analyzer's functional tags
+    (analysis["analyzer"]["tags"], expanded to their measured card_tags phrases) plus
+    the analyzer's high-band plan phrases and the engine profile patterns.
     Falls back to heuristic oracle/type-line extraction if not available.
     """
     resolved_path = Path(analysis_path) if analysis_path else None
@@ -39,8 +70,14 @@ def extract_commander_synergy_signals(
             with open(resolved_path, "r", encoding="utf-8") as f:
                 analysis = json.load(f)
             signals: Set[str] = set()
-            signals.update(analysis.get("synergy_tags", []))
-            signals.update(analysis.get("commander_type_tags", []))
+            analyzer = analysis.get("analyzer", {})
+            # Analyzer functional tags → their measured card_tags phrases. This is the
+            # single-source synergy vocabulary that replaced the legacy synergy_tags /
+            # commander_type_tags reads (both removed in v0.8.0).
+            tag_defs = _load_tag_definitions()
+            for tag in analyzer.get("tags", []):
+                for phrase in tag_defs.get(tag, []):
+                    signals.add(phrase.lower())
             engine = analysis.get("engine_profile", {})
             if engine.get("primary_pattern"):
                 signals.add(engine["primary_pattern"])
@@ -48,6 +85,8 @@ def extract_commander_synergy_signals(
             # Also add key oracle phrases from analysis text_signals
             for zone in analysis.get("text_signals", {}).get("resource_zones", []):
                 signals.add(zone)
+            # Enrich with the analyzer's high-band plan phrases.
+            signals |= _analyzer_synergy_phrases(analyzer.get("archetype_support"))
             return signals
         except Exception:
             pass  # Fall through to heuristic below
@@ -67,6 +106,15 @@ def extract_commander_synergy_signals(
     for mechanic in _SYNERGY_MECHANICS:
         if mechanic in oracle:
             signals.add(mechanic)
+
+    # M2 consumer #3: the no-analysis fallback also gets the analyzer's read (pure
+    # logic, no DB). Guarded — on failure the heuristic signals above stand alone.
+    try:
+        from mtgcli.analyzer.analyze import analyze_card
+        signals |= _analyzer_synergy_phrases(
+            analyze_card(commander_card).get("archetype_support"))
+    except Exception:
+        pass
 
     return signals
 
@@ -147,7 +195,7 @@ def _match_sub_tags(
     for sub_tag in sub_tags:
         phrases = tag_definitions.get(sub_tag, [])
         for phrase in phrases:
-            if phrase.lower() in card_text:
+            if phrase_matches(phrase, card_text):
                 matched.append(sub_tag)
                 break
     return matched

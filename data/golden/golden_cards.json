@@ -1,0 +1,5586 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "name": "Pantlaza, Sun-Favored",
+      "expected_archetypes": {
+        "Dinosaur Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Lands / Landfall": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Mill": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "live build #1",
+      "note": "discover reminder text must not read as lands/mill"
+    },
+    {
+      "name": "Valgavoth, Harrower of Souls",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "live build #2",
+      "expected_signals": [
+        "TRIGGER_LIFE_CHANGE",
+        "COUNTER_MARKER_SELF"
+      ],
+      "forbidden_signals": [
+        "COUNTER_MARKER"
+      ],
+      "note": "self-counter is incidental growth, not a counters strategy"
+    },
+    {
+      "name": "Krenko, Mob Boss",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Vehicles": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "fase0",
+      "expected_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "token maker is not a vehicle"
+    },
+    {
+      "name": "Shorikai, Genesis Engine",
+      "expected_archetypes": {
+        "Vehicles": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fase0",
+      "expected_signals": [
+        "VEHICLE",
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "multi-sentence activated ability = one clause"
+    },
+    {
+      "name": "Isshin, Two Heavens as One",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch/fase0",
+      "expected_signals": [
+        "TRIGGER_DOUBLER",
+        "DOUBLES_ATTACK_TRIGGERS"
+      ],
+      "note": "meta-trigger doubler with attack context"
+    },
+    {
+      "name": "Gonti, Canny Acquisitor",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "fase0",
+      "forbidden_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "combat trigger without token creation"
+    },
+    {
+      "name": "Atraxa, Grand Unifier",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "fase0.2",
+      "note": "value pile: honest low/none read accepted; generic tokens must not fire"
+    },
+    {
+      "name": "Dihada, Binder of Wills",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ],
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch"
+    },
+    {
+      "name": "Aesi, Tyrant of Gyre Strait",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "fase0.2"
+    },
+    {
+      "name": "Sen Triplets",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ],
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fase0.2"
+    },
+    {
+      "name": "Hapatra, Vizier of Poisons",
+      "expected_archetypes": {
+        "Minus Counters / Attrition": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fase0.2",
+      "expected_signals": [
+        "COUNTER_MARKER_MINUS"
+      ]
+    },
+    {
+      "name": "Wulfgar of Icewind Dale",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fase0.2",
+      "expected_signals": [
+        "DOUBLES_ATTACK_TRIGGERS"
+      ],
+      "note": "doubler generalization proof"
+    },
+    {
+      "name": "Adeline, Resplendent Cathar",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fase0.2",
+      "expected_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "token conjunction generalization proof"
+    },
+    {
+      "name": "Veyran, Voice of Duality",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "expected_signals": [
+        "DOUBLES_CAST_TRIGGERS"
+      ],
+      "source": "fase0.2 → cast-context CLOSED (2026-07-06)",
+      "note": "the LAST Fase-0.2 known-gap closed: DOUBLES_CAST_TRIGGERS context on the trigger doubler (per-line 'cast' check — Echoes of Eternity's 'you control' doubler and Harmonic Prodigy's reminder-cast correctly excluded); Spellslinger high now signal-backed beside magecraft"
+    },
+    {
+      "name": "Bruvac the Grandiloquent",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Reanimator": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "recon",
+      "note": "opponent-mill replacement doubler; naked 'mill' false self_mill is dead"
+    },
+    {
+      "name": "Nekusar, the Mindrazer",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ],
+        "Wheels / Forced Draw": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Urza, Lord High Artificer",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Kynaios and Tiro of Meletis",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon",
+      "note": "one-sided GIVING is hug, not punisher"
+    },
+    {
+      "name": "Sisay, Weatherlight Captain",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Kenrith, the Returned King",
+      "expected_archetypes": {
+        "Toolbox / Goodstuff": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon",
+      "expected_signals": [
+        "MODAL_TOOLBOX"
+      ],
+      "note": "5-mode menu; per-mode bands are options"
+    },
+    {
+      "name": "Cromat",
+      "expected_archetypes": {
+        "Toolbox / Goodstuff": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon",
+      "expected_signals": [
+        "MODAL_TOOLBOX"
+      ]
+    },
+    {
+      "name": "Windfall",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Maddening Cacophony",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Carth the Lion",
+      "expected_archetypes": {
+        "Superfriends / Planeswalkers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "recon"
+    },
+    {
+      "name": "Elspeth Conquers Death",
+      "expected_archetypes": {
+        "Reanimator": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Stax / Prison": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "batch #5",
+      "expected_signals": [
+        "TAX_COST_INCREASE",
+        "COUNTER_MARKER_SELF"
+      ],
+      "note": "saga split; 'counter on it' is incidental"
+    },
+    {
+      "name": "Binding the Old Gods",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Counters Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "batch #5",
+      "note": "saga: removal+ramp roles, no counters"
+    },
+    {
+      "name": "Regisaur Alpha",
+      "expected_archetypes": {
+        "Dinosaur Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "live #1",
+      "forbidden_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "one-shot ETB token"
+    },
+    {
+      "name": "Ophiomancer",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "live #1",
+      "expected_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ]
+    },
+    {
+      "name": "Quartzwood Crasher",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "live #1",
+      "expected_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ]
+    },
+    {
+      "name": "Nettling Nuisance",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "fix B",
+      "forbidden_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "opponent gets the token: downside, not engine"
+    },
+    {
+      "name": "Hardened Scales",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fix A",
+      "expected_signals": [
+        "COUNTER_MARKER"
+      ]
+    },
+    {
+      "name": "Blowfly Infestation",
+      "expected_archetypes": {
+        "Minus Counters / Attrition": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch",
+      "expected_signals": [
+        "COUNTER_MARKER_MINUS"
+      ]
+    },
+    {
+      "name": "Mask of Riddles",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "batch #2",
+      "expected_signals": [
+        "CONDITIONAL_EVASION"
+      ],
+      "forbidden_signals": [
+        "UNBLOCKABLE"
+      ],
+      "note": "fear is conditional evasion"
+    },
+    {
+      "name": "Whispersilk Cloak",
+      "expected_archetypes": {},
+      "must_not_have": {},
+      "source": "batch #2",
+      "expected_signals": [
+        "UNBLOCKABLE"
+      ]
+    },
+    {
+      "name": "Jodah, the Unifier",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch #3"
+    },
+    {
+      "name": "Pontiff of Blight",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "live #2",
+      "note": "extort is drain (Life Loss), not death-matters; old Aristocrats pin was tag noise"
+    },
+    {
+      "name": "Ruin Crab",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ],
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest",
+      "note": "landfall mill: both archetypes are real"
+    },
+    {
+      "name": "Fate Unraveler",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Underworld Dreams",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Thought Monitor",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Thoughtcast",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Shimmer Dragon",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Oath of Teferi",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ],
+        "Superfriends / Planeswalkers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Deepglow Skate",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Brokers Ascendancy",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "Superfriends / Planeswalkers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Rites of Flourishing",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Collective Voyage",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Orzhov Advokist",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ],
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Teleportation Circle",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Kethis, the Hidden Hand",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Reki, the History of Kamigawa",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Heroes' Podium",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "The Scorpion God",
+      "expected_archetypes": {
+        "Minus Counters / Attrition": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Mirkwood Bats",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Dauthi Voidwalker",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Ratadrabik of Urborg",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest"
+    },
+    {
+      "name": "Mulldrifter",
+      "expected_archetypes": {
+        "ETB Value": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest",
+      "note": "evoke value: presence check"
+    },
+    {
+      "name": "Panharmonicon",
+      "expected_archetypes": {
+        "ETB Value": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Blink / Flicker": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest",
+      "expected_signals": [
+        "DOUBLES_ETB_TRIGGERS"
+      ]
+    },
+    {
+      "name": "Howling Mine",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "golden-harvest",
+      "note": "symmetric draw engine: wheels-adjacent presence"
+    },
+    {
+      "name": "Toxrill, the Corrosive",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "fix A control",
+      "note": "slime counters are NAMED counters (broad), not literal -1/-1; Slugs on death = aristocrats",
+      "expected_signals": [
+        "COUNTER_MARKER"
+      ]
+    },
+    {
+      "name": "Teysa Karlov",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "expected_signals": [
+        "DOUBLES_DEATH_TRIGGERS"
+      ],
+      "note": "death-trigger doubler defines aristocrats"
+    },
+    {
+      "name": "Sai, Master Thopterist",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "note": "'artifact spell' phrasing"
+    },
+    {
+      "name": "Etherium Sculptor",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes"
+    },
+    {
+      "name": "Mesmeric Orb",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "note": "'controller mills' phrasing"
+    },
+    {
+      "name": "Fraying Sanity",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "note": "'enchanted player mills'"
+    },
+    {
+      "name": "Spear Spewer",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "note": "symmetric pinger"
+    },
+    {
+      "name": "Skirk Prospector",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "expected_signals": [
+        "SAC_OUTLET"
+      ],
+      "note": "tribal sac cost via regex, not vocab"
+    },
+    {
+      "name": "Viscera Seer",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "backlog-fixes",
+      "expected_signals": [
+        "SAC_OUTLET"
+      ],
+      "note": "classic sac outlet positive control"
+    },
+    {
+      "name": "Meren of Clan Nel Toth",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Blink / Flicker": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-1 fixes",
+      "note": "graveyard return is reanimation, not blink"
+    },
+    {
+      "name": "Sram, Senior Edificer",
+      "expected_archetypes": {
+        "Voltron": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-1 fixes",
+      "note": "'cast an Equipment spell' is not spellslinger"
+    },
+    {
+      "name": "Tatyova, Benthic Druid",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-1 fixes",
+      "note": "landfall lifegain is not aristocrats"
+    },
+    {
+      "name": "Brago, King Eternal",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-1 fixes",
+      "note": "batch-exile blink phrasing 'then return those cards'"
+    },
+    {
+      "name": "Talrand, Sky Summoner",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-1 fixes",
+      "note": "spell_payoff survives via specific phrases"
+    },
+    {
+      "name": "Prosper, Tome-Bound",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-2 fixes",
+      "expected_signals": [
+        "REPEATABLE_VALUE_TOKENS"
+      ],
+      "forbidden_signals": [
+        "REPEATABLE_TOKEN_MAKER"
+      ],
+      "note": "Treasures are resources, not an army"
+    },
+    {
+      "name": "Magda, Brazen Outlaw",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-2 fixes",
+      "note": "dwarf-tap treasures: value engine"
+    },
+    {
+      "name": "Smothering Tithe",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-2 fixes",
+      "note": "the classic treasure engine piece"
+    },
+    {
+      "name": "Emry, Lurker of the Loch",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-2 fixes",
+      "note": "gate-2 right, pinned"
+    },
+    {
+      "name": "Aminatou, the Fateshifter",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-2 fixes",
+      "note": "blink fix generalization proof (gate-2)"
+    },
+    {
+      "name": "Wilhelt, the Rotcleaver",
+      "expected_archetypes": {
+        "Zombie Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-2 fixes",
+      "note": "aristocrats fix generalization proof (gate-2)"
+    },
+    {
+      "name": "Gadrak, the Crown-Scourge",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-3 fixes",
+      "expected_signals": [
+        "SELF_RESTRICTION"
+      ],
+      "note": "own attack drawback is not stax"
+    },
+    {
+      "name": "Lathril, Blade of the Elves",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-3 fixes",
+      "note": "tap-drain is life loss, not death-matters"
+    },
+    {
+      "name": "Araumi of the Dead Tide",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-3 fixes",
+      "note": "encore tokens are ephemeral (sacrificed at next end step)"
+    },
+    {
+      "name": "Zedruu the Greathearted",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-3 fixes",
+      "expected_signals": [
+        "DONATION"
+      ],
+      "note": "opponent gains control = donation, the reverse of theft | DONATION promoted"
+    },
+    {
+      "name": "Peacekeeper",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-3 fixes",
+      "note": "real symmetric stax keeps its read"
+    },
+    {
+      "name": "Ghired, Conclave Exile",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-3 fixes",
+      "note": "creature tokens still go wide (gate-3 control)"
+    },
+    {
+      "name": "Braids, Arisen Nightmare",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "'sacrifice an artifact, creature, ...' is a TYPE LIST, not artifact synergy"
+    },
+    {
+      "name": "Tergrid, God of Fright",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "expected_signals": [
+        "THEFT_CONTROL"
+      ],
+      "note": "theft-by-acquisition: opponent event + under your control"
+    },
+    {
+      "name": "Liesa, Shroud of Dusk",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "'spell, they lose' phrasing"
+    },
+    {
+      "name": "Yuriko, the Tiger's Shadow",
+      "expected_archetypes": {
+        "Ninja Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "singular tribal trigger 'a Ninja you control'"
+    },
+    {
+      "name": "Alela, Artful Provocateur",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "'artifact or enchantment spell' phrasing"
+    },
+    {
+      "name": "Goreclaw, Terror of Qal Sisma",
+      "expected_archetypes": {
+        "Stompy / Big Power": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "expected_signals": [
+        "POWER_MATTERS"
+      ],
+      "note": "positive power-matters context"
+    },
+    {
+      "name": "Smite the Monstrous",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stompy / Big Power": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "anti-big removal mentions 'power 4 or greater' but is NOT stompy"
+    },
+    {
+      "name": "Marneus Calgar",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-4 (Claude) fixes",
+      "note": "gate-4 right, pinned"
+    },
+    {
+      "name": "Elenda, the Dusk Rose",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-4 (Claude) fixes",
+      "expected_signals": [
+        "COUNTER_MARKER_SELF"
+      ],
+      "note": "self-counter growth, not counters-matter"
+    },
+    {
+      "name": "Korvold, Fae-Cursed King",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-5 fixes",
+      "expected_signals": [
+        "SELF_ATTACK_TRIGGER"
+      ],
+      "note": "own attack is the sac engine, not an attack-triggers theme"
+    },
+    {
+      "name": "Shalai, Voice of Plenty",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Superfriends / Planeswalkers": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-5 fixes",
+      "note": "'planeswalkers you control' in a protection LIST is not superfriends"
+    },
+    {
+      "name": "Toski, Bearer of Secrets",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-5 fixes",
+      "note": "board-wide combat-damage reward keeps the theme"
+    },
+    {
+      "name": "Niv-Mizzet, Parun",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-5 fixes",
+      "note": "gate-5 right, pinned"
+    },
+    {
+      "name": "Emmara, Soul of the Accord",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-5 fixes",
+      "note": "gate-5 right, pinned"
+    },
+    {
+      "name": "Kambal, Consul of Allocation",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-5 fixes",
+      "note": "gate-5 right, pinned"
+    },
+    {
+      "name": "Rin and Seri, Inseparable",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-5 fixes",
+      "note": "gate-5 right, pinned"
+    },
+    {
+      "name": "Muldrotha, the Gravetide",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "replay-permanents recast engine"
+    },
+    {
+      "name": "Selvala, Heart of the Wilds",
+      "expected_archetypes": {
+        "Stompy / Big Power": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "comparative power phrasing 'power is greater than'"
+    },
+    {
+      "name": "Kadena, Slinking Sorcerer",
+      "expected_archetypes": {
+        "Morph / Face-down": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "face-down theme detected"
+    },
+    {
+      "name": "Fell the Mighty",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stompy / Big Power": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-6 fixes",
+      "note": "anti-big removal with comparative power phrasing reads nothing"
+    },
+    {
+      "name": "Edgar Markov",
+      "expected_archetypes": {
+        "Vampire Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "gate-6 right, pinned"
+    },
+    {
+      "name": "Winota, Joiner of Forces",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Human Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "gate-6 right, pinned"
+    },
+    {
+      "name": "Omnath, Locus of Rage",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-6 fixes",
+      "note": "gate-6 right, pinned"
+    },
+    {
+      "name": "Atla Palani, Nest Tender",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-7 fixes",
+      "expected_signals": [
+        "UTILITY_TOKEN_MAKER"
+      ],
+      "note": "0/1 Eggs are sacrifice fodder, not an army"
+    },
+    {
+      "name": "Gishath, Sun's Avatar",
+      "expected_archetypes": {
+        "Dinosaur Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-7 fixes",
+      "note": "'Dinosaur creature cards' tribal phrasing"
+    },
+    {
+      "name": "Varina, Lich Queen",
+      "expected_archetypes": {
+        "Zombie Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-7 fixes",
+      "note": "'one or more Zombies' tribal phrasing"
+    },
+    {
+      "name": "The Gitrog Monster",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-7 fixes",
+      "note": "additional-land + lands-to-graveyard phrasings"
+    },
+    {
+      "name": "Teysa, Orzhov Scion",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-7 fixes",
+      "note": "gate-7 right, pinned"
+    },
+    {
+      "name": "Heliod, Sun-Crowned",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-7 fixes",
+      "note": "gate-7 right, pinned"
+    },
+    {
+      "name": "Kykar, Wind's Fury",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Ghave, Guru of Spores",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": " | remove-counter manipulation restored"
+    },
+    {
+      "name": "Mizzix of the Izmagnus",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Trostani, Selesnya's Voice",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Daretti, Scrap Savant",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Karlov of the Ghost Council",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Melek, Izzet Paragon",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": ""
+    },
+    {
+      "name": "Thassa, Deep-Dwelling",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-8 PASS (streak 1/2)",
+      "note": "batch-1 blink fix generalizing 7 batches later; was one of the 182 invisible commanders"
+    },
+    {
+      "name": "Mikaeus, the Unhallowed",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Human Tribal": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-9 fixes",
+      "note": "'non-Human' negation must not read as Human tribal"
+    },
+    {
+      "name": "Erebos, God of the Dead",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-9 fixes",
+      "note": "anti-lifegain static is hate tech, not a prison plan"
+    },
+    {
+      "name": "Breya, Etherium Shaper",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "'sacrifice two artifacts' plural"
+    },
+    {
+      "name": "Aurelia, the Warleader",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "extra combat defines the theme"
+    },
+    {
+      "name": "Rhys the Redeemed",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "gate-9 right, pinned"
+    },
+    {
+      "name": "Purphoros, God of the Forge",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "gate-9 right, pinned"
+    },
+    {
+      "name": "Slimefoot, the Stowaway",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Saproling Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "gate-9 right, pinned"
+    },
+    {
+      "name": "Taigam, Ojutai Master",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-9 fixes",
+      "note": "gate-9 right, pinned"
+    },
+    {
+      "name": "Kelsien, the Plague",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-10 fixes",
+      "note": "opponents' creatures dying is removal payoff, not aristocrats"
+    },
+    {
+      "name": "Toshiro Umezawa",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-10 fixes",
+      "note": "same directional death class"
+    },
+    {
+      "name": "Kraum, Ludevic's Opus",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-10 fixes",
+      "note": "'whenever an opponent casts...draw' is not slug"
+    },
+    {
+      "name": "Zacama, Primal Calamity",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-10 fixes",
+      "note": "untap-lands ramp is not lands-matter"
+    },
+    {
+      "name": "Kaalia of the Vast",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Dragon Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-10 fixes",
+      "note": "gate-10 right, pinned | self-attack whose effect puts creatures ATTACKING stays an attack theme"
+    },
+    {
+      "name": "Oloro, Ageless Ascetic",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-10 fixes",
+      "note": "gate-10 right, pinned"
+    },
+    {
+      "name": "Judith, the Scourge Diva",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-10 fixes",
+      "note": "gate-10 right, pinned"
+    },
+    {
+      "name": "Zur the Enchanter",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-11 fixes",
+      "note": "self-attack with NON-combat effect (tutor) is an engine event; no-comma name handling"
+    },
+    {
+      "name": "The Ur-Dragon",
+      "expected_archetypes": {
+        "Dragon Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-11 fixes",
+      "note": "gate-11 right, pinned"
+    },
+    {
+      "name": "Saskia the Unyielding",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-11 fixes",
+      "note": "gate-11 right, pinned"
+    },
+    {
+      "name": "Kresh the Bloodbraided",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-11 fixes",
+      "note": "gate-11 right, pinned"
+    },
+    {
+      "name": "Ayara, First of Locthwain",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-11 fixes",
+      "note": "gate-11 right, pinned"
+    },
+    {
+      "name": "Xenagos, God of Revels",
+      "expected_archetypes": {
+        "Stompy / Big Power": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "power-doubling pump"
+    },
+    {
+      "name": "Kozilek, Butcher of Truth",
+      "expected_archetypes": {
+        "Battlecruiser / Big Mana": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "annihilator"
+    },
+    {
+      "name": "Jhoira, Weatherlight Captain",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "'historic spell'"
+    },
+    {
+      "name": "Arcades, the Strategist",
+      "expected_archetypes": {
+        "Toughness / Defenders": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "'with defender'"
+    },
+    {
+      "name": "Ikra Shidiqi, the Usurper",
+      "expected_archetypes": {
+        "Toughness / Defenders": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "toughness lifegain payoff"
+    },
+    {
+      "name": "Tymna the Weaver",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "batch-11 gap fixes",
+      "note": "combat-damage draw presence | combat-damage payoff promoted"
+    },
+    {
+      "name": "Devour Flesh",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Toughness / Defenders": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "batch-11 gap fixes",
+      "note": "toughness-based removal reads nothing"
+    },
+    {
+      "name": "Grenzo, Dungeon Warden",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-12 fixes",
+      "note": "enters-with-counters (self) without manipulation is not a counters theme"
+    },
+    {
+      "name": "Estrid, the Masked",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate-batch-12 fixes",
+      "note": "Aura tokens are neither army nor value; token default is conservative now"
+    },
+    {
+      "name": "Marath, Will of the Wild",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-12 fixes",
+      "note": "counter-manipulation cost"
+    },
+    {
+      "name": "Reyhan, Last of the Abzan",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-12 fixes",
+      "note": "gate-12 right"
+    },
+    {
+      "name": "Kemba, Kha Regent",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate-batch-12 fixes",
+      "note": "gate-12 right, cat tokens with P/T"
+    },
+    {
+      "name": "Yarok, the Desecrated",
+      "expected_archetypes": {
+        "ETB Value": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "70pct promotions",
+      "note": "DOUBLES_ETB promoted to defining"
+    },
+    {
+      "name": "Kalamax, the Stormsire",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "70pct promotions",
+      "note": "spell_copy promoted"
+    },
+    {
+      "name": "Galea, Kindler of Hope",
+      "expected_archetypes": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "70pct promotions",
+      "note": "aura_equipment_payoff new defining"
+    },
+    {
+      "name": "Volo, Guide to Monsters",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ],
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "70pct promotions",
+      "note": "copies CREATURE spells; generic 'copy that spell' must not read spellslinger | graveyard mention is a NEGATIVE condition; copy-of lived only in reminder text. Clone/copy value archetype stays a known-gap (honest empty)."
+    },
+    {
+      "name": "Gargos, Vicious Watcher",
+      "expected_archetypes": {
+        "Hydra Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "F11 X-spells tribal",
+      "note": "the months-old known-gap: 'Hydra spells you cast cost'"
+    },
+    {
+      "name": "Goblin Warchief",
+      "expected_archetypes": {
+        "Goblin Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "F11 X-spells tribal",
+      "note": "tribal cost reduction phrasing"
+    },
+    {
+      "name": "Dragonspeaker Shaman",
+      "expected_archetypes": {
+        "Dragon Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "F11 X-spells tribal",
+      "note": "same class"
+    },
+    {
+      "name": "Archmage of Runes",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "F11 X-spells tribal",
+      "note": "generic 'instant spells you cast' must NOT read tribal"
+    },
+    {
+      "name": "Lord Windgrace",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #13",
+      "note": "CW fix: -11 ultimate's six Cats must not read Go Wide high (minus loyalty is not repeatable); land recursion must surface Lands"
+    },
+    {
+      "name": "Archangel Elspeth",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "positive control for the loyalty split: +1 token maker IS a repeatable engine"
+    },
+    {
+      "name": "Roon of the Hidden Realm",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "activated delayed-flicker phrasing (exile ... return that card ... next end step)"
+    },
+    {
+      "name": "Grand Arbiter Augustin IV",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "general opponent cost tax defines Stax (TAX_COST_INCREASE promoted)"
+    },
+    {
+      "name": "Thalia, Guardian of Thraben",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "symmetric noncreature tax is a stax plan"
+    },
+    {
+      "name": "Kopala, Warden of Waves",
+      "expected_archetypes": {
+        "Merfolk Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Stax / Prison": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #13",
+      "note": "targeting-conditional tax is protection (TARGETED_TAX), never Stax"
+    },
+    {
+      "name": "Hinata, Dawn-Crowned",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #13",
+      "note": "per-target tax must not read a prison plan; her deck is spellslinger"
+    },
+    {
+      "name": "Mogis, God of Slaughter",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Aristocrats": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #13",
+      "note": "opponent edict ('unless they sacrifice') is not YOUR sac outlet - direction"
+    },
+    {
+      "name": "Feather, the Redeemed",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "batch right pinned"
+    },
+    {
+      "name": "Savra, Queen of the Golgari",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "batch right pinned"
+    },
+    {
+      "name": "Ezuri, Claw of Progress",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "batch right pinned"
+    },
+    {
+      "name": "Wyleth, Soul of Steel",
+      "expected_archetypes": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "aura_equipment_payoff promotion generalizes to fresh commander"
+    },
+    {
+      "name": "Esika, God of the Tree",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #13",
+      "note": "DFC split + legendary-matters on a fresh commander"
+    },
+    {
+      "name": "Queen Marchesa",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #14",
+      "note": "CW fix: opponent-state-conditional deterrent token is not an army; MONARCH detected as politics"
+    },
+    {
+      "name": "Palace Jailer",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #14",
+      "note": "monarch control (non-commander)"
+    },
+    {
+      "name": "Tivit, Seller of Secrets",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "gate batch #14",
+      "note": "Treasure+Clue voting = value engine; the batch-2 class generalizing"
+    },
+    {
+      "name": "Brimaz, King of Oreskos",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #14",
+      "note": "attacking Cat tokens ARE an army - positive control for the deterrent guard"
+    },
+    {
+      "name": "Gisela, Blade of Goldnight",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #14",
+      "note": "asymmetric damage doubler = slug; replacement effect not read as trigger"
+    },
+    {
+      "name": "The First Sliver",
+      "expected_archetypes": {
+        "Sliver Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #14",
+      "note": "batch right pinned"
+    },
+    {
+      "name": "Omnath, Locus of Creation",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #14",
+      "note": "landfall high; slug rider defensible"
+    },
+    {
+      "name": "Ghyrson Starn, Kelermorph",
+      "expected_archetypes": {
+        "Pingers / Damage Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "ward REMINDER text must not feed COUNTERSPELL_INTERACTION; pinger class FIXED (pinger_payoff: 'deals exactly')"
+    },
+    {
+      "name": "Marchesa, the Black Rose",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "sac-to-rebuy attrition; dethrone counters co-primary FIXED (dethrone supporting -> medium)"
+    },
+    {
+      "name": "Yawgmoth, Thran Physician",
+      "expected_archetypes": {
+        "Minus Counters / Attrition": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "free sac outlet + -1/-1/proliferate"
+    },
+    {
+      "name": "Kwain, Itinerant Meddler",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "symmetric draw+life"
+    },
+    {
+      "name": "Syr Konrad, the Grim",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "all three highs are true - triple-theme commander"
+    },
+    {
+      "name": "Emiel the Blessed",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "activated flicker ', then return it to the battlefield'"
+    },
+    {
+      "name": "Multani, Yavimaya's Avatar",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "power scales with lands - land_payoff"
+    },
+    {
+      "name": "Animar, Soul of Elements",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "self-counters are fuel, never a Counters Matter deck; cast-creature engine class FIXED (creature_cast_payoff)"
+    },
+    {
+      "name": "Zaxara, the Exemplary",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "X Spells Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "X-spell class FIXED (x_spell_payoff); 0/0-with-counters Hydras are real bodies (counter-body guard), not fodder"
+    },
+    {
+      "name": "Grismold, the Dreadsower",
+      "expected_archetypes": {
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "symmetric plants genuinely central; token-death payoff FIXED ('creature token dies' in death_trigger)"
+    },
+    {
+      "name": "Rielle, the Everwise",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "discard-payoff class FIXED (discard_payoff: 'whenever you discard')"
+    },
+    {
+      "name": "Vito, Thorn of the Dusk Rose",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "gate batch #15 (PASS)",
+      "note": "drain phrasing 'loses that much life' = vocab known-gap | improvement-friendly floor at medium; drain via target-opponent form (104 cards measured)"
+    },
+    {
+      "name": "Chishiro, the Shattered Blade",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #16",
+      "note": "CW fix: wide-vs-tall exclusion - board-wide modified payoff demotes aura_equipment_payoff from Voltron defining"
+    },
+    {
+      "name": "Raffine, Scheming Seer",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #16",
+      "note": "'whenever YOU attack' player-scope form in attacks_or_combat family"
+    },
+    {
+      "name": "Miirym, Sentinel Wyrm",
+      "expected_archetypes": {
+        "Dragon Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #16",
+      "note": "tribal patterns skip the 'nontoken' qualifier"
+    },
+    {
+      "name": "Feldon of the Third Path",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #16",
+      "note": "GRAVEYARD_CLONE conjunction; ephemeral copies must never read Go Wide"
+    },
+    {
+      "name": "The Mimeoplasm",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #16",
+      "note": "batch-14 known-gap closed by GRAVEYARD_CLONE; self-counters stay low"
+    },
+    {
+      "name": "The Scarab God",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #16",
+      "note": "GRAVEYARD_CLONE class control (exile from yard -> token copy)"
+    },
+    {
+      "name": "Gyome, Master Chef",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #16",
+      "note": "Food is a value token, never an army"
+    },
+    {
+      "name": "Zada, Hedron Grinder",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #16",
+      "note": "batch right pinned"
+    },
+    {
+      "name": "Sauron, the Dark Lord",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Amass / Army": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "army combat payoff; amass class FIXED (amass_payoff)"
+    },
+    {
+      "name": "The Locust God",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "insects are a real army; draw-payoff co-primary FIXED (draw_trigger_payoff)"
+    },
+    {
+      "name": "Galadriel, Light of Valinor",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "ETB Value": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "M5 build fix (ability-word trigger class)",
+      "note": "Alliance-prefixed trigger must fire permanent_enters (968-card class)"
+    },
+    {
+      "name": "Kaervek, the Punisher",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "known-gaps session (GRAVEYARD_CLONE directional copy-it form)",
+      "note": "exile from your graveyard and copy it — genuine recast engine, rules-text form without copy-of | crime reminder says their graveyards but he recasts his OWN cards — not theft"
+    },
+    {
+      "name": "Sygg, River Cutthroat",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session (batch #8 gap, LOST_LIFE_PAYOFF detector)",
+      "note": "threshold lost-life payoff (lost 3 or more life this turn) — variable-number class, regex detector; 40 cards measured"
+    },
+    {
+      "name": "Old Stickfingers",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session (batch #5 gap: GRAVEYARD_SCALING + self_mill reveal forms)",
+      "note": "tutor-to-graveyard self-mill + Lhurgoyf-class P/T scaling; floor medium improvement-friendly"
+    },
+    {
+      "name": "Elder Brain",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session (Elder Brain theft phrasing, THEFT_EXILE conjunction)",
+      "note": "exile from opponent hand + you may play/cast — order-free same-line conjunction, 97 cards measured"
+    },
+    {
+      "name": "Gonti, Lord of Luxury",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Morph / Face-down": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "zone-before-exile order form. Data-drift caught live. Exile-face-down must NOT read Morph (directional morph_facedown rebuild)."
+    },
+    {
+      "name": "Chulane, Teller of Tales",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "cast-creature draw engine (batch #14/#15 gap) via creature_cast_payoff"
+    },
+    {
+      "name": "Anje Falkenrath",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "madness engine (batch #16 gap): 'whenever you discard' covers her untap payoff"
+    },
+    {
+      "name": "Nightveil Specter",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "multi-line theft class: exile trigger on one line, play permission on another (THEFT_EXILE v2) - replaced the dirty 'exiled with' tag phrase"
+    },
+    {
+      "name": "Colfenor's Plans",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "pre-build fix round (2026-07-05)",
+      "note": "own-card impulse must not read Theft; 'you can't cast more than one spell' is its OWN drawback, not Stax (directional stax split)"
+    },
+    {
+      "name": "Deekah, Fractal Theorist",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "0/0 Fractals get counters in the same clause -> real bodies (counter-body guard), token engine reads Go Wide"
+    },
+    {
+      "name": "Sheoldred, the Apocalypse",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "per-draw payoff commander wants forced draw (draw_trigger_payoff)"
+    },
+    {
+      "name": "Taii Wakeen, Perfect Shot",
+      "expected_archetypes": {
+        "Pingers / Damage Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "known-gaps session 2 (2026-07-05)",
+      "note": "noncombat-damage payoff class (pinger_payoff)"
+    },
+    {
+      "name": "Syr Gwyn, Hero of Ashvale",
+      "expected_archetypes": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #17 (PASS)",
+      "note": "equipment payoff + board attack trigger; Attack Triggers high also true"
+    },
+    {
+      "name": "Zaffai, Thunder Conductor",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #17 (PASS)",
+      "note": "magecraft primary; Go Wide high accepted (4/4s are a real win route, condition is plan-aligned not deterrent)"
+    },
+    {
+      "name": "Vorel of the Hull Clade",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #17 (PASS)",
+      "note": "counter-DOUBLING manipulation read via COUNTER_MARKER 'of counter on' — beat the blind prediction of empty"
+    },
+    {
+      "name": "Chainer, Nightmare Adept",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ],
+        "Reanimator": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #17 (PASS)",
+      "note": "recast engine via graveyard_recast; discard outlet feeds Reanimator medium"
+    },
+    {
+      "name": "Xanathar, Guild Kingpin",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ],
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "Stax true + Theft FIXED via THEFT_TOPDECK ('you may play the top card of their library', 37 measured)"
+    },
+    {
+      "name": "Greasefang, Okiba Boss",
+      "expected_archetypes": {
+        "Reanimator": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Graveyard Value / Recursion": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Vehicles": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "vehicle-matters class FIXED (vehicle_payoff: 'vehicle card from your graveyard' 8)"
+    },
+    {
+      "name": "Tinybones, Trinket Thief",
+      "expected_archetypes": {
+        "Forced Discard": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "opponent-discard payoff class FIXED (opponent_discard_payoff; 'an opponent discarded' rides the family)"
+    },
+    {
+      "name": "Derevi, Empyrial Tactician",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #17 (PASS)",
+      "note": "board-scope combat trigger (Toski precedent); untap/tap tempo engine has no archetype — known-gap"
+    },
+    {
+      "name": "Anikthea, Hand of Erebos",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ],
+        "Enchantments Matter": [
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "Enchantments Matter archetype CREATED (her form: 'enchantment creatures you control'); triple-high with GY Value + Clones is her exact deck"
+    },
+    {
+      "name": "Preston, the Vanisher",
+      "expected_archetypes": {
+        "Blink / Flicker": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "ETB Value": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #17 (PASS)",
+      "note": "cheat-into-play copy payoff reads directional lows; SAC_OUTLET is genuine (sacrifice five Illusions); 0/1 copies must not read as an army"
+    },
+    {
+      "name": "Phelddagrif",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "the batch-18 CW: 'target opponent creates' Hippo gifts must never read Go Wide; hug read via 'target opponent may draw'"
+    },
+    {
+      "name": "Hunted Horror",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "drawback token-gift on an undercosted beater: neither your army nor a hug plan"
+    },
+    {
+      "name": "Fynn, the Fangbearer",
+      "expected_archetypes": {
+        "Poison / Infect": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "poison tag existed unbanded until batch 18 - pure mapping fix"
+    },
+    {
+      "name": "Burakos, Party Leader",
+      "expected_archetypes": {
+        "Party": [
+          "high",
+          "very_high"
+        ],
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "party co-primary; self-attack VALUE trigger must not read attack theme (Zur rule)"
+    },
+    {
+      "name": "Circu, Dimir Lobotomist",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ],
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "pre-build fix round (2026-07-05)",
+      "note": "exile-mill class FIXED (EXILE_MILL detector: targeted top-exile + NO play permission); Mill+Stax co-primary is his exact deck"
+    },
+    {
+      "name": "Hazezon, Shaper of Sand",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "Sand Warrior army real; desert-landfall is a 1-card class (honest gap, per-card patch rejected)"
+    },
+    {
+      "name": "Bruna, Light of Alabaster",
+      "expected_archetypes": {
+        "Voltron": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "aura-attach-from-zones class reads only supporting lows (honest underband known-gap)"
+    },
+    {
+      "name": "Commodore Guff",
+      "expected_archetypes": {
+        "Superfriends / Planeswalkers": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "superfriends + burn finisher; loyalty-counter COUNTER_MARKER accepted (proliferate guidance overlaps)"
+    },
+    {
+      "name": "Lathliss, Dragon Queen",
+      "expected_archetypes": {
+        "Dragon Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "nontoken qualifier (batch 16) generalized; 5/5 token army real"
+    },
+    {
+      "name": "Satya, Aetherflux Genius",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Energy": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "energy archetype FIXED ('{e}' 146); ephemeral guard still holds (no Go Wide); Clones high genuine (attack copies)"
+    },
+    {
+      "name": "Karametra, God of Harvests",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #18 (FAIL->fixed)",
+      "note": "the session-2 archetype validated on a virgin commander same-day"
+    },
+    {
+      "name": "Annul",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Enchantments Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "guard for the rejected 'enchantment spell' phrase (8 counterspell FPs) — a counter of enchantments is not an enchantments deck"
+    },
+    {
+      "name": "Krark, the Thumbless",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "coverage fix round post-#18 (2026-07-05)",
+      "note": "guard for the excluded 'copy that spell' form — spell-copy is Spellslinger, not Clones (the Volo-form decision)"
+    },
+    {
+      "name": "Jorn, God of Winter",
+      "expected_archetypes": {
+        "Snow Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "batch-19 CW: self-attack untap of SNOW PERMANENTS is mana, not combat (directional untap exemption)"
+    },
+    {
+      "name": "Nine-Fingers Keene",
+      "expected_archetypes": {
+        "Gates Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "batch-19 CW: saboteur form '<name> deals combat damage' + Gates value = engine (Zur rule extended)"
+    },
+    {
+      "name": "Yidris, Maelstrom Wielder",
+      "expected_archetypes": {
+        "Cascade": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "batch-19 CW: saboteur cascade-grant is spell value, not attack theme"
+    },
+    {
+      "name": "Tovolar, Dire Overlord",
+      "expected_archetypes": {
+        "Werewolf Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Wolf Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "or-conjunction tribal pattern ('a Wolf or Werewolf you control'); board-scope combat draw stays a true attack theme"
+    },
+    {
+      "name": "Sliver Overlord",
+      "expected_archetypes": {
+        "Sliver Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "tribal tutor pattern ('search your library for a Sliver card'); THEFT_CONTROL on gain-control is genuine"
+    },
+    {
+      "name": "Sefris of the Hidden Ways",
+      "expected_archetypes": {
+        "Dungeons / Venture": [
+          "high",
+          "very_high"
+        ],
+        "Reanimator": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "dungeon archetype created; creature-to-graveyard reanimation loop is her true co-primary"
+    },
+    {
+      "name": "Marisi, Breaker of the Coil",
+      "expected_archetypes": {
+        "Goad / Forced Combat": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "goad archetype created; combat-restriction Stax high also true"
+    },
+    {
+      "name": "Grolnok, the Omnivore",
+      "expected_archetypes": {
+        "Frog Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "singular tribal pattern generalized; croak play-from-exile engine partially read via self_mill lows"
+    },
+    {
+      "name": "Yennett, Cryptic Sovereign",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "honest empty: the Zur rule correctly suppressed her self-attack free-cast trigger; odd-topdeck cheat class = known-gap"
+    },
+    {
+      "name": "Lynde, Cheerful Tormentor",
+      "expected_archetypes": {},
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "honest empty: curse-matters is a 2-card class (rejected per Jetmir precedent)"
+    },
+    {
+      "name": "Godo, Bandit Warlord",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "control for the directional untap: 'untap it and all Samurai' IS combat-feeding (Kaalia class)"
+    },
+    {
+      "name": "Ragavan, Nimble Pilferer",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ],
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #19 (FAIL->fixed)",
+      "note": "improved by the batch-19 fix: saboteur value reads as his real Theft+Treasures plan, not a false attack theme"
+    },
+    {
+      "name": "Otrimi, the Ever-Playful",
+      "expected_archetypes": {
+        "Mutate": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Reanimator": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "batch-20 double CW: to-HAND regrowth is neither combat deployment nor reanimation (directional reanimation tag + battlefield-compound boundary)"
+    },
+    {
+      "name": "Elsha of the Infinite",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "prowess topdeck caster; casting from YOUR OWN top must never read Theft"
+    },
+    {
+      "name": "Kalemne, Disciple of Iroas",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "the experience-counter class rides the creature-cast archetype"
+    },
+    {
+      "name": "Imodane, the Pyrohammer",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ],
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "single-target-burn-to-all payoff: both bands true; her exact pinger phrasing is a vocab known-gap"
+    },
+    {
+      "name": "Gallia of the Endless Dance",
+      "expected_archetypes": {
+        "Satyr Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "whitelist fix: satyr was missing from _CREATURE_TYPES"
+    },
+    {
+      "name": "Reaper King",
+      "expected_archetypes": {
+        "Scarecrow Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "two new tribal patterns: 'other X creatures' anthem + 'another X you control' trigger"
+    },
+    {
+      "name": "Uril, the Miststalker",
+      "expected_archetypes": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "'for each aura attached' (8/8 clean) joins aura_equipment_payoff"
+    },
+    {
+      "name": "Rafiq of the Many",
+      "expected_archetypes": {
+        "Voltron": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "attacks_alone (exalted family) as Voltron SUPPORTING - defining would make Noble Hierarch lie"
+    },
+    {
+      "name": "Noble Hierarch",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Voltron": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "guard: carries exalted reminder but is a mana dork, not a Voltron plan"
+    },
+    {
+      "name": "Raggadragga, Goreguts Boss",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "the #20 standing gap CLOSED by CONDITIONAL_CAST_RIDER (batch #22): the 7-mana rider demotes spell_payoff to supporting"
+    },
+    {
+      "name": "Obeka, Brute Chronologist",
+      "expected_archetypes": {},
+      "must_not_have": {},
+      "source": "calibration batch #20 (FAIL->fixed)",
+      "note": "honest empty: end-the-turn tricks have no archetype (tiny class)"
+    },
+    {
+      "name": "Rule of Law",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "pre-build fix round (2026-07-05)",
+      "note": "control for the directional stax split: 'each player can't cast more than' IS symmetric stax"
+    },
+    {
+      "name": "Ashiok, Nightmare Weaver",
+      "expected_archetypes": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "pre-build fix round (2026-07-05)",
+      "note": "EXILE_MILL: exiles opponents' library top with no play permission — mill, never theft"
+    },
+    {
+      "name": "Felothar the Steadfast",
+      "expected_archetypes": {
+        "Toughness / Defenders": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "full build #1 friction fix (2026-07-05)",
+      "note": "full build #1 friction: 'damage equal to its toughness' + didnt-have-defender forms were missing from toughness_matters; sac-outlet draw is a genuine secondary"
+    },
+    {
+      "name": "Doran, the Siege Tower",
+      "expected_archetypes": {
+        "Toughness / Defenders": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "full build #1 friction fix (2026-07-05)",
+      "note": "the assigns-by-toughness class (21 measured: Arcades, Bedrock Tortoise, Ancient Lumberknot...)"
+    },
+    {
+      "name": "Moraug, Fury of Akoum",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "landfall extra-combat: the M5 ability-word strip + extra_combat both firing"
+    },
+    {
+      "name": "Mirko, Obsessive Theorist",
+      "expected_archetypes": {
+        "Reanimator": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Graveyard Value / Recursion": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS) → FIXED by the wildcard mechanism (2026-07-06)",
+      "note": "the FOUNDING qualifier-interruption member, closed by the GENERAL mechanism: reanimation 'creature card * from your graveyard to the battlefield' — Mirko reads Reanimator very_high ('with power less than Mirko's' fits the 40-char same-clause gap)"
+    },
+    {
+      "name": "Ranar the Ever-Watchful",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "spirit-token engine real; foretell/exile-matters class = known-gap"
+    },
+    {
+      "name": "Osgir, the Reconstructor",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "high",
+          "very_high"
+        ],
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "GRAVEYARD_CLONE generalization: caught the PLURAL 'tokens that are copies' form the singular tag would miss"
+    },
+    {
+      "name": "Strefan, Maurer Progenitor",
+      "expected_archetypes": {
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "Blood engine + Kaalia-style cheat ('tapped and attacking' = combat-feed); Vampire tribal cheat-from-hand form = known-gap"
+    },
+    {
+      "name": "Karlach, Fury of Avernus",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "extra combats; board 'whenever you attack' form"
+    },
+    {
+      "name": "Dina, Soul Steeper",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "lifegain-drain reads very_high via group_slug; sac outlet genuine secondary"
+    },
+    {
+      "name": "Nylea, God of the Hunt",
+      "expected_archetypes": {
+        "Devotion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS) → FIXED post-30 fix round",
+      "note": "FIXED post-30: the Devotion archetype ('devotion to' 67/67) closed her #21 honest empty; god conditional-creature structure did not misfire"
+    },
+    {
+      "name": "Birgi, God of Storytelling",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "ritual storm; ALSO the rider-exclusion control: no 'if' rider, keeps Spellslinger high"
+    },
+    {
+      "name": "Myrkul, Lord of Bones",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #21 (PASS)",
+      "note": "death-to-enchantment-copy engine; both bands true"
+    },
+    {
+      "name": "Isperia, Supreme Judge",
+      "expected_archetypes": {
+        "Pillowfort / Defense": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "batch-22 CW: 'whenever a creature attacks YOU' is incoming defense, never your attack theme (INCOMING_ATTACK_TRIGGER)"
+    },
+    {
+      "name": "Hallar, the Firefletcher",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "batch-22 CW: kicked-rider demotes spell_payoff; kicker class = known-gap (honest lows)"
+    },
+    {
+      "name": "Alania, Divergent Storm",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "control: her rider names instant/sorcery - stays genuine spellslinger"
+    },
+    {
+      "name": "Tom Bombadil",
+      "expected_archetypes": {
+        "Sagas Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "sagas archetype created; 'lore counter' rejected (would band every printed Saga)"
+    },
+    {
+      "name": "Gisa, the Hellraiser",
+      "expected_archetypes": {
+        "Zombie Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Skeleton Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "plural pair-anthem pattern ('Skeletons and Zombies you control'); crime tokens are a real army"
+    },
+    {
+      "name": "Kagha, Shadow Archdruid",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "'from among cards in your graveyard' form; her self-attack mill is an engine (Zur rule held)"
+    },
+    {
+      "name": "Millicent, Restless Revenant",
+      "expected_archetypes": {
+        "Spirit Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "quadruple-high read all true (tribal + tokens + board combat + death payoff)"
+    },
+    {
+      "name": "Raff Capashen, Ship's Mage",
+      "expected_archetypes": {
+        "Artifacts Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Flash / Instant Speed": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "right-ish direction from REMINDER-text evidence - the tags-see-reminder family is deliberate (attacks_alone/poison rely on it); flash-enabler class = known-gap; FIXED post-#25: flash archetype created; Artifacts read stands"
+    },
+    {
+      "name": "Vish Kal, Blood Arbiter",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "sac-scaling counters; honest medium via 3 supporting"
+    },
+    {
+      "name": "Ghen, Arcanum Weaver",
+      "expected_archetypes": {
+        "Enchantments Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "enchantment recursion reads supporting lows - honest underband"
+    },
+    {
+      "name": "Kodama of the East Tree",
+      "expected_archetypes": {
+        "ETB Value": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #22 (FAIL->fixed)",
+      "note": "deploy-chain engine reads honest ETB lows; put-from-hand chain class = known-gap"
+    },
+    {
+      "name": "Wyll, Blade of Frontiers",
+      "expected_archetypes": {
+        "Dice Rolling": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "honest near-empty: dice-roll class unread (known-gap); self +1/+1 counters must never read broad Counters; FIXED post-#25: dice archetype created (2-member class with Mr. House)"
+    },
+    {
+      "name": "Caesar, Legion's Emperor",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "sac-on-attack engine; Go Wide stuck at low because modal BULLETS break the same-line token conjunction (known-gap, recurring layout cause #2); FIXED post-#25: modal-bullet merge: bullets now belong to their header ability"
+    },
+    {
+      "name": "Errant and Giada",
+      "expected_archetypes": {
+        "Flash / Instant Speed": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "honest empty: flash-enabler class (2nd member with Raff — now measurable); casting from YOUR OWN top must never read Theft; FIXED post-#25: flash archetype created (2-member class with Raff)"
+    },
+    {
+      "name": "Otharri, Suns' Glory",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #23 (PASS)",
+      "note": "experience rebels: 'tapped and attacking' same-line = combat-feed + token engine, both true"
+    },
+    {
+      "name": "Neyali, Suns' Vanguard",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Theft": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "token-attack trigger form 'one or more TOKENS you control attack' misses the attack family (known-gap); her self-impulse must never read Theft; FIXED post-#25: 'you control attack' plural-subject form added to the trigger family"
+    },
+    {
+      "name": "Aeve, Progenitor Ooze",
+      "expected_archetypes": {
+        "Ooze Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Storm": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "tribal caught 'each other Ooze you control'; storm keyword class = known-gap; FIXED post-#25: storm archetype created ('storm (' keyword form; naked substring rejected)"
+    },
+    {
+      "name": "Baeloth Barrityl, Entertainer",
+      "expected_archetypes": {
+        "Goad / Forced Combat": [
+          "high",
+          "very_high"
+        ],
+        "Treasures / Value Engine": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #23 (PASS)",
+      "note": "the #19 goad archetype validating on a fresh commander; goaded-dies Treasure engine true"
+    },
+    {
+      "name": "Shanid, Sleepers' Scourge",
+      "expected_archetypes": {
+        "Legendary Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #23 (PASS)",
+      "note": "LEGENDARY_MATTERS validation on fresh commander"
+    },
+    {
+      "name": "Tayam, Luminous Enigma",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Reanimator": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #23 (PASS)",
+      "note": "counter-fueled recursion loop reads honest medium; 'PERMANENT card from your graveyard to the battlefield' reanimation variant = known-gap"
+    },
+    {
+      "name": "Slogurk, the Overslime",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "lands-GY at honest lows: 'a land card IS put into your graveyard' singular misses the Gitrog plural phrase (known-gap); FIXED post-#25: singular 'a land card is put into your graveyard' added"
+    },
+    {
+      "name": "Gavi, Nest Warden",
+      "expected_archetypes": {
+        "Wheels / Forced Draw": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Cycling": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "cycling commander read via second-draw payoff + token engine; cycling keyword class = known-gap; FIXED post-#25: cycling archetype created"
+    },
+    {
+      "name": "Sidisi, Undead Vizier",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #24 (PASS)",
+      "note": "exploit class = known-gap; reminder-text sacrifice reads honest low; exploit joins Aristocrats supporting (medium floor)"
+    },
+    {
+      "name": "Satoru Umezawa",
+      "expected_archetypes": {
+        "Ninjutsu / Sneak": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "honest empty: ninjutsu class unread (no tribal word either) — measurable known-gap; FIXED post-#25: ninjutsu archetype created"
+    },
+    {
+      "name": "Kamiz, Obscura Oculus",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Voltron": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #24 (PASS)",
+      "note": "sneak-attack enabler: unblockable+double strike = genuine voltron-ish support"
+    },
+    {
+      "name": "Anax and Cymede",
+      "expected_archetypes": {
+        "Targeted Spell Payoff / Heroic": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "heroic ability-word class = known-gap (trigger family reads, no archetype); anthem low honest; FIXED post-#25: the Gargos/Anax/Ivy family archetype created"
+    },
+    {
+      "name": "Malfegor",
+      "expected_archetypes": {},
+      "must_not_have": {},
+      "source": "calibration batch #24 (PASS)",
+      "note": "one-shot ETB discard+edict reads honest lows"
+    },
+    {
+      "name": "Prime Speaker Zegana",
+      "expected_archetypes": {
+        "Stompy / Big Power": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "'greatest power among' comparative missing from POWER_MATTERS forms = known-gap; honest lows; FIXED post-#25: 'greatest power among' comparative added to POWER_MATTERS"
+    },
+    {
+      "name": "Uro, Titan of Nature's Wrath",
+      "expected_archetypes": {
+        "Graveyard Value / Recursion": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #24 (PASS)",
+      "note": "the Zur rule suppressed his value 'enters or attacks' (control); escape + land-put-from-hand forms = known-gaps; escape_gy joins GY supporting (medium floor)"
+    },
+    {
+      "name": "Tazri, Beacon of Unity",
+      "expected_archetypes": {
+        "Party": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #24 (PASS)",
+      "note": "the #18 Party archetype validating on a fresh commander"
+    },
+    {
+      "name": "Gyrus, Waker of Corpses",
+      "expected_archetypes": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ],
+        "Graveyard Value / Recursion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #24 (PASS)",
+      "note": "attack reanimate-copy triple-high all true; his END-OF-COMBAT ephemeral copies must never read Go Wide"
+    },
+    {
+      "name": "Gorion, Wise Mentor",
+      "expected_archetypes": {
+        "Adventures Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "honest empty: adventure class unread (known-gap); copying ADVENTURE spells (half creatures) must not read Spellslinger; FIXED post-#25: adventures archetype created"
+    },
+    {
+      "name": "Lonis, Cryptozoologist",
+      "expected_archetypes": {
+        "Theft": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "clue-steal reads genuine THEFT_CONTROL ('under your control'); investigate/clue class = known-gap"
+    },
+    {
+      "name": "Zevlor, Elturel Exile",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "multiplayer copy engine"
+    },
+    {
+      "name": "Balmor, Battlemage Captain",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "instant/sorcery aggro pump"
+    },
+    {
+      "name": "Eriette of the Charmed Apple",
+      "expected_archetypes": {
+        "Pillowfort / Defense": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "the #22 Pillowfort archetype validating fresh; aura-drain triple with Stax ATTACK_RESTRICTION all true"
+    },
+    {
+      "name": "The Wise Mothman",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "mill-counters hybrid: counters half right; PASSIVE mill form 'cards are milled' = known-gap"
+    },
+    {
+      "name": "Bright-Palm, Soul Awakener",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "backup + counter-doubling (the Vorel manipulation class)"
+    },
+    {
+      "name": "Mr. House, President and CEO",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Dice Rolling": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "dice-trigger robots are a real army; dice-roll class now has 2 members (with Wyll) = measurable known-gap; FIXED post-#25: dice archetype created"
+    },
+    {
+      "name": "Old Rutstein",
+      "expected_archetypes": {
+        "Go Wide": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #25 (PASS)",
+      "note": "self-mill value engine; IMPERATIVE mill form ('mill a card') = 3rd member of the family (Kagha, Tayam)"
+    },
+    {
+      "name": "Ivy, Gleeful Spellthief",
+      "expected_archetypes": {
+        "Voltron": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Targeted Spell Payoff / Heroic": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-#25 fix round (2026-07-05)",
+      "note": "targeted-spell-payoff/heroic family (Gargos/Anax/Ivy — 3+ members, the ripest archetype candidate); spell_copy correctly narrow; FIXED post-#25: family archetype created"
+    },
+    {
+      "name": "Beluna Grandsquall",
+      "expected_archetypes": {
+        "Adventures Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Mill": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #26 (PASS)",
+      "note": "Adventures Matter validating fresh (post-#25 archetype); adventure side 'Mill seven cards. Then put... into your hand' is SELF-fill card advantage — must never read opponent Mill"
+    },
+    {
+      "name": "Farideh, Devil's Chosen",
+      "expected_archetypes": {
+        "Dice Rolling": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS)",
+      "note": "Dice Rolling validating fresh (post-#25 archetype); ability-word prefix 'Dark One's Own Luck —' stripped by the M5 fix; tags carry the inert 'enchantress' draw-a-card landmine (known, does not feed mapping)"
+    },
+    {
+      "name": "Yeva, Nature's Herald",
+      "expected_archetypes": {
+        "Flash / Instant Speed": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS)",
+      "note": "Flash/Instant Speed validating fresh (post-#25 archetype) on the ENABLER form ('as though they had flash') — the class that motivated it (Raff/Errant & Giada)"
+    },
+    {
+      "name": "Daxos the Returned",
+      "expected_archetypes": {
+        "Enchantments Matter": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS)",
+      "note": "enchantment-cast payoff + repeatable X/X Spirit token engine (real bodies scaling with experience counters — counter-body class); experience read via SCALES_WITH, no false Counters band"
+    },
+    {
+      "name": "Ishkanah, Grafwidow",
+      "expected_archetypes": {
+        "Spider Tribal": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #26 (PASS, partial)",
+      "note": "GAP: delirium class ('four or more card types among cards in your graveyard') unread — GY-card-types payoff family, measurable; one-shot ETB tokens correctly NOT Go Wide (guard held)"
+    },
+    {
+      "name": "Rakdos, Lord of Riots",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ],
+        "Life Loss / Group Slug": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS)",
+      "note": "punisher-fed cost reduction: Animar-form creature cost reduction + LOST_LIFE_PAYOFF matched the cast condition 'an opponent lost life this turn' — both highs true"
+    },
+    {
+      "name": "Kathril, Aspect Warper",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS, partial)",
+      "note": "GAP: keyword-counter class (named ability counters placed from GY keywords) + GY-as-resource dependency unread; final +1/+1 correctly read COUNTER_MARKER_SELF (goes on Kathril)"
+    },
+    {
+      "name": "Yasharn, Implacable Earth",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #26 (PASS, partial)",
+      "note": "GAP (predicted blind): symmetric hatebear stax 'Players can't pay life or sacrifice nonland permanents' not in stax vocab — measurable form; anti-sac HATE must never read Aristocrats (directional sacrifice_outlet guard)"
+    },
+    {
+      "name": "Vadrik, Astral Archmage",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #26 (PASS, partial)",
+      "note": "GAP (ripest of the batch): typed spell cost-reduction 'Instant and sorcery spells you cast cost {X} less' does not band Spellslinger — the Goblin Electromancer family, very measurable; self +1/+1 (COUNTER_MARKER_SELF) must never band Counters high; day/night class measured-rejected earlier"
+    },
+    {
+      "name": "Volrath, the Shapestealer",
+      "expected_archetypes": {
+        "Minus Counters / Attrition": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #26 (PASS)",
+      "note": "GAP (predicted blind): clone form 'becomes a copy of target creature' outside the Clones phrases ('as a copy of'/'token that's a copy') — watch the Krark guard if extending; any-counter payoff reads via Minus Counters high (directional truth)"
+    },
+    {
+      "name": "Anthousa, Setessan Hero",
+      "expected_archetypes": {
+        "Targeted Spell Payoff / Heroic": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27",
+      "note": "Targeted Spell Payoff/Heroic validating fresh (heroic ability-word form); Warrior Tribal high from her animated-land token type = plan-aligned watch-item (not pinned, free to change)"
+    },
+    {
+      "name": "Satsuki, the Living Lore",
+      "expected_archetypes": {
+        "Sagas Matter": [
+          "high",
+          "very_high"
+        ],
+        "Enchantments Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27",
+      "note": "Sagas Matter validating fresh (#22 archetype); Counters Matter high via lore-counter MANIPULATION is the Vorel class (proliferate genuinely accelerates Sagas — true, not pinned)"
+    },
+    {
+      "name": "Higure, the Still Wind",
+      "expected_archetypes": {
+        "Ninjutsu / Sneak": [
+          "high",
+          "very_high"
+        ],
+        "Ninja Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #27",
+      "note": "Ninjutsu validating fresh (post-#25) + tribal tutor pattern (#19); GUARD: his saboteur self-trigger ('Higure deals combat damage to a player' → tutor-to-hand = VALUE) must never band Attack — the #19/#20 boundary"
+    },
+    {
+      "name": "Aragorn, King of Gondor",
+      "expected_archetypes": {
+        "Group Hug / Politics": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27",
+      "note": "MONARCH detector (#14) validating fresh; GAP: attack-enabler half unread — BLOCK_RESTRICTION on your OWN attack trigger ('creatures can't block this turn') is offense feeding combat, banded Stax low instead (can't-block-as-offense form, measurable)"
+    },
+    {
+      "name": "Marchesa, Dealer of Death",
+      "expected_archetypes": {
+        "Crimes Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27 fix round",
+      "note": "FIXED batch-27: Crimes Matter archetype created (crime class hit 2 commander-members — conditional-rider precedent); 'you commit a crime' 19 + 'you've committed a crime' 7, opponent-direction form excluded"
+    },
+    {
+      "name": "Henzie \"Toolbox\" Torre",
+      "expected_archetypes": {
+        "Creature Spells Matter": [
+          "high",
+          "very_high"
+        ],
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27",
+      "note": "blitz value engine: creature-cast payoff + death-value both true; Aristocrats reads via the blitz REMINDER's 'When this creature dies, draw a card' — tags-see-reminder family landing defensible (blitzed creatures die every turn); blitz keyword class = known-gap"
+    },
+    {
+      "name": "Amalia Benavides Aguirre",
+      "expected_archetypes": {
+        "Lifegain Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27 fix round",
+      "note": "FIXED batch-27: Lifegain Matters archetype created (pure mapping fix, Fynn precedent — lifegain_payoff tag existed unmapped); explore keyword = known-gap; her +1/+1 explore counter correctly reads SELF"
+    },
+    {
+      "name": "Jhoira of the Ghitu",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Counters Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "COUNTER_CLOCK"
+      ],
+      "source": "calibration batch #27 fix round (the CW)",
+      "note": "THE batch-27 CW: 'put four time counters on the exiled card' banded Counters Matter high — but suspend time counters are a COUNTDOWN (fewer = casts sooner; proliferate is anti-plan). FIXED: COUNTER_CLOCK sense (suspend-grant context, same line, 12/12 vs 27 accumulators measured); suspend archetype itself = known-gap (honest empty)"
+    },
+    {
+      "name": "Phylath, World Sculptor",
+      "expected_archetypes": {
+        "Lands / Landfall": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27",
+      "note": "Landfall ability-word stripped by the M5 fix; Counters high true (landfall places counters, proliferate genuine); Go Wide low = honest under-band (his Plants come from a scaled ONE-SHOT ETB — the guard is correct)"
+    },
+    {
+      "name": "Inalla, Archmage Ritualist",
+      "expected_archetypes": {
+        "Wizard Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #27",
+      "note": "eminence wizard copies: tribal via 'another nontoken Wizard you control' (#20 pattern + #16 nontoken skip) + 'token that's a copy' Clones; GUARD: her copies exile at end of turn — EPHEMERAL must keep Go Wide out (Feldon class)"
+    },
+    {
+      "name": "Kate Stewart",
+      "expected_archetypes": {
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #27 fix round (control)",
+      "note": "CONTROL for the COUNTER_CLOCK split: time-counter ACCUMULATOR payoff ('whenever you put one or more time counters on a permanent you control' → Soldier tokens) — the keep side (27 cards) where more counters IS the plan; her token engine must survive the clock exclusion"
+    },
+    {
+      "name": "Alaundo the Seer",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #27 fix round (control)",
+      "note": "2nd member of the countdown-grant class: grants the suspend clock TEXTUALLY ('When the last time counter is removed... you may cast it') without the word suspend — the alternation covers 'last time counter is removed' (the #18 audit-the-alternation lesson)"
+    },
+    {
+      "name": "Vadmir, New Blood",
+      "expected_archetypes": {
+        "Crimes Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #28 (PASS)",
+      "note": "Crimes Matter (#27 archetype) validating fresh; his crime counters go on VADMIR — COUNTER_MARKER_SELF, self-growth must never band Counters Matter high"
+    },
+    {
+      "name": "Trelasarra, Moon Dancer",
+      "expected_archetypes": {
+        "Lifegain Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS)",
+      "note": "Lifegain Matters (#27 archetype) validating fresh; Life Loss medium via life_change acceptable (Amalia precedent); her counter is SELF"
+    },
+    {
+      "name": "Fain, the Broker",
+      "expected_archetypes": {
+        "Toolbox / Goodstuff": [
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS)",
+      "note": "MODAL_TOOLBOX validating fresh on a virgin member of the measured 4-commander class (4 activated lines) — menu warning fired; per-mode bands (Counters/Artifacts/Aristocrats/Treasures) are OPTIONS per §7.0b"
+    },
+    {
+      "name": "Light-Paws, Emperor's Voice",
+      "expected_archetypes": {
+        "Voltron": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS, partial)",
+      "note": "GAP (predicted blind): aura-cast-enters payoff form 'Whenever an Aura you control enters, if you cast it' not in aura_equipment_payoff — measurable; TUTOR_CONDITIONAL reads the Aura tutor"
+    },
+    {
+      "name": "Neheb, the Worthy",
+      "expected_archetypes": {
+        "Minotaur Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #28 (PASS)",
+      "note": "tribal via 'Other Minotaurs you control' (#20 pattern); GUARD: saboteur self-trigger with SYMMETRIC DISCARD effect = value, never Attack (#19 boundary); gap: 'each player discards' hellbent half unread (small)"
+    },
+    {
+      "name": "Ulamog, the Ceaseless Hunger",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #28 (PASS, honest empty)",
+      "note": "GUARD: 'Whenever Ulamog attacks, defending player exiles top 20' = noncombat VALUE (#19 boundary). GAPS: defending-player exile-mill form (EXILE_MILL only knows targeted forms), eldrazi-titan battlecruiser class (no annihilator text)"
+    },
+    {
+      "name": "Runo Stromkirk",
+      "expected_archetypes": {
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS)",
+      "note": "DFC split working (Esika class): Krothuss's copies enter TAPPED AND ATTACKING = creature deployment feeding combat — the Kaalia side of the #19 boundary, Attack high TRUE; 'token that's a copy' → Clones"
+    },
+    {
+      "name": "Marina Vendrell",
+      "expected_archetypes": {},
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS, partial)",
+      "note": "GAPS (predicted blind): rooms/doors class ('lock or unlock a door', 'Room you control' — new mechanic, measurable) and enchantment-dig-to-hand form ('Put all enchantment cards from among them into your hand') not in enchantment_payoff"
+    },
+    {
+      "name": "Ms. Bumbleflower",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 (PASS, partial)",
+      "note": "Counters high true (broad 'counter on target creature'); Spellslinger high defensible per the Birgi no-rider precedent (any-spell volume IS her plan) — not pinned; GAP: gift-draw hug form 'target opponent DRAWS a card' missing — group_hug only has 'target opponent may draw' (alternation, measurable)"
+    },
+    {
+      "name": "Athreos, God of Passage",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Devotion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #28 → FIXED post-30 fix round",
+      "note": "FIXED post-30: death_trigger += 'another creature you own dies' (1/1 qualifier variant) → Aristocrats high; Devotion archetype created ('devotion to' 67) → his god clause reads. Punisher-choice form ('unless target opponent pays 3 life') still unread; the GENERAL qualifier-interruption mechanism still open"
+    },
+    {
+      "name": "Baral, Chief of Compliance",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "2ND ELECTROMANCER MEMBER (with Vadrik #26): typed cost-reduction 'Instant and sorcery spells you cast cost {1} less' does not band Spellslinger — the gap is now firmly measurable; when fixed he should read Spellslinger high (pin stays green)"
+    },
+    {
+      "name": "Medomai the Ageless",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "SELF_RESTRICTION"
+      ],
+      "source": "calibration batch #29 fix round (CW 1)",
+      "note": "CW: 'Medomai can't attack during extra turns' read Stax high — his OWN drawback; the SELF_RESTRICTION guard missed no-comma names (batch-11 class at a 2nd site). FIXED: first-name subject fallback. GAP: extra-turns class ('take an extra turn') has no archetype"
+    },
+    {
+      "name": "Breena, the Demagogue",
+      "expected_archetypes": {
+        "Goad / Forced Combat": [
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Group Hug / Politics": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "THIRD_PARTY_ATTACK_INCENTIVE"
+      ],
+      "source": "calibration batch #29 fix round (CW 2)",
+      "note": "CW: 'Whenever a player attacks one of your opponents' banded Attack high — THIRD-PARTY direction (the 4th: self/board/incoming/third-party). FIXED: THIRD_PARTY_ATTACK_INCENTIVE → Goad defining (14 measured, all incentive class); gift-draw 'attacking player draws' = 2nd Bumbleflower member"
+    },
+    {
+      "name": "Go-Shintai of Life's Origin",
+      "expected_archetypes": {
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "GAP: Shrine identity unread — Shrine is an enchantment type outside the creature-type whitelist; his shrine-token engine reads Go Wide (defensible), enchantment_recursion reads low"
+    },
+    {
+      "name": "Brudiclad, Telchor Engineer",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Clones / Copies": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "2ND 'becomes a copy' MEMBER (with Volrath #26): 'each other token you control becomes a copy of that token' misses the Clones phrases — now measurable; watch the Krark guard when extending"
+    },
+    {
+      "name": "Admiral Beckett Brass",
+      "expected_archetypes": {
+        "Pirate Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Theft": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "triple-true: tribal anthem ('Other Pirates you control' #20 pattern) + THEFT_CONTROL directional ('gain control of target nonland permanent') + attack payoff feeding the steal condition"
+    },
+    {
+      "name": "Atraxa, Praetors' Voice",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "low",
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "the PROLIFERATE-ONLY commander class: proliferate feeds 4 honest lows (Counters/Minus/Poison/Superfriends) but defines nothing — a pure-proliferate commander stays under-banded; known-gap (promote proliferate on scheduled-recurring proliferate?)"
+    },
+    {
+      "name": "Wort, the Raidmother",
+      "expected_archetypes": {
+        "Spellslinger": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "conspire copy-slinger: typed 'red or green instant or sorcery spell you cast' form reads spell_payoff TRUE; her one-shot ETB Goblins correctly stay out of Go Wide (guard)"
+    },
+    {
+      "name": "Cadira, Caller of the Small",
+      "expected_archetypes": {
+        "Go Wide": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #29",
+      "note": "saboteur whose effect DEPLOYS creature tokens scaling with tokens you control — the Kaalia/deployment side of the #19 boundary, both bands true"
+    },
+    {
+      "name": "Teysa, Envoy of Ghosts",
+      "expected_archetypes": {
+        "Pillowfort / Defense": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "INCOMING_ATTACK_TRIGGER"
+      ],
+      "source": "calibration batch #29 fix round (CW 3)",
+      "note": "CW: 'a creature deals combat damage to YOU' escaped the #22 INCOMING guard (saboteur-inverse form) and her compensation Spirits fed Go Wide. FIXED: incoming regex extended (7/7 defensive) + incoming-compensation token guard (2/2 measured)"
+    },
+    {
+      "name": "Kotori, Pilot Prodigy",
+      "expected_archetypes": {
+        "Vehicles": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30 (PASS row)",
+      "note": "Vehicles validating fresh (VEHICLE + vehicle_payoff on the crew-enabler form 'Vehicles you control have crew 2')"
+    },
+    {
+      "name": "Michiko Konda, Truth Seeker",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #30",
+      "note": "GAP: generic incoming-DAMAGE form 'a source an opponent controls deals damage to you' — 3rd incoming form (attacks-you / combat-damage-to-you / any-damage-to-you); honest empty, the attack family correctly never fired"
+    },
+    {
+      "name": "Klothys, God of Destiny",
+      "expected_archetypes": {
+        "Life Loss / Group Slug": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Devotion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30",
+      "note": "symmetric-pinger class ('deals 2 damage to each opponent') + punisher warning fired; GAP: devotion class (2nd real member with Nylea)"
+    },
+    {
+      "name": "Titania, Protector of Argoth",
+      "expected_archetypes": {
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ],
+        "Lands / Landfall": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30 → FIXED post-30 fix round",
+      "note": "FIXED post-30: land_payoff += 'land you control is put into a graveyard' (2/2 with Long Feng) — she reads Lands high + Go Wide high, her full truth"
+    },
+    {
+      "name": "Thelon of Havenwood",
+      "expected_archetypes": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ],
+        "Fungus Tribal": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30",
+      "note": "spore-counter manipulation true (proliferate genuine); GAP: global symmetric anthem 'Each Fungus creature gets +1/+1' (no you-control) misses the tribal patterns — measurable"
+    },
+    {
+      "name": "Yusri, Fortune's Flame",
+      "expected_archetypes": {
+        "Coin Flips": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Attack Triggers / Aggro": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #30",
+      "note": "GAP: coin-flip class ('flip a coin' / 'for each flip you win' — SCALES_WITH reads the forms, no archetype); GUARD: his self-attack trigger's effect is DRAW (value) — never Attack"
+    },
+    {
+      "name": "Kumena, Tyrant of Orazca",
+      "expected_archetypes": {
+        "Merfolk Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Counters Matter": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30 (PASS row)",
+      "note": "the clean 'each Merfolk you control' in mode 3 fired tribal despite the 'untapped Merfolk' qualifier-interruption in modes 1-2 — beat the blind prediction"
+    },
+    {
+      "name": "Eloise, Nephalia Sleuth",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "high",
+          "very_high"
+        ],
+        "Treasures / Value Engine": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30 (PASS row)",
+      "note": "death-trigger investigate = clue value engine (REPEATABLE_VALUE_TOKENS); investigate-defining gap matures (Lonis + Eloise)"
+    },
+    {
+      "name": "Edgar, Charmed Groom",
+      "expected_archetypes": {
+        "Vampire Tribal": [
+          "high",
+          "very_high"
+        ],
+        "Go Wide": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Counters Matter": [
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "calibration batch #30 (PASS row)",
+      "note": "DFC control: the back face's 'bloodline counter on Edgar Markov's Coffin' reads COUNTER_MARKER_SELF — the per-face card_name plumbing works (predicted CW risk did NOT materialize); bloodline counters are a transform clock, never Counters Matter"
+    },
+    {
+      "name": "Grimgrin, Corpse-Born",
+      "expected_archetypes": {
+        "Aristocrats": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {
+        "Stax / Prison": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "SELF_RESTRICTION"
+      ],
+      "source": "calibration batch #30 fix round (the CW)",
+      "note": "CW: 'Grimgrin enters tapped and doesn't untap during your untap step' read Stax high at BOTH layers — UNTAP_RESTRICTION missing from the SELF_RESTRICTION guard's signal list AND the stax tag's naked 'doesn't untap'. FIXED: guard extended (your-untap-step + self subject) + tag split directionally (its controller's 179 / their controllers' 35 stay; your-untap-step 54 out)"
+    },
+    {
+      "name": "Winter Orb",
+      "expected_archetypes": {
+        "Stax / Prison": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "calibration batch #30 fix round (control)",
+      "note": "CONTROL for the untap split: mass stax 'players can't untap more than one...' / their-controllers direction must KEEP Stax through the drawback exclusion"
+    },
+    {
+      "name": "Mana Vault",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Stax / Prison": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "expected_signals": [
+        "SELF_RESTRICTION"
+      ],
+      "source": "calibration batch #30 fix round (control)",
+      "note": "CONTROL (drawback side): 'Mana Vault doesn't untap during your untap step' is a ramp artifact's cost, not stax — the 'this artifact' subject extension covers the artifact class"
+    },
+    {
+      "name": "Thought-Knot Seer",
+      "expected_archetypes": {},
+      "must_not_have": {
+        "Group Hug / Politics": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "source": "post-30 fix round (reject guard)",
+      "note": "GUARD for the gift-draw REJECT: 'target opponent draws a card' as a leave-the-battlefield DRAWBACK RIDER (4/8 of the measured phrase) is not group hug — the naked phrase stays OUT of group_hug; only 'attacking player draws' (2/2 incentive) went in"
+    },
+    {
+      "name": "Gray Merchant of Asphodel",
+      "expected_archetypes": {
+        "Devotion": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "post-30 fix round (class control)",
+      "note": "CONTROL for the Devotion archetype: the canonical devotion payoff ('where X is your devotion to black') — the 67-card class's non-god side"
+    },
+    {
+      "name": "Angelic Accord",
+      "expected_archetypes": {
+        "Lifegain Matters": [
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "wildcard mechanism (2026-07-06) — the production sighting",
+      "note": "the FIRST production qualifier-interruption case (full build #3): 'if you gained 4 OR MORE life this turn' — closed by lifegain_payoff wildcard phrase 'you gained * life this turn' (57/57 measured payoffs)"
+    },
+    {
+      "name": "Alesha, Who Smiles at Death",
+      "expected_archetypes": {
+        "Reanimator": [
+          "high",
+          "very_high"
+        ],
+        "Attack Triggers / Aggro": [
+          "medium",
+          "high",
+          "very_high"
+        ]
+      },
+      "must_not_have": {},
+      "source": "wildcard mechanism (2026-07-06) — free improvement",
+      "note": "the wildcard reanimation phrase reads her qualifier form 'creature card WITH POWER 2 OR LESS from your graveyard to the battlefield' (273 measured, all genuine); her attack trigger deploys creatures = the Kaalia side of #19"
+    }
+  ]
+}

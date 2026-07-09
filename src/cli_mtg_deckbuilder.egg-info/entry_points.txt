@@ -1,2 +1,2 @@
 [console_scripts]
-mtg = mtgcli.cli:app
+mtg = mtgcli.cli:main

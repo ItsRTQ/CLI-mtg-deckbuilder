@@ -105,6 +105,14 @@ user requested stricter spending
 
 Do not cut key synergy just because the deck is under budget.
 
+When a trim IS needed, look at WHERE the money sits before cutting cards one by one:
+`mtg deck-view` prints **cost by type** (`metrics.price_by_type` in JSON). If a
+low-impact bucket concentrates cost (classic: expensive nonbasic lands) while the
+trim threatens a high-impact card, propose a REALLOCATION (swap lands for basics,
+keep the good card) and ASK the user per BUILDER §11 "Budget Reallocation" — exact
+cuts, exact keep, both prices, consistency trade-off. Never reallocate silently:
+the user may value the mana base or see something the agent didn't.
+
 A deck under budget is valid and does not need a "fix." If it is meaningfully
 under budget (especially T1/T2), defer to the Budget Upgrade Review (BUILDER.md
 Section 11) instead of forcing spending. Never auto-apply over-budget upgrades
@@ -131,6 +139,16 @@ Do not blindly obey compressed targets.
 
 ## Replacement Rules
 
+Make every swap through the CLI, never by editing the list manually:
+
+```bash
+mtg deck-swap --deck output/deck.json --swap "<out>=<in>" --commander "<name>"   # validates before writing
+mtg similar "<card being cut>"          # find functional replacements for a cut
+mtg deck-gaps --deck ... --commander ...  # re-audit after fixes: category gaps AND plan_gaps closed? (each band LISTS its counted cards — verify the fix actually registered)
+```
+
+The fix loop ends at `mtg preflight` printing READY — never on memory of having checked.
+
 When replacing a card:
 
 1. Verify card exists.
@@ -139,6 +157,27 @@ When replacing a card:
 4. Verify it performs the required role.
 5. Prefer cards matching commander analysis tags if synergy matters.
 6. Re-run validation.
+
+---
+
+## Raising the RANK (Rank Upgrade Review)
+
+If the deck lands below the user's `rank_target`, don't guess the fix — the rank is
+deterministic, so COMPUTE each upgrade's expected increase:
+
+```bash
+mtg deck-rank --deck output/deck.json --target-band <N> \
+  --with-candidate "Mana Crypt;Jeweled Lotus;Grim Monolith;Demonic Tutor"
+```
+
+It prints each candidate's EXACT rank before→after delta, whether it crosses a band, and whether
+it's off the commander's color identity (the deck is never modified). Present the winners like the
+Budget Upgrade Review (§11): name, price, expected rank/tier delta, under/over budget — and **the
+budget ALWAYS wins** (never overspend to chase a band; over-budget upgrades are shown, not
+auto-applied). The lever is real **fuel** (rocks/rituals/fast lands) + tutors — NOT draw (excluded
+by design) nor land-ramp/dorks. Apply the user's choices with `deck-swap`, re-run `deck-rank`.
+Remember RANK ⊥ TIER: raising raw power can leave the consistency tier unchanged, and vice versa —
+report both. See BUILDER §16.
 
 ---
 

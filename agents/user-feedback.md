@@ -4,32 +4,71 @@ Purpose: collect only preferences that materially change deckbuilding.
 
 Use multiple choice. Always include `Agent choice`. Do not ask open-ended questions unless required.
 
-Default: ask up to **4 core questions** before building. If the user already answered something, do not ask it again.
+**MANDATORY: ask the 5 core questions and WAIT for the answers before building** — every
+build, unconditionally. This never depends on the agent "having doubts": an agent with
+plausible defaults has no doubts, and its defaults are not answers. If the user already
+answered something in their request, do not ask it again — the remaining core questions
+still get asked. Enforcement: `deck-add`'s first call refuses to create a deck without
+the answered contract (budget + bracket via `--set-config`).
 
 ---
 
-## Core Question 1: Power Level
+## Core Question 1: Bracket
 
 ```text
-What power level do you want?
+What official Commander Bracket should the deck target?
 
-a) Casual — precon/precon-level, no infinite combos, no tutors by default
-b) Optimized Casual — upgraded precon feel, medium synergy, no infinite combos by default
-c) High Power — high synergy, tutors allowed, 1–2 incidental combos allowed
-d) cEDH — best legal cards, unrestricted combos/tutors
+a) Bracket 1-2 — casual/precon table: no Game Changers, no MLD, no 2-card combos
+b) Bracket 3 — upgraded: up to 3 Game Changers, no MLD, no cheap 2-card combos
+c) Bracket 4-5 — optimized/cEDH: no restrictions
+d) n/a — I don't care about brackets; just build it well
 e) Agent choice
 ```
 
-Default: Optimized Casual.
+Default: n/a (brackets are a social contract, not a requirement — many users don't
+play them; the option exists for the tables that do).
 
-Bracket mapping:
+Wire the answer to the tooling:
+- a/b/c → run `mtg deck-power --bracket <N>` before finalizing; the compliance
+  verdict (deterministic: GC count, MLD, extra turns, 2-card combos) must be
+  COMPLIANT for the target. Combos policy follows the bracket (1-2: none;
+  3: no cheap 2-card infinites).
+- n/a → skip the compliance verdict entirely; still show `deck-power`'s TIER
+  (consider-only) in the build summary.
+
+Internal power mapping for slot planning (category-counts `--power-level`):
 
 ```text
-T1 = cEDH / highest power
-T2 = Highly Optimized
-T3 = Slightly Optimized / Precon Optimized
-T4 = Precon Level
+Bracket 1-2 -> power 4-5      Bracket 3 -> power 6-7
+Bracket 4-5 -> power 8-10     n/a       -> agent judgment from the other answers
 ```
+
+---
+
+## Core Question 1b: Target RANK (the agent's "norte")
+
+Ask the FUEL-SPINE power band the build should aim for (BUILDER §16). Distinct from the
+bracket: bracket is the social-contract compliance check; RANK is the deterministic
+power/speed meter (1 Scrap … 7 Mythic = cEDH).
+
+```text
+How powerful do you want this deck (RANK 1 Scrap … 7 Mythic = cEDH)?
+
+a) Build to theme/budget — rank lands wherever it lands (default)
+b) A target band (a number, or "as high as the budget allows")
+c) Push for cEDH / Mythic (rank-first)
+d) Agent choice
+```
+
+Default: a (n/a). Store the answer with `--set-config rank_target=<1-7|n/a>`.
+
+- The target is a GUIDE, **never a guarantee, and it NEVER overrides the budget** — raising
+  rank costs fast mana, so a high target on a small budget is impossible; the budget wins.
+- Use it to steer the draft TOWARD that power from the first list (bias allocation to fast
+  mana / tutors / low curve), as high as the budget allows.
+- If the deck lands below the target, run the **Rank Upgrade Review** (BUILDER §16):
+  `mtg deck-rank --target-band <N> --with-candidate "A;B"` gives the EXACT expected rank
+  increase per upgrade; present them like the Budget Upgrade Review and let the user decide.
 
 ---
 
@@ -203,6 +242,11 @@ c) Avoid generic staples; keep it flavorful
 d) Agent choice
 ```
 
+Wire the answer to the tooling: (a) → use `--max-rank` on shortlists to surface format
+staples (popularity is CONSIDER-ONLY, never an include-verdict); (c) → skip `--max-rank`
+and expect `deck-check`'s staple_density to read low — that is the requested outcome,
+not a problem to fix.
+
 ### Card preferences
 
 ```text
@@ -216,6 +260,21 @@ d) Agent choice
 
 If user chooses must-include or avoid, ask for card names.
 
+### Owned cards (user-bulk)
+
+```text
+Do you already own cards you'd want this deck to use?
+
+a) Yes — I'll list them now (they'll be recorded with `mtg bulk-add`)
+b) Yes — my user-bulk collection is already up to date
+c) No / buy everything
+d) Agent choice
+```
+
+Owned cards are excluded from the budget bill (BUILDER §11 "Owned cards"). Ask this
+once in Detailed Build mode or whenever the user mentions owning cards; on (a),
+record the names via `mtg bulk-add --cards "..."` before budgeting.
+
 ---
 
 ## During-Build Questions
@@ -228,10 +287,40 @@ Valid reasons:
 commander supports multiple strong archetypes
 category-counts conflicts with user preference
 budget is close to overage
+budget reallocation across type buckets (see below)
 combo/stax/tutor policy is unclear
 land/ramp count needs a style decision
 synergy search confidence is weak
 theme strictness affects major card choices
 ```
 
+### Budget reallocation question (cost-by-type lens, BUILDER §11)
+
+When `deck-view`'s cost by type shows money concentrated in a low-impact bucket
+(classic: expensive lands) while a better card was passed on for price, ALWAYS ask —
+never reallocate silently. The user owns this trade: they may value the mana base,
+already own those cards, or see something the agent didn't (this is what makes the
+build personal). The proposal must name exact cuts, the exact upgrade, both prices,
+the freed amount, and the consistency trade-off:
+
+```text
+Cost by type shows $31 on lands. Swapping <Land A, Land B, Land C> for basics
+frees ~$18, enough for <Upgrade X> ($15). Trade-off: slightly less consistent
+mana (2-color deck — low risk).
+
+a) Keep the mana base as is — find the money elsewhere (or skip the upgrade)
+b) Swap the listed lands for basics and apply the upgrade
+c) Partial — swap only the lands I name, then re-check
+d) Agent choice
+```
+
 Do not ask just to delay building.
+
+## Toolbox Commanders (multi-mode)
+
+When the commander analysis shows `Toolbox / Goodstuff` in `analyzer.archetype_support` (4+
+activated abilities — a menu of modes like Kenrith or Cromat), the user's answers are what
+resolve the menu: map their requested direction to the mode that serves it, and present that
+choice back ("you asked for aggro, so I'm leaning the {R} haste/trample mode"). If the default
+build questions didn't disambiguate which mode to lean, ask ONE targeted follow-up before
+drafting — do not pick a mode silently.

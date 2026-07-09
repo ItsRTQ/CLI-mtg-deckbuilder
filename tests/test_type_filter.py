@@ -139,3 +139,38 @@ def test_suggest_invalid_type_errors():
                                   "--role", "ramp", "--type", "banana"])
     assert result.exit_code == 1
     assert "Unknown type filter" in result.output
+
+
+@pytest.mark.parametrize("args", [
+    ["search", "--type", "Rogue", "--json-output"],
+    ["search-tags", "evasion", "--type", "Rogue", "--json-output"],
+    ["suggest", "--commander", "Edgar Markov", "--role", "ramp", "--type", "Rogue", "--json-output"],
+])
+def test_invalid_type_json_is_validation_error_not_crash(args):
+    """Regression (cli.py split): the --type validation path calls _emit_json_error inside
+    the command; after the split it was undefined in commands/search.py, so the crash
+    boundary masked it as {"type": "internal", "exception": "NameError"}. The generic
+    boundary test only checked for an "error" key, so it passed on the crash. Pin the
+    REAL contract: a clean validation error that suggests --subtype."""
+    result = _runner.invoke(app, args)
+    assert result.exception is None or isinstance(result.exception, SystemExit), result.exception
+    err = _json.loads(result.output)["error"]
+    assert err["type"] == "validation"
+    assert "NameError" not in str(err)
+    assert "subtype" in err["message"]
+
+
+@pytest.mark.parametrize("args,fragment", [
+    (["search", "--json-output"], "query string"),
+    (["search-tags", "--json-output"], "at least one tag"),
+    (["suggest", "--commander", "Edgar Markov", "--role", "synergy", "--json-output"],
+     "not a valid role"),
+])
+def test_local_validation_respects_json_output(args, fragment):
+    """The search family's LOCAL validation errors (no query/filters, no tags,
+    --role synergy) used to print plain rich text under --json-output, breaking
+    agent parsers. They must emit the structured validation error instead."""
+    result = _runner.invoke(app, args)
+    err = _json.loads(result.output)["error"]
+    assert err["type"] == "validation"
+    assert fragment in err["message"]

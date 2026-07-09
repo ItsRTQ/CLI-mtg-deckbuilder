@@ -313,6 +313,17 @@ If a command output seems wrong, do not blindly follow it. Use judgment and repo
 
 ## 10. Step 5: Find Weaknesses and Cut Candidates
 
+Start the weakness pass with the CLI's own audit — it compares the deck against the commander's
+plan and reports thin categories with ready fill-commands:
+
+```bash
+mtg deck-gaps --deck output/buff_deck.json --commander "<name>" --archetype <arch> --json-output
+```
+
+Treat its gaps as leads to judge, not automatic conclusions. Its `plan_gaps` section (analyzer plan check) is the strongest lead: the deck is ignoring what the commander's own text wants — and each audited band now LISTS the cards it counted (`analyzer_support[].cards`), so judge the lead against the actual list, not the number alone. Then, for cuts, `mtg similar
+"<card>"` finds functional replacements, and every swap goes through `mtg deck-swap` (validates
+the incoming card before writing — never edit the list manually).
+
 Identify cards that may be:
 
 ```text

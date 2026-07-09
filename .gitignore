@@ -19,3 +19,17 @@ final-builds/*
 .claude
 .agents
 .codex
+logs/*
+!logs/.gitkeep
+claude-memory
+claude-memory/*
+CLAUDE.md
+
+# research / design docs — kept LOCAL, not uploaded
+docs/
+data/rank-calibration/
+
+# user-bulk: keep the folder + its README, but never upload the personal collection
+user-bulk/*
+!user-bulk/.gitkeep
+!user-bulk/README.md

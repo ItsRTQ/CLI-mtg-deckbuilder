@@ -337,15 +337,18 @@ def detect_keywords(text: str, profile: CardProfile, type_line: str = "") -> Non
 
     # Legendary-matters: oracle references legendary permanents/spells as a synergy payoff
     # (not just the card being legendary itself, which lives in the type line).
+    # "target NONlegendary" is a restriction, not a payoff (Kiki-Jiki false-high,
+    # test build #4) — the lookbehind guards the negated form (9 FPs measured, all
+    # nonlegendary-copy effects; 142 true payoffs kept, Shanid green).
     _legendary_patterns = [
-        r"legendary creatures? you control",
-        r"legendary permanents? you control",
-        r"another legendary",
-        r"each legendary",
-        r"number of legendary",
-        r"cast a legendary",
-        r"legendary (?:creature )?spell",
-        r"target legendary",
+        r"(?<!non)(?<!non-)legendary creatures? you control",
+        r"(?<!non)(?<!non-)legendary permanents? you control",
+        r"another (?<!non)(?<!non-)legendary",
+        r"each (?<!non)(?<!non-)legendary",
+        r"number of (?<!non)(?<!non-)legendary",
+        r"cast a (?<!non)(?<!non-)legendary",
+        r"(?<!non)(?<!non-)legendary (?:creature )?spell",
+        r"target (?<!non)(?<!non-)legendary",
     ]
     for pat in _legendary_patterns:
         m = re.search(pat, low)

@@ -1,4 +1,4 @@
-"""RANK — deterministic POWER/speed meter for a Deck (FUEL-SPINE v1).
+"""RANK — deterministic POWER/speed meter for a Deck (FUEL-SPINE v1 + THREAT bonus v1.1).
 
 ORTHOGONAL to the consistency tier (models/consistency.py): the tier asks "how reliably
 do I reach my good cards"; RANK asks "how fast/hard can this deck go". Thesis (user, backed
@@ -108,17 +108,77 @@ def _metrics(deck, extra=()) -> Dict[str, Any]:
     }
 
 
+def combo_bonus(deck, W: Dict[str, Any]) -> Dict[str, Any]:
+    """THREAT axis (annotation-optional): compact annotated combos earn a CAPPED BONUS
+    on top of the base composite — the tier's CORE+bonus pattern, so an unannotated
+    deck (and the whole calibration corpus) scores exactly as before. Credit per combo
+    = class_credit (auto_win/infinite) × piece factor, where pieces = the NON-commander
+    cards_needed (a commander 2-card combo is really 1 piece to assemble). A combo with
+    a piece missing from the deck is SKIPPED (broken — the tier's honesty rule)."""
+    cb = W.get("combo_bonus")
+    empty = {"bonus": 0.0, "credited": 0.0, "counted": 0, "skipped_broken": []}
+    if not cb:
+        return empty
+    cmd_keys = {_key(c.name) for c in deck.commanders}
+    class_credit = cb.get("class_credit", {})
+    max_pieces = int(cb.get("max_pieces", 3))
+    credited, counted = 0.0, 0
+    broken: List[str] = []
+    for cls, combos in deck.combos.items():
+        cc = float(class_credit.get(cls, 0.0))
+        if not cc:
+            continue  # non_infinite/utility: value, not a threat clock
+        for combo in combos:
+            pieces = [n for n in combo.get("cards_needed", ())
+                      if _key(n) not in cmd_keys]
+            if any(deck._find(n) is None for n in pieces):
+                broken.append(", ".join(combo.get("cards_needed", ())))
+                continue
+            if len(pieces) <= 2:
+                factor = 1.0
+            elif len(pieces) <= max_pieces:
+                factor = float(cb.get("three_piece_factor", 0.5))
+            else:
+                continue  # 4+ pieces: assembly, not a compact threat
+            credited += cc * factor
+            counted += 1
+    bonus = round(float(cb["cap"]) * min(1.0, credited / float(cb["denominator"])), 2)
+    return {"bonus": bonus, "credited": round(credited, 2), "counted": counted,
+            "skipped_broken": broken}
+
+
 def rank_report(deck, extra=()) -> Dict[str, Any]:
     """POWER rank for a deck: 0-10 FUEL-SPINE score + 7-band label + provenance.
     `extra` = extra Card objects to SIMULATE in the deck (upgrade what-if; the deck is
-    not modified). Consider-only, ORTHOGONAL to the consistency tier. calibrated:false."""
+    not modified). Consider-only, ORTHOGONAL to the consistency tier. calibrated:false.
+    Annotated compact combos (if present) add a capped THREAT bonus on top of the base
+    composite — no annotation, no bonus, base score unchanged."""
     W = rank_weights()
     m = _metrics(deck, extra)
     scored = compose_score(m["fast_mana"], m["tutors"], m["game_changers"],
                            m["free_interaction"], m["avg_mv_nonland"], W)
-    band = rank_band(scored["score"], W)
+    combo = combo_bonus(deck, W)
+    total = round(min(10.0, scored["score"] + combo["bonus"]), 2)
+    band = rank_band(total, W)
+    notes = [
+        "consider-only: a deterministic POWER/speed estimate, not a verdict",
+        "ORTHOGONAL to the consistency tier (Deck.tier) — power vs reliability",
+        "fast_mana (rocks/rituals) is the spine; draw is excluded by design (grind, not speed)",
+        "calibrated:false — mid bands (3-5) interpolated; all constants in rank_weights.json",
+    ]
+    if combo["counted"]:
+        notes.append(f"combo bonus +{combo['bonus']} from {combo['counted']} annotated "
+                     "compact combo(s) — the THREAT axis (annotation-optional)")
+    else:
+        notes.append("no annotated compact combos — THREAT bonus idle; `mtg note --type "
+                     "combo` + `deck-annotate --sync-notes` earn it")
+    if combo["skipped_broken"]:
+        notes.append("broken combos skipped (piece not in deck): "
+                     + " | ".join(combo["skipped_broken"]))
     return {
-        "score": scored["score"],
+        "score": total,
+        "base_score": scored["score"],
+        "combo_bonus": combo,
         "band": band["band"],
         "band_name": band["name"],
         "metrics": {k: m[k] for k in ("fast_mana", "tutors", "game_changers",
@@ -126,12 +186,7 @@ def rank_report(deck, extra=()) -> Dict[str, Any]:
         "components": scored["components"],
         "cards": {"fast_mana": m["fast_mana_cards"], "tutors": m["tutor_cards"]},
         "calibrated": W.get("calibrated", False),
-        "notes": [
-            "consider-only: a deterministic POWER/speed estimate, not a verdict",
-            "ORTHOGONAL to the consistency tier (Deck.tier) — power vs reliability",
-            "fast_mana (rocks/rituals) is the spine; draw is excluded by design (grind, not speed)",
-            "calibrated:false — mid bands (3-5) interpolated; all constants in rank_weights.json",
-        ],
+        "notes": notes,
     }
 
 

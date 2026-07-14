@@ -140,7 +140,8 @@ def search_commander_legal_cards(
     colors: Optional[str] = None,
     limit: int = 50,
     type_filter: Optional[str] = None,
-    extra_filters: Optional[Dict[str, Any]] = None
+    extra_filters: Optional[Dict[str, Any]] = None,
+    rarity: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Searches for commander-legal cards with optional text and color identity filters.
@@ -181,6 +182,12 @@ def search_commander_legal_cards(
         clause, clause_params = build_type_filter_clause(type_filter)
         sql += f" AND {clause}"
         params.extend(clause_params)
+
+    # Rarity of the kept printing (column added 2026-07-11; a reprint's rarity
+    # may differ in other sets)
+    if rarity:
+        sql += " AND LOWER(rarity) = ?"
+        params.append(rarity.lower())
 
     # Execute query
     cursor.execute(sql, params)

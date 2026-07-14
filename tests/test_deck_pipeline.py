@@ -29,6 +29,7 @@ def test_deck_write_structured_excludes_commander_from_main_deck(tmp_path):
     res = runner.invoke(app, [
         "deck-write", "--input", str(txt), "--output", str(out),
         "--commander", KOTIS, "--structured", "--force", "--json-output",
+        "--set-config", "budget=n/a", "--set-config", "bracket=n/a",
     ])
     assert res.exit_code == 0, res.output
     data = json.loads(out.read_text())
@@ -46,6 +47,7 @@ def test_full_pipeline_validates_without_commander_missing(tmp_path):
     r1 = runner.invoke(app, [
         "deck-write", "--input", str(txt), "--output", str(deck),
         "--commander", KOTIS, "--structured", "--force", "--json-output",
+        "--set-config", "budget=n/a", "--set-config", "bracket=n/a",
     ])
     assert r1.exit_code == 0, r1.output
 

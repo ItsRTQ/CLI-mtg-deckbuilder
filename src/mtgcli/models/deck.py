@@ -66,6 +66,9 @@ class Deck:
         # travels WITH the deck instead of living only in conversation memory
         # (mid-build compaction risk, Fase-4 item).
         self.config: Dict[str, Any] = {}
+        # GUI taste (preferred printings per card name) — must survive the
+        # round-trip like config; not judgment, never inspected by the model.
+        self.print_prefs: Dict[str, Any] = {}
         if deck_list:
             self.add(deck_list)
 
@@ -90,7 +93,17 @@ class Deck:
 
     def _find(self, name: str) -> Optional[Card]:
         low = name.lower()
-        return next((c for c in self._cards if c.name.lower() == low), None)
+        exact = next((c for c in self._cards if c.name.lower() == low), None)
+        if exact is not None:
+            return exact
+        # DFC/split fallback: DB-canonical names are "Front // Back" but agents
+        # naturally say the front face (the deck-swap OUT friction, test build #4).
+        front = low.split("//")[0].split("/")[0].strip()
+        return next(
+            (c for c in self._cards
+             if c.name.lower().split("//")[0].split("/")[0].strip() == front),
+            None,
+        )
 
     # ── mutation (batch-friendly, the guardian) ──────────────────────────────
     def add(self, cards: Union[Card, List[Card]]) -> List[str]:
@@ -128,12 +141,24 @@ class Deck:
 
     def remove(self, names: Union[str, List[str]], quantity: int = 1) -> List[str]:
         """Remove one name or a batch. Basics decrement by `quantity` (entry drops
-        at 0); nonbasics drop whole. ATOMIC: unknown names reject the whole batch."""
+        at 0); nonbasics drop whole. ATOMIC: unknown names — or a batch repeating
+        a name more times than its entry can satisfy — reject the whole batch."""
         batch = [names] if isinstance(names, str) else list(names)
-        missing = [n for n in batch if self._find(n) is None]
+        resolved = [self._find(n) for n in batch]
+        missing = [n for n, c in zip(batch, resolved) if c is None]
         if missing:
             raise DeckError("Batch rejected (nothing removed) — not in deck: "
                             + ", ".join(missing))
+        # Repeated-name batches (the GUI quantity stepper) drop the entry mid-loop;
+        # without this tally the next occurrence would resolve to None and crash.
+        tally: Dict[int, int] = {}
+        for c in resolved:
+            tally[id(c)] = tally.get(id(c), 0) + 1
+        over = sorted({c.name for c in resolved if tally[id(c)] > (
+            max(1, (c.quantity + quantity - 1) // quantity) if _is_basic(c) else 1)})
+        if over:
+            raise DeckError("Batch rejected (nothing removed) — removes more "
+                            "copies than the deck holds: " + ", ".join(over))
         removed = []
         for n in batch:
             card = self._find(n)
@@ -230,6 +255,46 @@ class Deck:
         tvd = sum(abs(curve[b] / nonland - IDEAL_CURVE[b]) for b in IDEAL_CURVE) / 2
         return round(10 * max(0.0, 1 - tvd), 2)
 
+    def mana_value_stats(self) -> Dict[str, Optional[float]]:
+        """Nonland mv summary, quantity-aware: {"avg", "median"} (None when the
+        deck has no nonland cards yet)."""
+        mvs: List[float] = []
+        for c in self._cards:
+            if self.primary_type(c) != "land":
+                mvs.extend([c.mana_value] * c.quantity)
+        if not mvs:
+            return {"avg": None, "median": None}
+        mvs.sort()
+        n = len(mvs)
+        med = mvs[n // 2] if n % 2 else (mvs[n // 2 - 1] + mvs[n // 2]) / 2
+        return {"avg": round(sum(mvs) / n, 2), "median": round(med, 2)}
+
+    def color_stats(self) -> Dict[str, Dict[str, int]]:
+        """Per-color WUBRG view, quantity-aware:
+        - pips:    colored mana symbols in NONLAND mana costs (each hybrid half
+                   counts — a {G/W} pip is castable off either source).
+        - cards:   nonland cards whose color identity includes the color
+                   (multicolor cards count once per color).
+        - sources: permanents whose produced_mana includes the color — lands,
+                   rocks and dorks alike (the "can I cast my pips" side)."""
+        colors = ("W", "U", "B", "R", "G")
+        pips = {c: 0 for c in colors}
+        cards = {c: 0 for c in colors}
+        sources = {c: 0 for c in colors}
+        for card in self._cards:
+            if self.primary_type(card) != "land":
+                cost = card.mana_cost.upper()
+                for col in colors:
+                    if col in cost:
+                        pips[col] += cost.count(col) * card.quantity
+                for col in card.color_identity:
+                    if col in cards:
+                        cards[col] += card.quantity
+            for col in card.produced_mana or []:
+                if col in sources:
+                    sources[col] += card.quantity
+        return {"pips": pips, "cards": cards, "sources": sources}
+
     # ── serialization (judgment only; facts re-hydrate on load) ─────────────
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {}
@@ -240,6 +305,8 @@ class Deck:
         out["agent_note"] = self.agent_note
         if self.config:
             out["config"] = dict(self.config)
+        if self.print_prefs:
+            out["print_prefs"] = dict(self.print_prefs)
         out["main_deck"] = [c.to_dict() for c in self._cards]
         out["combos"] = self.combos
         return out
@@ -255,6 +322,7 @@ class Deck:
         cmds = [Card(n, ["WINCON"], repo=repo) for n in names]
         deck = cls(cmds, agent_note=data.get("agent_note"))
         deck.config = dict(data.get("config") or {})
+        deck.print_prefs = dict(data.get("print_prefs") or {})
         deck.add([Card.from_dict(e, repo=repo) for e in data.get("main_deck", [])])
         for cls_name, combos in (data.get("combos") or {}).items():
             for cb in combos:

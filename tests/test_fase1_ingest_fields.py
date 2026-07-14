@@ -72,3 +72,14 @@ def test_row_carries_new_fields_and_counts_align():
     assert '"Flying"' in row[schema_cols.index("keywords")]
     assert row[schema_cols.index("loyalty")] == "4"
     assert row[schema_cols.index("image_url")] == "u"
+
+
+def test_rarity_ingested_per_kept_printing():
+    # rarity is per-printing — normalized straight from the raw field, None-safe
+    n = normalize_card(_raw(rarity="mythic"))
+    assert n["rarity"] == "mythic"
+    assert normalize_card(_raw())["rarity"] is None
+    row = _to_row(n)
+    schema_cols = [l.strip().split()[0] for l in _CREATE_TABLE.splitlines()
+                   if l.strip() and not l.strip().startswith(("CREATE", ");"))]
+    assert row[schema_cols.index("rarity")] == "mythic"

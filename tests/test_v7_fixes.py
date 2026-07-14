@@ -603,7 +603,8 @@ def test_fill_lands_in_place_needs_no_force(tmp_path):
     lst.write_text("1 Llanowar Elves\n")
     deck = tmp_path / "deck.json"
     runner.invoke(app, ["deck-write", "--input", str(lst), "--output", str(deck),
-                        "--commander", "Gargos, Vicious Watcher", "--structured"])
+                        "--commander", "Gargos, Vicious Watcher", "--structured",
+                        "--set-config", "budget=n/a", "--set-config", "bracket=n/a"])
     assert deck.exists()
     # In-place fill over the existing file, no --force:
     res = runner.invoke(app, ["deck-fill-lands", "--deck", str(deck), "--commander", "Gargos, Vicious Watcher"])

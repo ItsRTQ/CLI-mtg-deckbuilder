@@ -103,6 +103,31 @@ def test_remove_batch_atomic_and_basics_decrement():
     assert d.size() == 3
 
 
+def test_remove_repeated_names_decrement_per_occurrence():
+    # The GUI quantity stepper sends the same basic N times in one batch.
+    d = Deck(_commander())
+    d.add(_card("Mountain", ident='[]', qty=3, type_line="Basic Land — Mountain"))
+    d.remove(["Mountain", "Mountain"])
+    assert d.cards[0].quantity == 1
+    d.remove(["Mountain"])          # exact quantity: entry drops whole
+    assert d.size() == 0
+
+
+def test_remove_rejects_more_repeats_than_quantity():
+    # Regression: over-removal used to resolve to None mid-loop (AttributeError)
+    # AFTER mutating — breaking both the atomic promise and the API (500).
+    d = Deck(_commander())
+    d.add([_card("A"),
+           _card("Mountain", ident='[]', qty=2, type_line="Basic Land — Mountain")])
+    with pytest.raises(DeckError) as e:
+        d.remove(["Mountain", "Mountain", "Mountain"])
+    assert "more copies" in str(e.value)
+    assert d.size() == 3            # nothing removed (atomic)
+    with pytest.raises(DeckError):
+        d.remove(["A", "A"])        # nonbasics: one occurrence only
+    assert d.size() == 3
+
+
 # ---------- combos ----------
 
 def test_add_combo_classes_and_aliases():
@@ -203,3 +228,20 @@ def test_save_load_roundtrip_judgment_only(tmp_path):
     assert d2.total_by_purpose() == d.total_by_purpose()
     assert d2.combos == d.combos
     assert d2.agent_note == "food cannon"
+
+
+def test_print_prefs_roundtrip_like_config(tmp_path):
+    # GUI taste (preferred printings) survives save/load like config; absent = {}
+    d = Deck(_commander())
+    d.add(_card("Sol Ring"))
+    d.print_prefs = {"sol ring": {"set": "C21", "collector_number": "263",
+                                  "image_url": "https://img/x.jpg", "rarity": "uncommon"}}
+    p = tmp_path / "deck.json"
+    d.save(p)
+    d2 = Deck.load(p, repo=_FakeRepo())
+    assert d2.print_prefs == d.print_prefs
+    # empty prefs: the key is not written at all, and load defaults to {}
+    d2.print_prefs = {}
+    d2.save(p)
+    assert "print_prefs" not in p.read_text()
+    assert Deck.load(p, repo=_FakeRepo()).print_prefs == {}

@@ -46,8 +46,13 @@ Do not invent cards. Do not create helper scripts.
    deck — deck-add refuses to create it without budget + bracket, which only the
    user's step-2 answers can provide) and `--deck-note` (theme/gameplan). Basics:
    `--cards "12 Mountain"`.
+   To TRIM/CUT during the draft use `mtg deck-remove --cards "A;2 Mountain"`
+   (deck-add's inverse: atomic, basics decrement, prints the running total; DFC
+   front-face names resolve). For a 1-for-1 replacement prefer `deck-swap`.
    The old decklist.txt + `deck-write --structured` path still works but loses
-   entry-time validation, running budget, and purposes.
+   entry-time validation, running budget, and purposes — and it is gated the same:
+   `deck-write` refuses to CREATE a new structured deck without the answered
+   `--set-config budget=... bracket=...` contract.
 10. WHILE drafting: `mtg note --type combo` the moment you SEE a combo, and
     `mtg note --type decision` for REJECTED candidates (that evaluation is what the
     Budget Upgrade Review re-pays when it isn't recorded).
@@ -58,7 +63,9 @@ Do not invent cards. Do not create helper scripts.
 12. Fill basics with `deck-fill-lands`.
 13. Validate; run `deck-power` (consistency tier; bracket verdict if the config
     targets one — must be COMPLIANT before finalizing) AND `deck-rank` (POWER/speed
-    rank, 7 bands Scrap..Mythic). They are ORTHOGONAL — RANK = how fast/strong the
+    rank, 7 bands Scrap..Mythic; annotated compact combos add a capped THREAT bonus
+    +1.5 max on top of the base score — another reason to note combos while drafting).
+    They are ORTHOGONAL — RANK = how fast/strong the
     deck is, TIER = how reliably it runs its plan; report BOTH. When reporting the
     rank, flag its blind spots (fast_mana is a name-list — a new fast-mana card or
     commander-granted acceleration reads as invisible fuel; land-ramp is excluded by

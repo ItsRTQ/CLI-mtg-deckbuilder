@@ -56,7 +56,11 @@ agents/deck_explainer.md
     plausible defaults never has doubts, and its defaults are not answers. `deck-add`
     enforces this mechanically: its FIRST call refuses to create a deck without the
     answered contract (`--set-config budget=<USD|n/a> --set-config bracket=<1-5|n/a>`).
-    A build that drafts without asking is not following this document.
+    The legacy path is gated the same way: `deck-write` refuses to CREATE a new
+    structured deck without the same `--set-config` contract (overwriting an existing
+    deck with `--force` is a mid-flow rewrite and exempt; ports belong to
+    `deck-add --import`, exempt there). A build that drafts without asking is not
+    following this document.
 
 ---
 
@@ -147,9 +151,9 @@ The commander should not be inside `main_deck`. If a flat list contains the comm
 This is unconditional: it does not depend on the agent having doubts, and plausible
 defaults are not answers (`Agent choice` must be the user's pick, never the agent's
 assumption). Use multiple choice and always include `Agent choice`. Enforcement:
-`deck-add`'s first call refuses to create a deck until the answered contract
-(budget + bracket) is passed via `--set-config`, so a draft cannot mechanically start
-before this step. If the user already answered something in their request, don't
+`deck-add`'s first call — and `deck-write` creating a new structured deck (the legacy
+path) — refuse to create a deck until the answered contract (budget + bracket) is
+passed via `--set-config`, so a draft cannot mechanically start before this step. If the user already answered something in their request, don't
 re-ask it — but the remaining core questions still get asked.
 
 **Core question 1 asks for the official Commander BRACKET (1-2 / 3 / 4-5), always with
@@ -226,6 +230,12 @@ mtg deck-add --deck output/deck.json --commander "<Commander>" --import path/to/
 #    slot blank), so ONE bad card never aborts the port. The commander line is treated as
 #    command-zone and skipped. Exempt from the §5 contract gate (it's a port). Purpose
 #    defaults to FLEX (run deck-annotate --auto afterwards). Then score with deck-rank.
+
+# 2c. TRIM/CUT cards during the draft (deck-add's inverse — never hand-edit):
+mtg deck-remove --deck output/deck.json --cards "Card A;2 Mountain"
+#    ATOMIC (an unknown name rejects the whole batch); basics decrement, nonbasics
+#    drop whole; DFC front-face names resolve; prints the running total so a trim
+#    stays on the draft-TO-budget radar. For a 1-for-1 replacement prefer deck-swap.
 
 # 3. WHILE drafting: note combos the moment you see them (the carpenter's tally)
 mtg note "<what you saw>" --type combo --cards "A;B" --combo-class infinite
@@ -323,7 +333,9 @@ it validates the incoming card (exists, Commander-legal, in color identity, no s
 **before writing** and aborts atomically if anything is wrong — never hand-edit the decklist with a
 `sed`/`python` replace, which skips all those checks.
 
-For double-faced/split cards, the front-face name resolves (e.g. `Valakut Awakening`).
+For double-faced/split cards, the front-face name resolves (e.g. `Valakut Awakening`) —
+on BOTH sides of a swap: incoming lookups and the swap-OUT match against the deck's
+stored "Front // Back" canonical names, and `deck-remove` resolves them too.
 
 Build file:
 
@@ -749,7 +761,11 @@ same conversation).
 ### Owned cards (user-bulk): they cost the budget $0
 
 `user-bulk/collection.txt` (+ synced `collection.json`) holds the cards the user
-already OWNS (maintained with `mtg bulk-add` — incl. `--import <deck>` to add a whole
+already OWNS. **The folder is configurable** (GUI Settings → "Card collection
+folder", stored in `data/gui_settings.json`): `mtg budget`/`preflight`/`bulk-add`
+resolve the configured location automatically, and a GUI build's agent prompt
+carries the effective path — trust those over this default path.
+(Maintained with `mtg bulk-add` — incl. `--import <deck>` to add a whole
 bought deck — or edited by hand; see `user-bulk/README.md`). It tracks OWNERSHIP, not
 quantity: an owned card is excluded from the bill ENTIRELY (all copies free — Commander
 is singleton, basics unlimited). `mtg budget` and preflight's budget gate exclude owned
@@ -1000,11 +1016,20 @@ casual than cEDH — a grind signal, not speed). Consider-only; `calibrated:fals
 3-5 interpolated). Works on ANY deck JSON — it needs **no annotation** (reads DB facts),
 unlike the consistency tier.
 
+**THREAT bonus (annotation-optional):** annotated compact combos (`mtg note --type combo`
++ `deck-annotate --sync-notes`) add a CAPPED bonus (+1.5 max) on top of the base score —
+the missing leg of power = SPEED × CONSISTENCY × THREAT. Only `auto_win`/`infinite`
+combos of ≤3 real pieces count (the commander is a free piece; 3-piece lines earn half);
+a combo with a piece missing from the deck is SKIPPED as broken. No annotation → no
+bonus, base score unchanged — so unannotated decks and the calibration corpus read
+exactly as before. This is what lifts a budget compact-combo deck out of the casual
+bands (Kiki: 1.98 Dormant → 3.48 Awakened) without inflating goodstuff.
+
 **RANK vs the consistency TIER (`deck-power`) — they are ORTHOGONAL, report BOTH:**
 - **RANK** = how fast/strong is the deck (absolute, vs the metagame): "is this cEDH-fast?"
 - **TIER** = how reliably it runs *its own declared plan* (relative, needs purposes+combos):
   "does it do its thing well?"
-- They diverge: a reliable budget combo (e.g. Kiki) is **TIER +S but RANK band 2** — it
+- They diverge: a reliable budget combo (e.g. Kiki) is **TIER +S but RANK band 2-3** — it
   executes its plan impeccably yet doesn't run the fast-mana hardware of a Mythic deck. A
   cEDH deck is high on BOTH (a powerful plan run fast).
 
@@ -1013,7 +1038,8 @@ unlike the consistency tier.
   acceleration *granted by the commander*, reads as invisible fuel (the rank under-reads).
 - Land-ramp (Cultivate/Exploration/dorks) is EXCLUDED by design — a landfall deck reads low
   fuel on purpose (rocks/rituals is the chosen spine, the clean cEDH separator).
-- To raise a band, the lever is real fuel (rocks/rituals/fast lands) + tutors, not draw.
+- To raise a band, the levers are real fuel (rocks/rituals/fast lands) + tutors — and, for
+  combo decks, ANNOTATING the compact combos (the THREAT bonus) — never draw.
 
 ### Draft TOWARD the target rank + the Rank Upgrade Review
 

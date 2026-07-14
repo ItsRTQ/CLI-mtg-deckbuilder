@@ -71,6 +71,7 @@ def deck_write(
     partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander name (used with --structured)"),
     structured: bool = typer.Option(False, "--structured", help="Write structured JSON with commander/main_deck keys (implied when --commander is given)"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing output file"),
+    set_config: Optional[List[str]] = typer.Option(None, "--set-config", help="key=value build-contract entries (budget=150, bracket=n/a...) — stored IN the deck JSON. Creating a NEW structured deck REQUIRES budget + bracket (BUILDER §5), same as deck-add."),
     json_output: bool = typer.Option(False, "--json-output", help="Output result as JSON"),
 ):
     """Convert a plain text decklist to deck JSON."""
@@ -92,6 +93,32 @@ def deck_write(
     if commander:
         structured = True
 
+    config: Dict[str, str] = {}
+    for kv in (set_config or []):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            config[k.strip()] = v.strip()
+
+    # Build-contract gate (BUILDER §5), legacy-path mirror of deck-add's: CREATING a
+    # new structured deck is starting a draft — it requires the user's ANSWERED
+    # contract. Overwriting an existing deck (--force mid-flow rewrite) is exempt;
+    # porting an external list belongs to `deck-add --import` (exempt there).
+    if structured and commander and not output_path.exists():
+        _missing = [k for k in ("budget", "bracket") if k not in config]
+        if _missing:
+            msg = (
+                "New deck: no build contract — missing: " + ", ".join(_missing) + ". "
+                "Ask the user the BUILDER.md §5 core questions (bracket, budget, theme, "
+                "detail level) and WAIT for their answers, then write the deck with "
+                "--set-config budget=<USD or n/a> --set-config bracket=<1-5 or n/a>. "
+                "Do not draft on assumed defaults."
+            )
+            if json_output:
+                _emit_json_error({"error": {"type": "validation", "message": msg}})
+            else:
+                print(f"[red]{msg}[/red]")
+            raise typer.Exit(code=1)
+
     if structured and commander:
         commanders_list = [commander] + ([partner] if partner else [])
         main_deck, _ = remove_command_zone_cards_from_main_deck(entries, commanders_list)
@@ -99,6 +126,8 @@ def deck_write(
             deck_data: Any = {"commanders": commanders_list, "main_deck": main_deck}
         else:
             deck_data = {"commander": commander, "main_deck": main_deck}
+        if config:
+            deck_data["config"] = config
         write_json(output_path, deck_data)
         total = sum(e.get("quantity", 1) for e in main_deck)
         if json_output:
@@ -415,6 +444,15 @@ def deck_swap(
         a, b = (s.strip() for s in raw.split("=", 1))
         entry = next((e for e in entries if e.get("name", "").lower() == a.lower()), None)
         if entry is None:
+            # DFC/split fallback: the deck stores DB-canonical "Front // Back" but the
+            # swap-out side is naturally typed as the front face (test build #4 friction).
+            _a_front = a.lower().split("//")[0].split("/")[0].strip()
+            entry = next(
+                (e for e in entries
+                 if e.get("name", "").lower().split("//")[0].split("/")[0].strip() == _a_front),
+                None,
+            )
+        if entry is None:
             errors.append(f"'{a}' is not in the deck — nothing to swap out.")
             continue
         b_card = repo.get_card_by_exact_name(b)
@@ -518,6 +556,7 @@ def preflight(
     commander: Optional[str] = typer.Option(None, "--commander", help="Commander (overrides deck metadata)"),
     partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander, if any"),
     budget_limit: Optional[float] = typer.Option(None, "--budget", help="If set, also gate on this USD budget"),
+    no_bulk: bool = typer.Option(False, "--no-bulk", help="Ignore the user-bulk collection in the budget gate (owned cards count full price) — same flag as `mtg budget`"),
     json_output: bool = typer.Option(False, "--json-output", help="Output the checklist as JSON"),
 ):
     """Single finalization gate: run every must-pass check before a deck is considered done.
@@ -579,12 +618,14 @@ def preflight(
     quality = check_deck_quality(hydrated)
     quality_warnings = quality.get("warnings", [])
 
-    # Budget gate (only if a limit was given). Owned cards (user-bulk) don't bill.
+    # Budget gate (only if a limit was given). Owned cards (user-bulk) don't bill
+    # unless --no-bulk (mirrors `mtg budget`).
     budget_check = None
     if budget_limit is not None:
         from mtgcli.deckbuilder.user_bulk import load_user_bulk, owned_lookup
+        _owned = None if no_bulk else owned_lookup(load_user_bulk())
         bsum = build_budget_summary(hydrated, budget_limit=budget_limit,
-                                    owned=owned_lookup(load_user_bulk()))
+                                    owned=_owned)
         ok = bsum.get("budget_status") in ("under_budget", "within_overage")
         budget_check = {
             "check": f"Within budget (${budget_limit})",
@@ -1166,6 +1207,88 @@ def deck_add(
               f"${total:.2f}{util}[/bold]")
 
 
+@app.command()
+def deck_remove(
+    deck_path: Path = typer.Option(..., "--deck", help="Path to the annotated deck JSON"),
+    cards: str = typer.Option(..., "--cards", help="Card names separated by ';'. Basics may use 'N Name' (e.g. '2 Mountain') to decrement copies; nonbasics drop whole. DFC front-face names resolve."),
+    json_output: bool = typer.Option(False, "--json-output", help="Output as JSON"),
+):
+    """Remove cards from the annotated deck through the tool (deck-add's inverse).
+    ATOMIC: any name not in the deck rejects the whole batch and nothing is removed.
+    Basics decrement by the given quantity (entry drops at 0); nonbasics drop whole.
+    Prints the running deck total so a trim stays on the draft-TO-budget radar.
+    """
+    require_database(SQLITE_PATH, json_output)
+
+    import re as _re
+    from mtgcli.models import Deck as _Deck
+
+    def _fail(msg):
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": msg}})
+        else:
+            print(f"[red]{msg}[/red]")
+        raise typer.Exit(code=1)
+
+    if not deck_path.exists():
+        _fail(f"Deck file not found: {deck_path}")
+    raw_items = [c.strip() for c in cards.split(";") if c.strip()]
+    if not raw_items:
+        _fail("Provide at least one card in --cards (';'-separated).")
+
+    repo = CardRepository(str(SQLITE_PATH))
+    try:
+        deck_obj = _Deck.load(deck_path, repo=repo)
+    except Exception as e:
+        _fail(f"Failed to load deck: {e}")
+
+    # Parse "N Name" quantities, then pre-check the WHOLE batch before mutating
+    # (per-item quantities need per-item remove() calls — atomicity lives here).
+    items = []
+    for item in raw_items:
+        m = _re.match(r"^(\d+)\s*[xX]?\s+(.+)$", item)
+        qty, name = (int(m.group(1)), m.group(2).strip()) if m else (1, item)
+        items.append((name, qty))
+    missing = [n for n, _ in items if deck_obj._find(n) is None]
+    if missing:
+        _fail("Batch rejected (nothing removed) — not in deck: " + ", ".join(missing))
+
+    removed = []
+    for name, qty in items:
+        card = deck_obj._find(name)
+        price = card.usd_price
+        canonical = deck_obj.remove(name, quantity=qty)[0]
+        removed.append({"name": canonical, "quantity": qty, "usd_price": price})
+
+    deck_obj.save(deck_path)
+    total = deck_obj.total_price()
+    result = {
+        "removed": removed,
+        "deck_total_price": total,
+        "deck_size": deck_obj.size(),
+        "max_size": deck_obj.max_size,
+        "by_purpose": deck_obj.total_by_purpose(),
+    }
+    budget = deck_obj.config.get("budget")
+    if budget:
+        try:
+            result["budget"] = float(budget)
+            result["budget_utilization_pct"] = round(100 * total / float(budget), 1)
+        except (TypeError, ValueError):
+            pass
+    if json_output:
+        print_json(result)
+    else:
+        print(f"[green]Removed {len(removed)} card(s)[/green]")
+        for r in removed:
+            p = f"${r['usd_price']:.2f}" if r["usd_price"] is not None else "$?"
+            print(f"  - {r['quantity']}x {r['name']} [dim]{p}[/dim]")
+        util = f" ({result['budget_utilization_pct']}% of ${result['budget']:.0f})" \
+            if "budget_utilization_pct" in result else ""
+        print(f"[bold]Deck: {deck_obj.size()}/{deck_obj.max_size} cards — running total "
+              f"${total:.2f}{util}[/bold]")
+
+
 # Census tag -> purpose map for deck-annotate --auto (uses the EXISTING measured
 # vocabulary; lands only count as RAMP via the ramp_rules single source).
 _TAG_TO_PURPOSE = {
@@ -1425,7 +1548,9 @@ def deck_rank(
     """POWER/speed RANK (FUEL-SPINE v1): 0-10 score -> 7 bands (1 Scrap ... 7 Mythic = cEDH),
     from fast_mana + tutors + game changers + curve. ORTHOGONAL to deck-power's consistency
     tier (power vs reliability) and needs NO annotation -- it reads DB facts, so it runs on any
-    deck JSON. Consider-only; calibrated:false (mid bands interpolated).
+    deck JSON. Annotated compact combos (if present) add a capped THREAT bonus on top of the
+    base score -- annotation-optional, never required. Consider-only; calibrated:false
+    (mid bands interpolated).
 
     --with-candidate simulates upgrades and prints each card's exact rank delta (the deck is
     never modified) — the deterministic 'expected increase' for the Rank Upgrade Review."""
@@ -1487,6 +1612,16 @@ def deck_rank(
     print(f"fast_mana={m['fast_mana']}  tutors={m['tutors']}  game_changers={m['game_changers']}"
           f"  free_int={m['free_interaction']}  avg_mv(nonland)={m['avg_mv_nonland']}")
     print("points: " + "  ".join(f"{k}={v['points']}" for k, v in r["components"].items()))
+    cb = r.get("combo_bonus") or {}
+    if cb.get("counted"):
+        print(f"combo bonus: [bold]+{cb['bonus']}[/bold] (base {r['base_score']}) — "
+              f"{cb['counted']} annotated compact combo(s), the THREAT axis")
+    else:
+        print("[dim]combo bonus: none — no annotated compact combos (note --type combo "
+              "+ deck-annotate --sync-notes earn it)[/dim]")
+    if cb.get("skipped_broken"):
+        print(f"[yellow]broken combos skipped (piece not in deck): "
+              f"{' | '.join(cb['skipped_broken'])}[/yellow]")
     if r["cards"]["fast_mana"]:
         print(f"[dim]fuel: {', '.join(r['cards']['fast_mana'])}[/dim]")
     if r["cards"]["tutors"]:

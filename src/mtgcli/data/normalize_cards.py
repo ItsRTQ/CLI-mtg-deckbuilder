@@ -193,6 +193,9 @@ def normalize_card(card: Dict[str, Any]) -> Dict[str, Any]:
         # all_parts + image_url — PARKED for v0.9.0 (ingested, not consumed yet).
         "all_parts": get_all_parts(card),
         "image_url": get_image_url(card),
+        # rarity is PER PRINTING (a reprint can change it) — like image_url, we
+        # keep the kept printing's value (fill-from-later when missing).
+        "rarity": card.get("rarity"),
         "usd_foil_price": parse_price((card.get("prices") or {}).get("usd_foil")),
         "usd_etched_price": parse_price((card.get("prices") or {}).get("usd_etched")),
         "eur_price": parse_price((card.get("prices") or {}).get("eur")),

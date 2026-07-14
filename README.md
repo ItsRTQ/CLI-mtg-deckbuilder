@@ -17,7 +17,7 @@ The app should not try to fully replace deckbuilding judgment. It should act as 
 - [Project Goal](#project-goal)
 - [Core Architecture](#core-architecture)
 - [Requirements](#requirements) · [Setup](#setup) · [Initialize Card Data](#initialize-card-data)
-- [**Command Reference**](#command-reference) — all 40 commands, with a clickable [index](#index)
+- [**Command Reference**](#command-reference) — all 42 commands, with a clickable [index](#index)
 - [Agent Usage](#agent-usage)
 - [Power Level Brackets](#power-level-brackets) · [Budget Handling](#budget-handling)
 - [Deck Identity Model](#deck-identity-model) · [Engine-First Deckbuilding](#engine-first-deckbuilding) · [Broad Archetypes](#broad-archetypes)
@@ -85,7 +85,23 @@ mtg card "Sol Ring"         # verify: full card data prints
 Details and troubleshooting: [Setup](#setup) · [Initialize Card Data](#initialize-card-data) ·
 [Troubleshooting](#troubleshooting).
 
-### 4. Use it — two ways
+### 4. Use it — three ways
+
+**GUI (new in v0.9.0 — no terminal after setup).** Build the web app once, then:
+
+```bash
+npm --prefix gui install && npm --prefix gui run build   # one-time (needs Node 18+)
+mtg gui                                                   # opens http://127.0.0.1:8321
+```
+
+Pick your AI agent in **Settings** — click a provider to switch. v0.9.0 builds
+through the **Claude Code** CLI or Google's **Antigravity** CLI (`agy`); Ollama is
+detected but can't build yet. Find a commander
+in **Search**, answer the build
+contract in the **Build Wizard**, and watch your agent build the deck live in
+**Results**. The build runs headlessly in a sandboxed workspace under
+`output/gui-builds/` — the finished deck must pass the same `preflight` gate as a
+CLI build.
 
 **A. Agent-driven build (the primary use).** Point an LLM CLI agent (Claude Code or
 similar) at the repo and give it a prompt like:
@@ -394,6 +410,7 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | Command | What it does |
 |---|---|
 | [`mtg deck-add`](#mtg-deck-add) | THE drafting primitive: add a validated PACKAGE with purpose + running budget; `--import` ports a .txt deck. |
+| [`mtg deck-remove`](#mtg-deck-remove) | deck-add's inverse: atomic trim (basics decrement, nonbasics drop whole) + running total. |
 | [`mtg deck-annotate`](#mtg-deck-annotate) | Seed/refine purposes on the drafted deck; sync noted combos into it. |
 | [`mtg deck-view`](#mtg-deck-view) | View the annotated deck: purposes, types, curve, **cost by type**, combos. |
 | [`mtg deck-power`](#mtg-deck-power) | Bracket compliance (deterministic) + consistency TIER (hypergeometric). |
@@ -408,6 +425,16 @@ each one. Every command supports `--json-output`, and any command accepts the gl
 | [`mtg export`](#mtg-export) | Export deck JSON to Moxfield import text (with Commander section). |
 | [`mtg final-build`](#mtg-final-build) | Validate and save a versioned final build under `final-builds/`. |
 | [`mtg report`](#mtg-report) | Consolidate the `--log` audit trail into `logs/<name>.json`. |
+
+**GUI (v0.9.0)**
+
+| Command | What it does |
+|---|---|
+| `mtg gui` | Start the localhost web GUI + JSON API (`--host/--port/--no-browser`; API under `/api`, docs at `/api/docs`). Deck builds run through YOUR configured AI agent, never a bundled model. |
+
+The web app lives in `gui/` (Vite + React). Build it once so `mtg gui` can serve it:
+`npm --prefix gui install && npm --prefix gui run build`. For frontend development,
+`npm --prefix gui run dev` serves on :5173 and proxies `/api` to a running `mtg gui --no-browser`.
 
 ### Global flags
 
@@ -1073,6 +1100,21 @@ Notes:
   size) are WARNED and SKIPPED (the rest still import), the commander line is treated as
   command-zone, and it's exempt from the contract gate (a port, not drafting). Score the
   result with [`deck-rank`](#mtg-deck-rank).
+
+#### `mtg deck-remove`
+
+deck-add's inverse: remove cards from the annotated deck THROUGH the tool. ATOMIC —
+any name not in the deck rejects the whole batch. Basics decrement by quantity
+(`"2 Mountain"`, entry drops at 0); nonbasics drop whole. DFC front-face names
+resolve against the stored `Front // Back` canonical names. Prints the running
+deck total, so a trim stays on the draft-to-budget radar.
+
+```bash
+mtg deck-remove --deck output/deck.json --cards "Purphoros, God of the Forge;2 Mountain"
+```
+
+For a 1-for-1 replacement prefer [`deck-swap`](#mtg-deck-swap) (validates the
+incoming card and inherits the slot's purpose).
 
 #### `mtg deck-annotate`
 

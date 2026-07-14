@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS cards (
     loyalty TEXT,
     produced_mana TEXT,
     all_parts TEXT,
-    image_url TEXT
+    image_url TEXT,
+    rarity TEXT
 );
 """
 
@@ -58,8 +59,8 @@ INSERT OR REPLACE INTO cards (
     usd_price, usd_foil_price, usd_etched_price, edhrec_rank, eur_price, eur_foil_price, tix_price,
     price_status, price_source,
     layout, games, digital, finishes, game_changer,
-    keywords, loyalty, produced_mana, all_parts, image_url
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    keywords, loyalty, produced_mana, all_parts, image_url, rarity
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -96,6 +97,7 @@ def _to_row(norm: Dict[str, Any]) -> tuple:
         json.dumps(norm["produced_mana"]) if norm.get("produced_mana") is not None else None,
         json.dumps(norm["all_parts"]) if norm.get("all_parts") is not None else None,
         norm.get("image_url"),
+        norm.get("rarity"),
     )
 
 
@@ -132,7 +134,8 @@ def build_sqlite_database() -> Dict[str, Any]:
                 # First-printing-wins leaves gaps for PER-PRINTING fields when the first
                 # printing lacks them (image_url; defensively also the oracle-level
                 # Fase-1 fields) — fill from any later printing that has a value.
-                for field in ("image_url", "loyalty", "produced_mana", "all_parts"):
+                for field in ("image_url", "loyalty", "produced_mana", "all_parts",
+                              "rarity"):
                     if existing.get(field) is None and norm.get(field) is not None:
                         existing[field] = norm[field]
                 if not existing.get("keywords") and norm.get("keywords"):

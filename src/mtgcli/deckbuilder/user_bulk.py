@@ -21,15 +21,39 @@ manual bulk entries may not — lowercase comparison bridges them.
 import json
 import re
 from pathlib import Path
-from typing import Dict, Iterable, Set
+from typing import Dict, Iterable, Optional, Set
 
-from mtgcli.config import USER_BULK_FILE
+from mtgcli.config import PROJECT_ROOT, USER_BULK_FILE
 
 _LINE_RE = re.compile(r"^(?:(\d+)[xX]?\s+)?(.+?)\s*$")
 
 # Assumed-owned by default (free for the budget) even if the collection is empty.
 DEFAULT_OWNED = ("Plains", "Island", "Swamp", "Mountain", "Forest",
                  "Sol Ring", "Arcane Signet")
+
+
+def _configured_bulk_dir() -> Optional[Path]:
+    """The user's custom collection folder from the GUI settings (`user_bulk_dir`),
+    or None for the project default. Read at CALL time so a settings change (or a
+    test patch) takes effect without restarting."""
+    try:
+        from mtgcli.core import gui_settings
+        raw = gui_settings.load_gui_settings().get("user_bulk_dir")
+    except Exception:
+        return None
+    if not raw or not str(raw).strip():
+        return None
+    p = Path(str(raw).strip()).expanduser()
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
+    return p
+
+
+def default_bulk_file() -> Path:
+    """collection.txt inside the configured bulk dir, else the project default.
+    Reads the module global USER_BULK_FILE late so test monkeypatching keeps working."""
+    d = _configured_bulk_dir()
+    return (d / "collection.txt") if d else USER_BULK_FILE
 
 
 def _owned_to_payload(owned: Dict[str, int]) -> dict:
@@ -48,7 +72,7 @@ def load_user_bulk(path: Path = None) -> Dict[str, int]:
     """name -> 1 (PRESENCE; quantity is not tracked). Reads the .txt (canonical); if it's
     missing, falls back to collection.json. Missing/empty -> {}. Does NOT inject the
     DEFAULT_OWNED staples (those live in owned_lookup, so the file stays user-authored)."""
-    path = Path(path) if path else USER_BULK_FILE
+    path = Path(path) if path else default_bulk_file()
     owned: Dict[str, int] = {}
     if not path.exists():
         return _load_json(path.with_suffix(".json"))  # sibling json fallback
@@ -84,7 +108,7 @@ def save_user_bulk(owned: Iterable[str], path: Path = None,
     NO quantities) and a structured .json (agent-friendly). The json is written as the txt's
     sibling (`<stem>.json`) unless `json_path` is given."""
     names = {n for n in owned}
-    path = Path(path) if path else USER_BULK_FILE
+    path = Path(path) if path else default_bulk_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = sorted(names, key=str.lower)
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")

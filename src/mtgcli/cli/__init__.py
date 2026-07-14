@@ -30,6 +30,7 @@ from mtgcli.cli.commands import (  # noqa: E402,F401 -- imported for registratio
     deck,
     analysis,
     misc,
+    gui,
 )
 
 # Typer lists commands in registration order, which the functional split above

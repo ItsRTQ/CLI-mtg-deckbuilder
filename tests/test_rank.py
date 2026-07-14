@@ -90,6 +90,76 @@ def test_deck_rank_empty_is_scrap():
     assert r["band"] == 1
 
 
+# ---------- THREAT axis: annotated-combo bonus (v1.1) ----------
+
+def _combo_deck():
+    """Kiki-shaped fake: commander-based 2-card auto-wins + a 3-piece line."""
+    d = Deck(_cmdr())
+    d.add([
+        _card("Piece A", type_line="Creature", oracle="Untap all creatures you control."),
+        _card("Piece B", type_line="Creature", oracle="It gains an extra combat phase."),
+        _card("Staff", oracle="Whenever a creature dies, untap equipped creature."),
+        _card("Outlet", type_line="Enchantment", oracle="Sacrifice a creature: deal 1 damage."),
+    ])
+    return d
+
+
+def test_combo_bonus_credits_compact_annotated_combos():
+    d = _combo_deck()
+    r0 = d.rank()
+    assert r0["combo_bonus"]["counted"] == 0 and r0["score"] == r0["base_score"]
+    # commander + 1 piece = a 1-piece auto-win; commander is not required in the deck list
+    d.add_combo("auto_win", ["Cmdr", "Piece A"], "untap loop")
+    d.add_combo("auto_win", ["Cmdr", "Piece B"], "extra combats")
+    d.add_combo("auto_win", ["Cmdr", "Staff", "Outlet"], "3-piece ping loop")  # 2 real pieces
+    r = d.rank()
+    cb = r["combo_bonus"]
+    assert cb["counted"] == 3 and cb["credited"] == pytest.approx(3.0)
+    # bonus = 1.5 * min(1, 3/4) = 1.125 → rounded
+    assert cb["bonus"] == pytest.approx(1.12, abs=0.01)
+    assert r["score"] == pytest.approx(r["base_score"] + cb["bonus"], abs=0.01)
+
+
+def test_combo_bonus_caps_and_class_credit():
+    d = _combo_deck()
+    for i in range(6):  # 6 two-piece auto-wins → credited 6 > denominator 4 → cap
+        d.add_combo("auto_win", ["Piece A", "Piece B"], f"line {i}")
+    r = d.rank()
+    assert r["combo_bonus"]["bonus"] == pytest.approx(1.5)  # the cap
+    # utility/non_infinite earn nothing (value, not a threat clock)
+    d2 = _combo_deck()
+    d2.add_combo("utility", ["Piece A", "Piece B"])
+    d2.add_combo("non_infinite", ["Piece A", "Staff"])
+    assert d2.rank()["combo_bonus"]["counted"] == 0
+    # infinite earns 0.85 credit
+    d3 = _combo_deck()
+    d3.add_combo("infinite", ["Piece A", "Piece B"])
+    assert d3.rank()["combo_bonus"]["credited"] == pytest.approx(0.85)
+
+
+def test_combo_bonus_skips_broken_combos():
+    d = _combo_deck()
+    d.add_combo("auto_win", ["Piece A", "Not In Deck Anymore"], "broken line")
+    r = d.rank()
+    assert r["combo_bonus"]["counted"] == 0
+    assert r["combo_bonus"]["bonus"] == 0.0
+    assert any("Not In Deck Anymore" in s for s in r["combo_bonus"]["skipped_broken"])
+    assert r["score"] == r["base_score"]
+
+
+def test_combo_bonus_can_cross_a_band():
+    # a low-fuel budget combo deck should climb out of Dormant on annotated threat —
+    # the Kiki case (1.98 Dormant ≈ casual tribal was the measured lie).
+    d = _combo_deck()
+    d.add([_card("Sol Ring", oracle="{T}: Add {C}{C}.")])
+    before = d.rank()
+    for i in range(4):
+        d.add_combo("auto_win", ["Piece A", "Piece B"], f"line {i}")
+    after = d.rank()
+    assert after["score"] == pytest.approx(min(10.0, before["score"] + 1.5), abs=0.01)
+    assert after["band"] >= before["band"]
+
+
 def test_simulate_upgrades_marginal_delta_and_identity():
     from mtgcli.models.rank import simulate_upgrades
     d = Deck(_cmdr())  # UR commander

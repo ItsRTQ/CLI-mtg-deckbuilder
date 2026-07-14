@@ -33,7 +33,12 @@ EXPECTED_COMMANDS = [
     # liability; web research is the agent's job, recorded via `mtg note`): 39 -> 37.
     # v0.8.0 user-bulk collection (owned cards cost the budget $0): + bulk-add -> 38.
     # RANK power-meter (FUEL-SPINE): + deck-rank -> 39.
-    "bulk-add", "deck-power", "deck-add", "deck-annotate", "deck-view", "deck-rank", "note",
+    # v0.8.x backlog: + deck-remove (deck-add's inverse, test build #4 friction) -> 41
+    # (update-data was the 40th).
+    "bulk-add", "deck-power", "deck-add", "deck-remove", "deck-annotate", "deck-view",
+    "deck-rank", "note",
+    # v0.9.0 localhost GUI: + gui -> 42.
+    "gui",
 ]
 
 

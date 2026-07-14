@@ -17,6 +17,9 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 RAW_CARDS_PATH = RAW_DATA_DIR / "scryfall_cards.json"
 SQLITE_PATH = PROCESSED_DATA_DIR / "mtg.sqlite"
 
+# GUI (v0.9.0): built frontend served by gui_api when present (no mkdir — optional).
+FRONTEND_DIST = PROJECT_ROOT / "gui" / "dist"
+
 # Ensure all directories exist
 for path in [RAW_DATA_DIR, PROCESSED_DATA_DIR, SEED_DATA_DIR, OUTPUT_DIR, FINAL_BUILDS_DIR, LOGS_DIR, USER_BULK_DIR]:
     path.mkdir(parents=True, exist_ok=True)

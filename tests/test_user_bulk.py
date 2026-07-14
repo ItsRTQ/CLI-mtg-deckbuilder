@@ -87,6 +87,7 @@ def test_budget_summary_owned_frees_all_copies():
 def test_bulk_add_validates_atomic_and_lists(tmp_path, monkeypatch):
     import mtgcli.deckbuilder.user_bulk as ub
     monkeypatch.setattr(ub, "USER_BULK_FILE", tmp_path / "collection.txt")
+    monkeypatch.setattr(ub, "_configured_bulk_dir", lambda: None)  # ignore any real gui_settings
     r = runner.invoke(app, ["bulk-add", "--cards", "Sol Ring;Krenkooo",
                             "--json-output"])
     assert r.exit_code != 0
@@ -110,6 +111,7 @@ def test_bulk_add_validates_atomic_and_lists(tmp_path, monkeypatch):
 def test_budget_command_applies_and_disables_bulk(tmp_path, monkeypatch):
     import mtgcli.deckbuilder.user_bulk as ub
     monkeypatch.setattr(ub, "USER_BULK_FILE", tmp_path / "collection.txt")
+    monkeypatch.setattr(ub, "_configured_bulk_dir", lambda: None)  # ignore any real gui_settings
     (tmp_path / "collection.txt").write_text("1 Rhystic Study\n")
     deck = tmp_path / "deck.txt"
     deck.write_text("1 Rhystic Study\n1 Sol Ring\n")
@@ -146,6 +148,7 @@ def test_save_writes_txt_and_json_and_json_fallback(tmp_path):
 def test_bulk_add_import_txt_and_json(tmp_path, monkeypatch):
     import mtgcli.deckbuilder.user_bulk as ub
     monkeypatch.setattr(ub, "USER_BULK_FILE", tmp_path / "collection.txt")
+    monkeypatch.setattr(ub, "_configured_bulk_dir", lambda: None)  # ignore any real gui_settings
     # import a bought deck as .txt: not-found card is SKIPPED (not atomic), rest import
     lst = tmp_path / "bought.txt"
     lst.write_text("2 Sol Ring\n1 Arcane Signet\n1 Definitely Not A Real Card\n")

@@ -1,0 +1,1034 @@
+:root {
+  color-scheme: light dark;
+  --accent: #7c5cff;
+  --border: color-mix(in srgb, currentColor 18%, transparent);
+  --muted: color-mix(in srgb, currentColor 55%, transparent);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.nav {
+  display: flex; align-items: center; gap: 1.1rem;
+  padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 40;   /* follows the scroll (under modals/banner) */
+  background: color-mix(in srgb, Canvas 88%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.brand { font-weight: 700; margin-right: 0.6rem; color: var(--accent); }
+.nav a { text-decoration: none; color: inherit; opacity: 0.75; }
+.nav a.active { opacity: 1; font-weight: 600; border-bottom: 2px solid var(--accent); }
+.nav a.drop-ready {
+  opacity: 1;
+  outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* ════ card finish/rarity FX system ════
+   Physical model (fx/cardLight.ts): the pointer orients the CARD, a fixed
+   virtual light determines the reflection. Vars set on .tilt per mousemove:
+     --spec-x/--spec-y     specular (white glint) center — moves OPPOSITE the
+                           pointer, fast; off-card at extreme tilt
+     --foil-x/--foil-y     diffraction drift — same direction, 45% of the rate
+     --foil-angle          spectral-gradient angle, shifts with tilt
+     --foil-intensity      0..1 — 0 flat/at rest, 1 tilted toward the light
+     --pointer-x/-y        raw orientation (-1..1) — drives the shadow shift
+   ::before = foil substrate (spectral bands + microtexture, soft-light so the
+   printed ink keeps its darks). ::after = specular reflection (screen, white).
+   Layers ease at DIFFERENT rates via the @property transitions below.
+
+   Calibration knobs live on :root (--fx-*). Selective foiling: pass an
+   authored grayscale mask (white = foil, black = matte) per card via
+   style="--foil-mask: url(...)" on the fx wrapper — without one the foil is
+   luminance-approximated by the blend mode only (CSS cannot truly read the
+   artwork; precise per-region foil NEEDS the mask, or WebGL). */
+:root {
+  --fx-foil-base: 0.07;   /* substrate visibility at rest (barely metallic) */
+  --fx-foil-gain: 0.20;   /* + intensity × gain → max ≈ 0.27 */
+  --fx-spec-max: 0.55;    /* specular peak opacity */
+  --fx-spectral-sat: 1.0; /* extra saturation on the substrate (keep ≤ 1.25) */
+}
+@property --foil-intensity { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --spec-x { syntax: "<percentage>"; inherits: true; initial-value: 42%; }
+@property --spec-y { syntax: "<percentage>"; inherits: true; initial-value: 30%; }
+@property --foil-x { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --foil-y { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --foil-angle { syntax: "<angle>"; inherits: true; initial-value: 115deg; }
+
+.tilt { position: relative; }
+.tilt::before, .tilt::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 4.75% / 3.5%;
+  pointer-events: none;
+  background: none;
+  z-index: 2;
+  /* the tilt wrapper is preserve-3d: without a positive Z the overlays share
+     the scan's plane and paint BEHIND it — push them toward the viewer */
+  transform: translateZ(2px);
+}
+
+/* ── MATERIAL LAYER SYSTEM ──
+   Rarity presets (below) only set --mat-* knobs; the two shared stacks here
+   render every layer, each gated by its own per-layer alpha — a layer whose
+   material knob is 0 simply does not exist. Each material also has its OWN
+   light-response curve (how it wakes as the card tilts toward the light), so
+   higher rarity = different PHYSICS, never just more opacity. */
+.tilt {
+  --i: var(--foil-intensity, 0);
+  --grain-a: var(--mat-grain, 0);                                   /* static paper/foil tooth */
+  --pearl-a: calc(var(--mat-pearl, 0) * (0.30 + 0.70 * var(--i)));  /* broad, mild response */
+  --diff-a:  calc(var(--mat-diff, 0)  * (0.22 + 0.78 * var(--i)));  /* metallic diffraction */
+  --diff2-a: calc(var(--mat-diff2, 0) * var(--i));                  /* prismatic lines: angle-only */
+  --etch-a:  calc(var(--mat-etch, 0)  * (0.35 + 0.65 * var(--i)));  /* engraved pattern */
+  --holo-a:  calc(var(--mat-holo, 0)  * (0.25 + 0.75 * var(--i)));  /* collector motif */
+  --metal-a: calc(var(--mat-metal, 0) * var(--i));                  /* silver band: angle-only */
+  --glare-a: calc(var(--mat-glare, 0) * var(--i));                  /* specular: angle-only */
+  --spark-a: calc(var(--mat-sparkle, 0) * clamp(0, (var(--i) - 0.68) * 3, 1)); /* narrow threshold */
+}
+
+/* ::before = the MATERIAL (soft-light: printed ink suppresses it, highlights
+   pick it up). Top→bottom: grain · holo motif · etched crosshatch (×2) ·
+   fine prismatic lines · broad spectral bands · pearl sheen.
+   Movement rates differ per layer (multipliers on --foil-x/y): pearl 0.3 =
+   slow/broad, diffraction 1.0 = moderate, prismatic 0.7, etch 0.15 = slight,
+   grain 0.12 = minimal. */
+.tilt::before {
+  background:
+    repeating-linear-gradient(calc(var(--foil-angle, 115deg) + 90deg),
+      rgb(255 255 255 / var(--grain-a, 0)) 0 1px, transparent 1px 3px),
+    repeating-conic-gradient(from var(--foil-angle, 115deg) at 50% 42%,
+      rgb(196 176 220 / var(--holo-a, 0)) 0 8deg,
+      rgb(160 190 208 / var(--holo-a, 0)) 8deg 16deg,
+      transparent 16deg 30deg),
+    repeating-linear-gradient(52deg,
+      rgb(255 255 255 / var(--etch-a, 0)) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-52deg,
+      rgb(0 0 0 / calc(var(--etch-a, 0) * 0.7)) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(calc(var(--foil-angle, 115deg) + 28deg),
+      rgb(206 184 140 / var(--diff2-a, 0)) 0 4px,
+      rgb(196 152 178 / var(--diff2-a, 0)) 4px 8px,
+      rgb(158 180 202 / var(--diff2-a, 0)) 8px 12px,
+      rgb(168 158 200 / var(--diff2-a, 0)) 12px 16px),
+    linear-gradient(var(--foil-angle, 115deg),
+      rgb(158 180 202 / var(--diff-a, 0)) 6%,
+      rgb(172 158 204 / var(--diff-a, 0)) 25%,
+      rgb(150 184 158 / var(--diff-a, 0)) 44%,
+      rgb(206 188 146 / var(--diff-a, 0)) 63%,
+      rgb(196 152 178 / var(--diff-a, 0)) 82%,
+      rgb(158 180 202 / var(--diff-a, 0)) 100%),
+    linear-gradient(calc(var(--foil-angle, 115deg) - 12deg),
+      rgb(214 224 232 / var(--pearl-a, 0)) 12%,
+      rgb(210 204 228 / var(--pearl-a, 0)) 40%,
+      rgb(206 224 212 / var(--pearl-a, 0)) 68%,
+      rgb(214 224 232 / var(--pearl-a, 0)) 96%);
+  background-size:
+    100% 100%, 130% 130%, 100% 100%, 100% 100%,
+    220% 220%, 340% 340%, 380% 380%;
+  background-position:
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.12) 50%,
+    center,
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.15) 50%,
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.15) 50%,
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.7) calc(50% + (var(--foil-y, 50%) - 50%) * 0.7),
+    var(--foil-x, 50%) var(--foil-y, 50%),
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.3) calc(50% + (var(--foil-y, 50%) - 50%) * 0.3);
+  mix-blend-mode: soft-light;
+  filter: saturate(var(--fx-spectral-sat, 1));
+  mask-image: var(--foil-mask, none);
+  -webkit-mask-image: var(--foil-mask, none);
+}
+
+/* ::after = REFLECTED LIGHT (screen). Top→bottom: sparse sparkles (threshold-
+   gated, art region only — never over rules text) · specular core + streak ·
+   broad silver metallic band riding with the glint. */
+.tilt::after {
+  background:
+    radial-gradient(2.2px 2.2px at 21% 24%, rgb(255 250 240 / var(--spark-a, 0)), transparent 60%),
+    radial-gradient(1.8px 1.8px at 67% 15%, rgb(214 232 255 / calc(var(--spark-a, 0) * 0.9)), transparent 60%),
+    radial-gradient(2.4px 2.4px at 44% 47%, rgb(255 244 224 / var(--spark-a, 0)), transparent 60%),
+    radial-gradient(1.6px 1.6px at 83% 38%, rgb(240 222 255 / calc(var(--spark-a, 0) * 0.85)), transparent 60%),
+    radial-gradient(2px 2px at 12% 52%, rgb(224 244 255 / calc(var(--spark-a, 0) * 0.9)), transparent 60%),
+    radial-gradient(1.8px 1.8px at 58% 30%, rgb(255 250 240 / calc(var(--spark-a, 0) * 0.8)), transparent 60%),
+    radial-gradient(38% 26% at var(--spec-x, 42%) var(--spec-y, 30%),
+      rgb(255 252 242 / var(--glare-a, 0)) 0%,
+      rgb(255 250 240 / calc(var(--glare-a, 0) * 0.28)) 40%, transparent 70%),
+    linear-gradient(calc(var(--foil-angle, 115deg) + 8deg),
+      transparent calc(var(--spec-x, 42%) - 18%),
+      rgb(255 250 235 / calc(var(--glare-a, 0) * 0.45)) var(--spec-x, 42%),
+      transparent calc(var(--spec-x, 42%) + 13%)),
+    linear-gradient(calc(var(--foil-angle, 115deg) - 6deg),
+      transparent calc(var(--spec-x, 42%) - 30%),
+      rgb(218 226 234 / var(--metal-a, 0)) var(--spec-x, 42%),
+      rgb(200 212 224 / calc(var(--metal-a, 0) * 0.6)) calc(var(--spec-x, 42%) + 12%),
+      transparent calc(var(--spec-x, 42%) + 30%));
+  mix-blend-mode: screen;
+}
+
+/* ── RARITY MATERIAL PRESETS — the centralized config. Each rarity is a
+   different MATERIAL (layers on/off + knobs), not the same foil dimmed.
+   body.fx-force-<rarity> paints EVERY card with that preset (comparison
+   debug — same artwork, switch presets live from devtools). ── */
+/* common: matte cardstock — paper tooth, diffuse whisper of glare, nothing else */
+.fx-common, body.fx-force-common .mtg-card, body.fx-force-common .zoom-card {
+  --mat-grain: 0.04; --mat-glare: 0.05;
+  --mat-pearl: 0; --mat-diff: 0; --mat-diff2: 0; --mat-etch: 0;
+  --mat-holo: 0; --mat-metal: 0; --mat-sparkle: 0;
+}
+.fx-common img { filter: saturate(0.96) contrast(0.99); }
+/* uncommon: satin/pearlescent — broad slow cool sheen, soft silver, no rainbow */
+.fx-uncommon, body.fx-force-uncommon .mtg-card, body.fx-force-uncommon .zoom-card {
+  --mat-grain: 0.03; --mat-pearl: 0.11; --mat-metal: 0.06; --mat-glare: 0.13;
+  --mat-diff: 0; --mat-diff2: 0; --mat-etch: 0; --mat-holo: 0; --mat-sparkle: 0;
+}
+/* rare: metallic foil — muted diffraction + silver band + foil grain + specular */
+.fx-rare, body.fx-force-rare .mtg-card, body.fx-force-rare .zoom-card {
+  --mat-grain: 0.05; --mat-diff: 0.24; --mat-metal: 0.18; --mat-glare: 0.32;
+  --mat-pearl: 0; --mat-diff2: 0; --mat-etch: 0; --mat-holo: 0; --mat-sparkle: 0;
+}
+.fx-rare img { filter: contrast(1.04) brightness(1.02); }
+/* mythic: prismatic + etched — two diffraction rates, engraved crosshatch,
+   sharper glare, sparse threshold sparkles. Complexity up, not brightness. */
+.fx-mythic, body.fx-force-mythic .mtg-card, body.fx-force-mythic .zoom-card {
+  --mat-grain: 0.04; --mat-diff: 0.26; --mat-diff2: 0.35; --mat-etch: 0.09;
+  --mat-metal: 0.20; --mat-glare: 0.42; --mat-sparkle: 0.8;
+  --mat-pearl: 0; --mat-holo: 0;
+}
+.fx-mythic img { filter: saturate(1.06) contrast(1.05); }
+/* special/collector: holographic motif + security crosshatch + pearl underlay */
+.fx-special, body.fx-force-special .mtg-card, body.fx-force-special .zoom-card {
+  --mat-pearl: 0.07; --mat-diff: 0.18; --mat-etch: 0.12; --mat-holo: 0.16;
+  --mat-metal: 0.16; --mat-glare: 0.36; --mat-sparkle: 0.5;
+  --mat-grain: 0.03; --mat-diff2: 0;
+}
+.fx-special img { filter: saturate(1.04) contrast(1.04); }
+
+/* — finish family (the PRINTING's finish, stacked on top of a rarity class in
+   the zoom): each finish overrides the material ::before with its own
+   substrate and retunes the reflected-light knobs of the shared ::after — */
+.fx-foil { --mat-glare: 0.45; --mat-metal: 0.20; --mat-sparkle: 0; }
+.fx-foil .tilt::before {
+  background:
+    repeating-linear-gradient(calc(var(--foil-angle, 115deg) + 90deg),
+      rgba(255,255,255,0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(var(--foil-angle, 115deg),
+      rgba(158,180,202,0.55) 6%,
+      rgba(172,158,204,0.55) 25%,
+      rgba(150,184,158,0.55) 44%,
+      rgba(206,188,146,0.55) 63%,
+      rgba(196,152,178,0.55) 82%,
+      rgba(158,180,202,0.55) 100%);
+  background-size:
+    100% 100%,
+    340% 340%;
+  background-position:
+    calc(50% + (var(--foil-x, 50%) - 50%) * 0.25) 50%,
+    var(--foil-x, 50%) var(--foil-y, 50%);
+  mix-blend-mode: soft-light;
+  filter: saturate(var(--fx-spectral-sat, 1));
+  opacity: calc(var(--fx-foil-base) + var(--foil-intensity, 0) * var(--fx-foil-gain));
+  mask-image: var(--foil-mask, none);
+  -webkit-mask-image: var(--foil-mask, none);
+}
+.fx-etched { --mat-glare: 0.30; }
+.fx-etched img { filter: saturate(0.8) contrast(1.14) brightness(0.97); }
+.fx-etched .tilt::before {                                         /* metallic grain, no rainbow */
+  background:
+    repeating-linear-gradient(115deg,
+      rgba(255,255,255,0.10) 0 1.5px, rgba(0,0,0,0.09) 1.5px 3px),
+    radial-gradient(52% 40% at var(--spec-x, 42%) var(--spec-y, 30%),
+      rgba(255,255,255,0.7), transparent 70%);
+  background-size: 100% 100%, 200% 200%;
+  mix-blend-mode: overlay;
+  opacity: calc(0.30 + var(--foil-intensity, 0) * 0.45);
+}
+.fx-surge { --mat-glare: 0.30; }
+.fx-surge .tilt::before {                                          /* wavy rainbow bands, angle-driven */
+  background: repeating-linear-gradient(var(--foil-angle, 100deg),
+    rgba(190,150,150,0.4) 0 12%, rgba(196,186,144,0.4) 12% 24%,
+    rgba(146,192,164,0.4) 24% 36%, rgba(148,172,200,0.4) 36% 48%,
+    rgba(182,150,196,0.4) 48% 60%);
+  background-size: 300% 300%;
+  background-position: var(--foil-x, 50%) var(--foil-y, 50%);
+  mix-blend-mode: soft-light;
+  opacity: calc(0.35 + var(--foil-intensity, 0) * 0.55);
+}
+.fx-galaxy { --mat-glare: 0.28; --mat-sparkle: 1; }
+.fx-galaxy .tilt::before {                                         /* scattered star sparkle */
+  background:
+    radial-gradient(3px 3px at 18% 28%, rgba(255,255,255,0.9), transparent 60%),
+    radial-gradient(2.4px 2.4px at 64% 12%, rgba(200,220,255,0.9), transparent 60%),
+    radial-gradient(3.4px 3.4px at 42% 58%, rgba(255,255,255,0.85), transparent 60%),
+    radial-gradient(2.2px 2.2px at 82% 44%, rgba(255,230,255,0.9), transparent 60%),
+    radial-gradient(2.8px 2.8px at 28% 82%, rgba(210,240,255,0.9), transparent 60%),
+    radial-gradient(2px 2px at 70% 76%, rgba(255,255,255,0.8), transparent 60%),
+    radial-gradient(2.4px 2.4px at 52% 20%, rgba(255,255,255,0.8), transparent 60%),
+    radial-gradient(2px 2px at 12% 62%, rgba(220,235,255,0.85), transparent 60%),
+    radial-gradient(2.6px 2.6px at 88% 88%, rgba(255,255,255,0.8), transparent 60%),
+    linear-gradient(var(--foil-angle, 115deg),
+      rgba(90,70,150,0.30), rgba(40,80,140,0.30));
+  mix-blend-mode: screen;
+  opacity: calc(0.25 + var(--foil-intensity, 0) * 0.75);
+}
+.fx-galaxy:hover .tilt::before { animation: galaxy-twinkle 1.8s ease-in-out infinite alternate; }
+@keyframes galaxy-twinkle {
+  from { opacity: calc(0.25 + var(--foil-intensity, 0) * 0.45); }
+  to   { opacity: calc(0.25 + var(--foil-intensity, 0) * 0.75); }
+}
+.fx-confetti { --mat-glare: 0.30; }
+.fx-confetti .tilt::before {                                       /* foil fragments catching the light */
+  background:
+    conic-gradient(from 40deg at 22% 30%, rgba(220,140,140,0.5) 0 12%, transparent 12%),
+    conic-gradient(from 200deg at 68% 22%, rgba(140,190,220,0.5) 0 10%, transparent 10%),
+    conic-gradient(from 120deg at 48% 62%, rgba(216,198,140,0.5) 0 11%, transparent 11%),
+    conic-gradient(from 320deg at 80% 70%, rgba(160,208,150,0.5) 0 9%, transparent 9%),
+    conic-gradient(from 80deg at 30% 84%, rgba(198,152,212,0.5) 0 10%, transparent 10%),
+    conic-gradient(from 260deg at 58% 42%, rgba(150,208,196,0.45) 0 8%, transparent 8%);
+  background-size: 22% 22%;
+  background-position: var(--foil-x, 50%) var(--foil-y, 50%);
+  mix-blend-mode: screen;
+  opacity: calc(0.18 + var(--foil-intensity, 0) * 0.6);
+}
+.fx-textured { --mat-glare: 0.35; }
+.fx-textured .tilt::before {                                       /* raised layers, directional shimmer */
+  background:
+    repeating-linear-gradient(25deg,
+      rgba(255,255,255,0.10) 0 6px, rgba(0,0,0,0.08) 6px 12px),
+    linear-gradient(var(--foil-angle, 115deg),
+      transparent calc(var(--spec-x, 42%) - 22%),
+      rgba(255,255,255,0.5) var(--spec-x, 42%),
+      transparent calc(var(--spec-x, 42%) + 22%));
+  mix-blend-mode: overlay;
+  opacity: calc(0.35 + var(--foil-intensity, 0) * 0.5);
+}
+
+/* — frame treatments (stack ON TOP of a foil class) — */
+.fx-borderless .tilt::after {                                      /* glare edge to edge */
+  background: radial-gradient(95% 85% at var(--spec-x, 42%) var(--spec-y, 30%),
+    rgba(255,255,255,0.5), transparent 80%);
+  mix-blend-mode: screen;
+  opacity: calc(var(--foil-intensity, 0) * 0.55);
+}
+.fx-showcase img { filter: saturate(1.08) contrast(1.06); }
+.fx-showcase .tilt::after {
+  background: linear-gradient(var(--foil-angle, 115deg),
+    transparent calc(var(--spec-x, 42%) - 18%),
+    rgba(164,196,224,0.4) calc(var(--spec-x, 42%) - 4%),
+    rgba(222,178,208,0.4) calc(var(--spec-x, 42%) + 4%),
+    transparent calc(var(--spec-x, 42%) + 18%));
+  mix-blend-mode: screen;
+  opacity: calc(var(--foil-intensity, 0) * 0.6);
+}
+.fx-retro .tilt::after {                                           /* warm classic gloss band */
+  background: linear-gradient(var(--foil-angle, 115deg),
+    transparent calc(var(--spec-x, 42%) - 14%),
+    rgba(238,206,150,0.45) var(--spec-x, 42%),
+    transparent calc(var(--spec-x, 42%) + 12%));
+  mix-blend-mode: screen;
+  opacity: calc(var(--foil-intensity, 0) * 0.55);
+}
+/* a NONFOIL printing is matte print regardless of rarity — kill the materials
+   (comes after the presets so it wins the cascade at equal specificity) */
+.fx-nonfoil {
+  --mat-pearl: 0; --mat-diff: 0; --mat-diff2: 0; --mat-etch: 0;
+  --mat-holo: 0; --mat-metal: 0; --mat-sparkle: 0; --mat-glare: 0.07;
+}
+.fx-nonfoil .tilt::before { background: none; animation: none; }   /* plain print */
+
+/* reduced motion: no tilt transitions, no sparkle animation — the substrate
+   keeps its faint static metallic base (JS pins intensity low as well) */
+@media (prefers-reduced-motion: reduce) {
+  .tilt { transition: none; }
+  .fx-galaxy:hover .tilt::before { animation: none; }
+}
+
+/* — FX debug (calibration only — add ONE class to <body> from devtools):
+   LAYER ISOLATION (artwork dimmed, blend mode off, intensity pinned to 1 so
+   the layer is visible without hovering):
+     fx-debug-base   → artwork alone (all FX hidden)
+     fx-debug-grain  → paper/foil tooth      fx-debug-pearl → pearl sheen
+     fx-debug-diff   → diffraction (both)    fx-debug-etch  → etched + holo motif
+     fx-debug-metal  → silver metallic band  fx-debug-spark → sparkle points
+     fx-debug-spec   → full reflected-light layer (::after)
+     fx-debug-foil   → full material layer (::before; also the finish substrates)
+     fx-debug-mask   → paints --foil-mask coverage as flat white
+   RARITY COMPARISON — repaint every card with one preset, same artwork:
+     fx-force-common | fx-force-uncommon | fx-force-rare | fx-force-mythic |
+     fx-force-special
+   e.g.  document.body.classList.add("fx-debug-pearl")  */
+body[class*="fx-debug"] .tilt::before,
+body[class*="fx-debug"] .tilt::after { transition: none; }
+body[class*="fx-debug-"]:not(.fx-debug-base) .tilt { --foil-intensity: 1 !important; }
+body.fx-debug-base .tilt::before, body.fx-debug-base .tilt::after { display: none; }
+/* material-layer isolations: zero every OTHER --mat-* knob on .tilt (beats the
+   preset inherited from the card wrapper), show ::before unblended */
+body.fx-debug-grain .tilt, body.fx-debug-pearl .tilt, body.fx-debug-diff .tilt,
+body.fx-debug-etch .tilt, body.fx-debug-foil .tilt {
+  --mat-sparkle: 0;
+}
+body.fx-debug-grain .tilt { --mat-pearl: 0; --mat-diff: 0; --mat-diff2: 0; --mat-etch: 0; --mat-holo: 0; --mat-grain: 0.5; }
+body.fx-debug-pearl .tilt { --mat-grain: 0; --mat-diff: 0; --mat-diff2: 0; --mat-etch: 0; --mat-holo: 0; }
+body.fx-debug-diff  .tilt { --mat-grain: 0; --mat-pearl: 0; --mat-etch: 0; --mat-holo: 0; }
+body.fx-debug-etch  .tilt { --mat-grain: 0; --mat-pearl: 0; --mat-diff: 0; --mat-diff2: 0; }
+body.fx-debug-grain .mtg-card img, body.fx-debug-grain .zoom-card img,
+body.fx-debug-pearl .mtg-card img, body.fx-debug-pearl .zoom-card img,
+body.fx-debug-diff .mtg-card img, body.fx-debug-diff .zoom-card img,
+body.fx-debug-etch .mtg-card img, body.fx-debug-etch .zoom-card img,
+body.fx-debug-foil .mtg-card img, body.fx-debug-foil .zoom-card img { opacity: 0.12; }
+body.fx-debug-grain .tilt::before, body.fx-debug-pearl .tilt::before,
+body.fx-debug-diff .tilt::before, body.fx-debug-etch .tilt::before,
+body.fx-debug-foil .tilt::before { mix-blend-mode: normal; opacity: 1 !important; }
+body.fx-debug-grain .tilt::after, body.fx-debug-pearl .tilt::after,
+body.fx-debug-diff .tilt::after, body.fx-debug-etch .tilt::after,
+body.fx-debug-foil .tilt::after { display: none; }
+/* reflected-light isolations: hide ::before, show ::after unblended */
+body.fx-debug-metal .tilt { --mat-glare: 0; --mat-sparkle: 0; }
+body.fx-debug-spark .tilt { --mat-glare: 0; --mat-metal: 0; --mat-sparkle: 1; }
+body.fx-debug-metal .mtg-card img, body.fx-debug-metal .zoom-card img,
+body.fx-debug-spark .mtg-card img, body.fx-debug-spark .zoom-card img,
+body.fx-debug-spec .mtg-card img, body.fx-debug-spec .zoom-card img { opacity: 0.12; }
+body.fx-debug-metal .tilt::after, body.fx-debug-spark .tilt::after,
+body.fx-debug-spec .tilt::after { mix-blend-mode: normal; opacity: 1 !important; }
+body.fx-debug-metal .tilt::before, body.fx-debug-spark .tilt::before,
+body.fx-debug-spec .tilt::before { display: none; }
+body.fx-debug-mask .tilt::before {
+  background: white !important; mix-blend-mode: normal; opacity: 1 !important;
+}
+body.fx-debug-mask .tilt::after { display: none; }
+
+/* rarity tags: the classic set-symbol colors */
+.rarity-tag { font-weight: 700; }
+.rarity-common   { color: #c8c8c8; }
+.rarity-uncommon { color: #9db6c4; }   /* silver */
+.rarity-rare     { color: #e0c56f; }   /* gold */
+.rarity-mythic   { color: #f0803c; }   /* orange-red */
+.rarity-special  { color: #b06bd6; }
+
+/* mana symbols (local SVGs) */
+.mana { display: inline-flex; align-items: center; gap: 1.5px; vertical-align: -0.12em; }
+.mana-symbol {
+  width: 0.95em; height: 0.95em;
+  vertical-align: -0.12em;
+  border-radius: 50%;
+  box-shadow: -1px 1px 0 rgba(0, 0, 0, 0.35);  /* the classic printed-cost drop shadow */
+}
+
+/* commander typeahead */
+.autocomplete { position: relative; }
+.suggestions {
+  position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 45;
+  background: Canvas; color: CanvasText;
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+  max-height: 16rem; overflow-y: auto;
+}
+.suggestion {
+  display: flex; justify-content: space-between; gap: 0.6rem;
+  padding: 0.42rem 0.7rem; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.suggestion:last-child { border-bottom: none; }
+.suggestion:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* transient feedback for drag-and-drop adds */
+.toast {
+  position: fixed; top: 3.4rem; left: 50%; transform: translateX(-50%);
+  z-index: 55; padding: 0.5rem 1rem;
+  background: Canvas; color: CanvasText;
+  border: 1px solid var(--accent); border-radius: 99px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  animation: banner-in 0.2s ease;
+}
+.main { padding: 1.4rem; max-width: 980px; width: 100%; margin: 0 auto; }
+h1 { font-size: 1.4rem; }
+.card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 1rem 1.2rem; margin: 0.8rem 0;
+}
+.muted { color: var(--muted); font-size: 0.9rem; }
+.row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; }
+label { display: block; margin: 0.6rem 0 0.15rem; font-size: 0.85rem; }
+input, select, textarea {
+  width: 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--border);
+  border-radius: 7px; background: transparent; color: inherit; font: inherit;
+}
+/* Native option popup can't be transparent: without explicit colors Chromium
+   paints it white while options inherit the dark theme's light text. */
+select option { background: Canvas; color: CanvasText; }
+button {
+  padding: 0.5rem 1rem; border-radius: 7px; border: 1px solid var(--accent);
+  background: var(--accent); color: white; font: inherit; cursor: pointer;
+}
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.ghost { background: transparent; color: inherit; }
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { text-align: left; padding: 0.4rem 0.55rem; border-bottom: 1px solid var(--border); }
+.badge {
+  display: inline-block; padding: 0.1rem 0.55rem; border-radius: 99px;
+  font-size: 0.78rem; border: 1px solid var(--border);
+}
+.badge.ok { border-color: #2f9e44; color: #2f9e44; }
+.badge.bad { border-color: #e03131; color: #e03131; }
+.log {
+  font-family: ui-monospace, monospace; font-size: 0.8rem; white-space: pre-wrap;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border-radius: 8px; padding: 0.7rem; max-height: 300px; overflow-y: auto;
+}
+.error { color: #e03131; }
+
+/* Settings: whole provider row is the click target */
+.providers tbody tr { transition: background 0.12s ease; }
+.providers .row-selectable { cursor: pointer; }
+.providers .row-selectable:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.providers .row-selected {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.providers .row-disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Results: recent-builds rows reuse the row-* states */
+tr.row-selectable { cursor: pointer; }
+tr.row-selectable:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+tr.row-selected { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+
+button.danger { border-color: #e03131; color: #e03131; margin-left: auto; }
+button.danger:hover { background: color-mix(in srgb, #e03131 12%, transparent); }
+
+/* Card search: circular pager arrows, vertically centered at the grid's edges */
+.results-wrap {
+  position: relative;
+  margin-top: 0.8rem;
+  padding: 0 2.4rem;   /* room so the arrows don't cover the outer cards */
+}
+.pager-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 2.6rem; height: 2.6rem; padding: 0;
+  border-radius: 50%;
+  background: Canvas; color: CanvasText;
+  border: 1.5px solid var(--accent);
+  font-size: 1.5rem; line-height: 1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  z-index: 5;
+}
+.pager-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, Canvas);
+}
+.pager-btn:disabled { opacity: 0.3; }
+.pager-btn.left { left: -0.2rem; }
+.pager-btn.right { right: -0.2rem; }
+
+/* Card search: image grid results */
+.card-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.8rem;
+}
+.mtg-card { margin: 0; cursor: pointer; }
+.mtg-card:hover { position: relative; z-index: 3; }  /* the grown card overlaps neighbors */
+.tilt {
+  /* each lighting layer eases at its OWN rate (the registered @property vars
+     make custom properties animatable): the specular chases fast, the
+     diffraction drifts slow, intensity fades slowest — so nothing reads as
+     one gradient glued to the cursor, and pointer-leave settles gradually */
+  transition: transform 0.15s ease-out,
+    --foil-intensity 0.45s ease,
+    --spec-x 0.14s ease-out, --spec-y 0.14s ease-out,
+    --foil-x 0.5s ease-out, --foil-y 0.5s ease-out,
+    --foil-angle 0.5s ease-out;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+.modal-overlay.zoom-overlay { z-index: 70; }  /* card zoom beats every modal */
+.modal-overlay.confirm-overlay { z-index: 75; }  /* agent confirm beats everything */
+.provider-line {
+  padding: 0.5rem 0.8rem; border: 1px solid var(--accent); border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* Card zoom modal: the large scan, centered */
+.zoom-card { text-align: center; }
+.zoom-card img {
+  max-height: 78vh; max-width: 92vw;
+  border-radius: 4.75% / 3.5%;
+  /* the shadow shifts subtly opposite the tilt — cardstock over a table */
+  box-shadow:
+    calc(var(--pointer-x, 0) * -7px)
+    calc(8px + var(--pointer-y, 0) * -5px)
+    40px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+.zoom-caption {
+  margin-top: 0.6rem; color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  display: flex; flex-direction: column; gap: 0.15rem;
+  line-height: 1.25;
+}
+/* Print-switch arrows: centered on the card's left/right edges */
+.zoom-stage { position: relative; display: inline-block; }
+.zoom-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 2;
+  width: 2.6rem; height: 2.6rem; padding: 0;
+  border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45); color: white;
+  font-size: 1.9rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.zoom-nav:hover {
+  background: rgba(0, 0, 0, 0.75);
+  transform: translateY(-50%) scale(1.12);
+}
+.zoom-nav.prev { left: -1.3rem; }
+.zoom-nav.next { right: -1.3rem; }
+.zoom-caption .muted { color: rgba(255, 255, 255, 0.75); }
+.mtg-card img {
+  width: 100%; display: block;
+  border-radius: 4.75% / 3.5%;   /* MTG card corner ratio */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.mtg-card-fallback {
+  aspect-ratio: 488 / 680;       /* same footprint as a card scan */
+  border: 1px solid var(--border); border-radius: 8px;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 0.3rem; padding: 0.6rem; text-align: center; font-size: 0.85rem;
+}
+.mtg-card figcaption {
+  display: flex; justify-content: space-between; gap: 0.4rem;
+  font-size: 0.78rem; margin-top: 0.3rem;
+}
+.mtg-card-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Card search: advanced filters */
+.advanced {
+  margin-top: 0.7rem; padding: 0.7rem 0.8rem;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+.advanced .row { align-items: flex-end; }
+button.pip {
+  --pip-glow: var(--accent);
+  width: 2.1rem; height: 2.1rem; padding: 0.18rem; border-radius: 50%;
+  background: transparent; border: 1.5px solid var(--border);
+  opacity: 0.45;                                  /* inactive: dimmed symbol */
+  transition: opacity 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+button.pip img { width: 100%; height: 100%; display: block; border-radius: 50%; }
+button.pip:hover { opacity: 0.8; }
+button.pip.on {
+  opacity: 1;
+  border-color: var(--pip-glow);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--pip-glow) 80%, transparent);
+}
+/* the active glow matches each mana color */
+button.pip-W { --pip-glow: #f2e076; }
+button.pip-U { --pip-glow: #4aa3ff; }
+button.pip-B { --pip-glow: #b06bd6; }   /* black reads better as a violet aura */
+button.pip-R { --pip-glow: #ff6a4d; }
+button.pip-G { --pip-glow: #4ade80; }
+
+/* Deck banners: commander art crop + tier/name/price, glow colored by RANK */
+.deck-banners { display: flex; flex-direction: column; gap: 0.7rem; max-height: 55vh; overflow-y: auto; padding: 0.3rem; }
+.deck-banner {
+  --glow: #9aa0a6;                       /* default: no rank parsed */
+  width: 95%; margin-inline: auto;       /* room for the hover scale — no overflow */
+  position: relative; min-height: 72px;
+  border-radius: 10px; cursor: pointer;
+  background-size: cover; background-position: center 25%;
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1.5px solid var(--glow);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--glow) 55%, transparent);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+.deck-banner:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--glow) 85%, transparent);
+}
+/* glare: a sheen in the deck's aura color (lightened) sweeping left -> right */
+.deck-banner::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;                  /* never intercept the click */
+  /* the band = the banner's --glow color mixed toward white, translucent */
+  background: linear-gradient(105deg,
+    transparent 40%,
+    color-mix(in srgb, color-mix(in srgb, var(--glow) 45%, white) 32%, transparent) 50%,
+    transparent 60%);
+  transform: translateX(-130%);
+  /* no transition here -> mouse-out resets instantly, no reverse sweep */
+}
+.deck-banner:hover::after {
+  transform: translateX(130%);
+  transition: transform 1.2s ease;
+}
+/* RANK -> glow color (Mythic = purple, descending heat below it) */
+.deck-banner.rank-mythic    { --glow: #a855f7; }
+.deck-banner.rank-forbidden { --glow: #ef4444; }
+.deck-banner.rank-ascendant { --glow: #f59e0b; }
+.deck-banner.rank-charged   { --glow: #eab308; }
+.deck-banner.rank-awakened  { --glow: #22c55e; }
+.deck-banner.rank-dormant   { --glow: #38bdf8; }
+.deck-banner.rank-scrap     { --glow: #9aa0a6; }
+.deck-banner-scrim {
+  display: flex; align-items: center; gap: 0.7rem;
+  min-height: 72px; padding: 0.6rem 0.9rem;
+  background: linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%);
+  color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.deck-tier {
+  font-size: 1.35rem; font-weight: 800; letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+}
+.deck-commander { font-weight: 700; font-size: 1.02rem; flex: 1; min-width: 0; }
+.deck-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; font-size: 0.82rem; }
+.deck-rank { color: var(--glow); font-weight: 700; filter: brightness(1.35); }
+.deck-meta .muted { color: rgba(255,255,255,0.7); }
+
+/* Collection: bulk + decks side by side */
+.columns {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem;
+  align-items: start;
+}
+@media (max-width: 760px) { .columns { grid-template-columns: 1fr; } }
+.scroll-list {
+  margin-top: 0.6rem; border: 1px solid var(--border); border-radius: 8px;
+  max-height: 60vh; overflow-y: auto;
+}
+
+/* Global build banner (top-right, all pages) */
+.build-banner {
+  position: fixed; top: 0.8rem; right: 0.9rem; z-index: 60;
+  display: flex; align-items: center; gap: 0.65rem;
+  max-width: min(420px, 85vw);
+  padding: 0.55rem 0.75rem;
+  background: Canvas; color: CanvasText;
+  border: 1px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  animation: banner-in 0.25s ease;
+}
+@keyframes banner-in { from { transform: translateY(-8px); opacity: 0; } }
+.build-banner.done-ok { border-color: #2f9e44; }
+.build-banner.done-bad { border-color: #e03131; }
+.banner-icon { font-weight: 700; }
+.done-ok .banner-icon { color: #2f9e44; }
+.done-bad .banner-icon { color: #e03131; }
+.banner-body { min-width: 0; }
+.banner-title { font-size: 0.86rem; font-weight: 600; white-space: nowrap; }
+.banner-log {
+  font-family: ui-monospace, monospace; font-size: 0.74rem; opacity: 0.75;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 320px;
+}
+.banner-close {
+  background: transparent; border: none; color: inherit; opacity: 0.6;
+  padding: 0.1rem 0.3rem; cursor: pointer; font: inherit;
+}
+.banner-close:hover { opacity: 1; }
+.spinner {
+  width: 1rem; height: 1rem; flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Folder picker modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);   /* frosted background — the modal/card pops */
+  display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  background: Canvas; color: CanvasText;
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.1rem 1.3rem; width: min(560px, 92vw);
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+.modal h2 { margin-top: 0; }
+.modal.wide { width: min(860px, 95vw); max-height: 88vh; transition: width 0.28s ease; }
+.modal.wide .deck-banners { max-height: 68vh; }
+/* deck open -> the container grows to the right; banners become the left rail */
+.modal.wide.expanded { width: min(1320px, 97vw); }
+.decks-body { display: flex; gap: 1rem; min-height: 0; }
+.decks-list { flex: 1; min-width: 0; }
+.expanded .decks-list { flex: 0 0 330px; }
+.deck-panel {
+  flex: 1; min-width: 0;
+  overflow-y: auto; max-height: 72vh;
+  border-left: 1px solid var(--border); padding-left: 1rem;
+}
+.deck-section-title { margin: 0.9rem 0 0.4rem; }
+.deck-panel { animation: banner-in 0.22s ease; }
+.deck-panel-loading {
+  display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+  min-height: 200px;
+}
+/* offscreen sections skip layout/paint until scrolled to — kills the open jank */
+.deck-section { content-visibility: auto; contain-intrinsic-size: auto 240px; }
+.mini-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.45rem;
+}
+.mini-card { position: relative; cursor: pointer; }
+.mini-card img {
+  width: 100%; display: block; border-radius: 4.75% / 3.5%;
+}
+.mini-card:hover img { outline: 2px solid var(--accent); }
+.mini-card-fallback {
+  aspect-ratio: 488 / 680; border: 1px solid var(--border); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; text-align: center; padding: 0.3rem; overflow: hidden;
+}
+.qty-badge {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,0.75); color: white;
+  font-size: 0.72rem; font-weight: 700;
+  padding: 0.05rem 0.35rem; border-radius: 99px;
+}
+/* edit mode: per-card remove button (top-left — qty badge owns the top-right) */
+.mini-remove {
+  position: absolute; top: 4px; left: 4px;
+  width: 1.35rem; height: 1.35rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(160, 30, 30, 0.9); color: white;
+  border: none; border-radius: 99px; cursor: pointer;
+  font-size: 0.72rem; font-weight: 700; padding: 0;
+}
+.mini-remove:hover { background: rgba(210, 40, 40, 1); }
+.mini-remove:disabled { opacity: 0.5; cursor: default; }
+/* rendered markdown (deck explanations): a readable document, no box */
+.prose {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 0.98rem; line-height: 1.6;
+  max-width: 68ch; margin-top: 0.6rem;
+}
+.prose h1 { font-size: 1.3rem; margin: 1rem 0 0.4rem; }
+.prose h2 { font-size: 1.15rem; margin: 1rem 0 0.35rem; }
+.prose h3, .prose h4 { font-size: 1.02rem; margin: 0.8rem 0 0.3rem; }
+.prose p { margin: 0.45rem 0; }
+.prose ul, .prose ol { margin: 0.4rem 0; padding-left: 1.4rem; }
+.prose li { margin: 0.2rem 0; }
+.prose table {
+  border-collapse: collapse; margin: 0.6rem 0; font-size: 0.92rem;
+  font-family: system-ui, sans-serif;
+}
+.prose th, .prose td {
+  border: 1px solid var(--border); padding: 0.3rem 0.6rem; text-align: left;
+}
+.prose th { background: color-mix(in srgb, currentColor 7%, transparent); }
+.prose code {
+  font-family: ui-monospace, monospace; font-size: 0.88em;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  padding: 0.05rem 0.3rem; border-radius: 4px;
+}
+.prose blockquote {
+  margin: 0.5rem 0; padding-left: 0.9rem;
+  border-left: 3px solid var(--accent); opacity: 0.85;
+}
+
+.deck-stats {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem;
+  margin-top: 1rem; padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.deck-banner.selected { box-shadow: 0 0 16px color-mix(in srgb, var(--glow) 90%, transparent); }
+.path-crumb { word-break: break-all; margin: 0.2rem 0 0.6rem; }
+.dir-list {
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow-y: auto; min-height: 8rem; max-height: 45vh;
+}
+.dir-entry {
+  padding: 0.42rem 0.7rem; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.dir-entry:last-child { border-bottom: none; }
+.dir-entry:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* ── Deck-building workspace ─────────────────────────────────────────────────
+   One flex container, fixed DOM order (deck, splitter, search); the 4 layouts
+   are flex-direction values so the panes never remount. The splitter drags via
+   pointer capture writing flex-basis directly (no re-render per move). */
+.main-wide { max-width: none; }
+.workspace { display: flex; flex-direction: column; gap: 0.7rem;
+             height: calc(100vh - 8.2rem); min-height: 420px; }
+.ws-toolbar { display: flex; align-items: center; gap: 0.8rem; flex: 0 0 auto; }
+.ws-layouts { display: flex; gap: 0.25rem; }
+.ws-layout-btn { font-size: 1rem; line-height: 1; padding: 0.3rem 0.5rem; }
+.ws-layout-btn.active { border-color: var(--accent); color: var(--accent); }
+.workspace-split { display: flex; flex: 1 1 auto; min-height: 0; gap: 0; }
+.ws-pane {
+  min-width: 0; min-height: 0; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem;
+}
+.ws-pane-deck { flex: 0 0 45%; }
+.ws-pane-search { flex: 1 1 auto; }
+.ws-splitter {
+  flex: 0 0 10px; align-self: stretch; cursor: col-resize;
+  border-radius: 5px; position: relative; touch-action: none;
+}
+.workspace-split[style*="column"] .ws-splitter { cursor: row-resize; }
+.ws-splitter::after {
+  content: ""; position: absolute; inset: 3px 4px; border-radius: 3px;
+  background: var(--border);
+}
+.ws-splitter:hover::after, .ws-splitter:focus-visible::after {
+  background: var(--accent);
+}
+.ws-splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ws-splitter-off { display: none; }
+
+/* Deck-membership states on search tiles: desaturate+dim but keep the art
+   readable; chips carry the state as TEXT too (never color-alone). */
+.mtg-card.in-deck .tilt { filter: saturate(0.35) opacity(0.78); }
+.mtg-card.deck-illegal .tilt { filter: saturate(0.5) opacity(0.85); }
+.mtg-card.deck-illegal { outline: 1px solid color-mix(in srgb, #e03131 55%, transparent); border-radius: 8px; }
+.tile-chip {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  font-size: 0.72rem; font-weight: 700; line-height: 1;
+  padding: 0.22rem 0.4rem; border-radius: 999px;
+  background: color-mix(in srgb, Canvas 82%, transparent);
+  border: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.tile-chip-in, .tile-chip-limit { color: #2f9e44; border-color: #2f9e44; }
+.tile-chip-illegal { border-color: #e03131; }
+.tile-add {
+  margin-left: auto; flex: 0 0 auto;
+  width: 1.5rem; height: 1.5rem; line-height: 1; padding: 0;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: transparent; cursor: pointer; font-weight: 700;
+}
+.tile-add:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.tile-add:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Workspace deck panel: header, drop-zone rings, views */
+.deck-panel-ws { border-radius: 8px; min-height: 100%; }
+.deck-panel-ws.drop-ok { outline: 2px solid #2f9e44; outline-offset: -2px; }
+.deck-panel-ws.drop-bad { outline: 2px solid #e03131; outline-offset: -2px; }
+.drop-hint { margin: 0.2rem 0; }
+.search-drop-ws { border-radius: 8px; min-height: 100%; }
+.search-drop-ws.drop-remove { outline: 2px dashed #e03131; outline-offset: -2px; }
+.ws-deck-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem;
+  position: sticky; top: -0.8rem; z-index: 5; padding: 0.4rem 0;
+  background: color-mix(in srgb, Canvas 92%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.ws-deck-controls { display: flex; gap: 0.3rem; align-items: center; }
+.ws-view-btn.active { border-color: var(--accent); color: var(--accent); }
+.mini-pending { opacity: 0.55; pointer-events: none; }
+.mini-stepper { position: absolute; bottom: 4px; left: 4px; z-index: 3; }
+.qty-stepper { display: inline-flex; gap: 2px; }
+.qty-stepper button {
+  width: 1.4rem; height: 1.4rem; line-height: 1; padding: 0;
+  border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
+  background: color-mix(in srgb, Canvas 85%, transparent); font-weight: 700;
+}
+.qty-stepper button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.deck-rows { list-style: none; margin: 0.2rem 0; padding: 0; }
+.deck-row {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.18rem 0.35rem; border-radius: 6px; cursor: pointer;
+}
+.deck-row:hover { background: color-mix(in srgb, currentColor 7%, transparent); }
+.deck-row-qty { min-width: 1.3rem; text-align: right; font-variant-numeric: tabular-nums; }
+.deck-row-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-row-mana { flex: 0 0 auto; }
+.deck-row-price { margin-left: auto; font-variant-numeric: tabular-nums; }
+.row-remove {
+  flex: 0 0 auto; width: 1.4rem; height: 1.4rem; line-height: 1; padding: 0;
+  border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
+  background: transparent;
+}
+.row-remove:hover:not(:disabled) { border-color: #e03131; color: #e03131; }
+.deck-picker h3 { margin: 0.3rem 0 0.5rem; }
+.picker-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.picker-row {
+  width: 100%; display: flex; justify-content: space-between; gap: 0.6rem;
+  padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; cursor: pointer; text-align: left;
+}
+.picker-row:hover { border-color: var(--accent); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0;
+}
+
+/* Deck menu + stats modal + import preview */
+.deck-menu-wrap { position: relative; }
+.deck-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  min-width: 15rem; padding: 0.35rem; border: 1px solid var(--border);
+  border-radius: 10px; background: Canvas;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
+  display: flex; flex-direction: column;
+}
+.deck-menu hr { border: none; border-top: 1px solid var(--border); margin: 0.3rem 0; }
+.deck-menu button, .deck-menu-group button {
+  text-align: left; background: transparent; border: none; cursor: pointer;
+  padding: 0.42rem 0.6rem; border-radius: 6px; font: inherit; color: inherit;
+  width: 100%;
+}
+.deck-menu button:hover, .deck-menu button:focus-visible {
+  background: color-mix(in srgb, currentColor 9%, transparent); outline: none;
+}
+.deck-menu button.danger { color: #e03131; }
+.deck-menu-group { display: flex; flex-direction: column; }
+.curve-chart {
+  display: flex; align-items: flex-end; gap: 0.45rem;
+  height: 120px; padding: 0.4rem 0.2rem 0;
+}
+.curve-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-end; height: 100%; gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.curve-area {
+  flex: 1; width: 100%; position: relative;
+  display: flex; align-items: flex-end;
+}
+.curve-bar {
+  width: 100%; min-height: 2px; border-radius: 4px 4px 0 0;
+  background: var(--accent); opacity: 0.85;
+}
+.curve-ideal {
+  position: absolute; left: -2px; right: -2px; height: 0;
+  border-top: 2px dashed color-mix(in srgb, CanvasText 55%, transparent);
+}
+.color-dot {
+  display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%;
+  margin-right: 0.4rem; vertical-align: -0.08rem;
+  border: 1px solid color-mix(in srgb, CanvasText 35%, transparent);
+}
+.color-dot.W { background: #f5f0d8; }
+.color-dot.U { background: #4a90d9; }
+.color-dot.B { background: #3b3547; }
+.color-dot.R { background: #d3502c; }
+.color-dot.G { background: #3e7d4e; }
+.curve-count { font-size: 0.78rem; }
+.stats-table { border-collapse: collapse; width: 100%; }
+.stats-table td { padding: 0.18rem 0.5rem 0.18rem 0; border-bottom: 1px solid var(--border); }
+.stats-table td.num, .stats-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-table th { font-weight: 500; font-size: 0.8rem; padding: 0.18rem 0.5rem 0.18rem 0; }
+.import-preview { margin-top: 0.6rem; }
+.import-preview summary { cursor: pointer; }
+.import-preview summary.warn { color: #e8590c; }
+.import-preview summary.error { color: #e03131; }
+
+/* Narrow (tabbed) workspace: inactive pane hidden but MOUNTED */
+.ws-hidden { display: none !important; }
+.workspace-split.ws-narrow { flex-direction: column !important; }
+.workspace-split.ws-narrow .ws-pane { flex: 1 1 auto !important; }

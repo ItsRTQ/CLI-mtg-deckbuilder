@@ -23,7 +23,7 @@ def test_enrich_deck_basic(tmp_path):
     assert "mana_cost" in enriched_data[0]
     assert isinstance(enriched_data[0]["colors"], list)
     assert "set_code" not in enriched_data[0]
-    assert "rarity" not in enriched_data[0]
+    assert "rarity" in enriched_data[0]   # rarity became first-class (user request 2026-07-11)
     assert "collector_number" not in enriched_data[0]
 
 

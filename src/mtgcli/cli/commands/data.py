@@ -10,13 +10,10 @@ def status(
     json_output: bool = typer.Option(False, "--json-output", help="Emit status as JSON"),
 ):
     """Check the project status and paths."""
-    info = {
-        "project_root": str(PROJECT_ROOT),
-        "database_path": str(SQLITE_PATH),
-        "database_exists": SQLITE_PATH.exists(),
-        "raw_cards_path": str(RAW_CARDS_PATH),
-        "raw_cards_exists": RAW_CARDS_PATH.exists(),
-    }
+    from mtgcli.core.status import project_status
+    # Pass this module's globals through so per-module monkeypatching keeps working.
+    info = project_status(project_root=PROJECT_ROOT, sqlite_path=SQLITE_PATH,
+                          raw_cards_path=RAW_CARDS_PATH)
     if json_output:
         print_json(info)
     else:

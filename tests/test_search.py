@@ -8,7 +8,7 @@ def test_search_no_printing_fields():
     card = results[0]
     assert "set_code" not in card
     assert "collector_number" not in card
-    assert "rarity" not in card
+    assert "rarity" in card   # rarity became first-class (user request 2026-07-11)
 
 
 def test_search_has_gameplay_fields():
@@ -37,4 +37,4 @@ def test_search_tags_no_printing_fields():
         card = results[0]
         assert "set_code" not in card
         assert "collector_number" not in card
-        assert "rarity" not in card
+        assert "rarity" in card   # rarity became first-class (user request 2026-07-11)

@@ -33,6 +33,14 @@
       {"band": 1, "name": "Scrap", "min": 0.0}
     ]
   },
+  "combo_bonus": {
+    "_doc": "THREAT axis (v1.1, user decision 2026-07-10 — the missing leg of power = SPEED x CONSISTENCY x THREAT): compact annotated combos add a CAPPED BONUS on top of the base composite (the tier's CORE+bonus pattern), so unannotated decks and the calibration corpus score EXACTLY as before. Evidence: Kiki (6 two-card auto-wins) scored 1.98 = casual tribal; Iron Man vs Ozai showed the middle bands populate with combo, not goodstuff. Credit per combo = class_credit x piece factor; pieces = non-commander cards_needed (a commander-based 2-card combo is really 1 piece to assemble); combos with a piece MISSING from the deck are skipped (broken - the tier's honesty rule). bonus = cap x min(1, credited/denominator).",
+    "cap": 1.5,
+    "denominator": 4,
+    "class_credit": {"auto_win": 1.0, "infinite": 0.85},
+    "max_pieces": 3,
+    "three_piece_factor": 0.5
+  },
   "fast_mana": {
     "_doc": "NONCREATURE acceleration only (rocks / rituals / fast lands). Dorks & auras excluded on purpose: 'fuel' = mana that doesn't die to creature removal / isn't summoning-sick; the corpus average baseline is ~1 with this list. Name-matched (case-insensitive, DFC front-face).",
     "names": [

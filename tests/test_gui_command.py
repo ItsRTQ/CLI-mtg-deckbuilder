@@ -55,6 +55,63 @@ def test_gui_no_browser_suppresses_open(monkeypatch):
     assert run.calls and not opened.calls
 
 
+def test_gui_rebuild_runs_npm_build_before_serving(monkeypatch, tmp_path):
+    run, _ = _patch(monkeypatch)
+    import shutil
+    import subprocess
+
+    from mtgcli import config as config_mod
+
+    (tmp_path / "gui").mkdir()
+    (tmp_path / "gui" / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_mod, "FRONTEND_DIST", tmp_path / "gui" / "dist")
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/npm")
+    built = _Recorder()
+
+    class _Done:
+        returncode = 0
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (built(*a, **k), _Done())[1])
+    r = runner.invoke(app, ["gui", "--rebuild", "--no-browser"])
+    assert r.exit_code == 0, r.output
+    assert built.calls, "npm run build was not invoked"
+    args, kwargs = built.calls[0]
+    assert args[0][-2:] == ["run", "build"] and kwargs["cwd"] == tmp_path / "gui"
+    assert run.calls, "server did not start after the rebuild"
+
+
+def test_gui_rebuild_without_npm_exits_one(monkeypatch):
+    _patch(monkeypatch)
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    r = runner.invoke(app, ["gui", "--rebuild", "--no-browser"])
+    assert r.exit_code == 1
+    assert "npm not found" in r.output
+
+
+def test_gui_rebuild_failure_exits_one(monkeypatch, tmp_path):
+    run, _ = _patch(monkeypatch)
+    import shutil
+    import subprocess
+
+    from mtgcli import config as config_mod
+
+    (tmp_path / "gui").mkdir()
+    (tmp_path / "gui" / "package.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_mod, "FRONTEND_DIST", tmp_path / "gui" / "dist")
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/npm")
+
+    class _Fail:
+        returncode = 1
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Fail())
+    r = runner.invoke(app, ["gui", "--rebuild", "--no-browser"])
+    assert r.exit_code == 1
+    assert "build failed" in r.output
+    assert not run.calls, "server must not start after a failed rebuild"
+
+
 def test_gui_port_in_use_exits_one(monkeypatch):
     _patch(monkeypatch)
     import uvicorn

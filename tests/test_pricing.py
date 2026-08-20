@@ -401,3 +401,51 @@ def test_overage_10_pct_budget_150():
     result = evaluate_budget(160.0, 150.0, overage_percent=10)
     assert result["budget_status"] == "within_overage"
     assert result["hard_budget_limit"] == 165.0
+
+
+# --- budget_mode_bounds / parse_budget_value (GUI budget modes) ---
+
+def test_parse_budget_value():
+    from mtgcli.deckbuilder.pricing import parse_budget_value
+    assert parse_budget_value("150") == 150.0
+    assert parse_budget_value("$150.50") == 150.50
+    assert parse_budget_value(200) == 200.0
+    assert parse_budget_value("n/a") is None
+    assert parse_budget_value("N/A") is None
+    assert parse_budget_value("") is None
+    assert parse_budget_value(None) is None
+    assert parse_budget_value("banana") is None
+
+def test_budget_mode_bounds_soft():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    b = budget_mode_bounds(1000.0, "soft")
+    assert b == {"ceiling": 1070.0, "target": 1000.0, "floor": 930.0, "agent_overage": 7}
+
+def test_budget_mode_bounds_hard():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    b = budget_mode_bounds(1000.0, "hard")
+    assert b == {"ceiling": 1000.0, "target": 1000.0, "floor": None, "agent_overage": 0}
+
+def test_budget_mode_bounds_lower():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    b = budget_mode_bounds(1000.0, "lower")
+    # ceiling stays the budget; the 50% floor is prompt-only (preflight can't gate it)
+    assert b == {"ceiling": 1000.0, "target": 700.0, "floor": 500.0, "agent_overage": 0}
+
+def test_budget_mode_bounds_over():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    b = budget_mode_bounds(1000.0, "over", 25)
+    assert b == {"ceiling": 1250.0, "target": None, "floor": None, "agent_overage": 25}
+
+def test_budget_mode_bounds_over_without_pct_defaults_25():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    assert budget_mode_bounds(100.0, "over")["ceiling"] == 125.0
+
+def test_budget_mode_bounds_unknown_mode_raises():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    with pytest.raises(ValueError):
+        budget_mode_bounds(100.0, "banana")
+
+def test_budget_mode_bounds_default_is_soft():
+    from mtgcli.deckbuilder.pricing import budget_mode_bounds
+    assert budget_mode_bounds(100.0)["agent_overage"] == 7

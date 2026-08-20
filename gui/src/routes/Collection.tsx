@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { marked } from "marked";
 import { api } from "../api/client";
 import { CardResult } from "../api/mock";
@@ -6,7 +7,8 @@ import { CardTile, CardZoom } from "../components/CardTile";
 import CommanderInput from "../components/CommanderInput";
 import AgentConfirm from "../components/AgentConfirm";
 import { manaHtml } from "../components/ManaCost";
-import { DeckDetail, Decks, SECTIONS } from "../api/decks";
+import { DeckDetail, Decks, SECTIONS, openTcgplayer } from "../api/decks";
+import { saveWorkspacePrefs } from "../state/workspacePrefs";
 
 interface Bulk {
   source: string;
@@ -30,6 +32,7 @@ export default function Collection() {
   const [zoom, setZoom] = useState<{ card: CardResult; deck: string | null } | null>(null);
   const [decksOpen, setDecksOpen] = useState(false);
   const [openDeck, setOpenDeck] = useState<DeckDetail | null>(null);
+  const navigate = useNavigate();
   const [deckLoading, setDeckLoading] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -237,6 +240,23 @@ export default function Collection() {
       setExMsg(`✗ ${e.message}`);
     } finally {
       setExBusy(false);
+    }
+  }
+
+  function openInWorkspace() {
+    if (!openDeck) return;
+    // The Workspace restores lastDeckName on mount (Workspace.tsx DeckPane) —
+    // point it at this deck and navigate; no extra loading path needed.
+    saveWorkspacePrefs({ lastDeckName: openDeck.name });
+    navigate("/workspace");
+  }
+
+  async function buyOnTcgplayer() {
+    if (!openDeck) return;
+    try {
+      await openTcgplayer(openDeck.name);
+    } catch (e: any) {
+      setError(`TCGplayer export failed: ${e.message}`);
     }
   }
 
@@ -566,9 +586,17 @@ export default function Collection() {
                                 title="Add/remove cards — every change is validated (color identity, singleton, size)">
                           {editMode ? "✓ Done" : "✏️ Edit"}
                         </button>
+                        <button className="ghost" onClick={openInWorkspace}
+                                title="Open this deck in the deck-building Workspace">
+                          🛠 Workspace
+                        </button>
                         <button className="ghost" onClick={copyDecklist}
                                 title="Copy the plain-text decklist (paste into Moxfield etc.)">
                           {copied ? "✓ copied" : "📋 Copy"}
+                        </button>
+                        <button className="ghost" onClick={buyOnTcgplayer}
+                                title="Open TCGplayer Mass Entry pre-filled with this deck">
+                          🛒 TCGplayer
                         </button>
                         <button className="ghost danger" style={{ marginLeft: 0 }}
                                 onClick={deleteDeck} title="Delete this deck from your library">

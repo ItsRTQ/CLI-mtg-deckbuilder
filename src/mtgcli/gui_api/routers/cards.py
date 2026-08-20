@@ -1,6 +1,6 @@
 """Card endpoints: search (with advanced filters + pagination) and exact-name
 resolve (with fuzzy suggestions)."""
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -24,7 +24,9 @@ def cards_search(
     q: Optional[str] = Query(None, description="Search text; supports the structured grammar (type:/oracle:/name:/mv:)"),
     colors: Optional[str] = Query(None, description="Color identity letters, e.g. WUG"),
     type: Optional[str] = Query(None, description="Broad type filter (creature, instant, ...)"),
-    oracle: Optional[str] = Query(None, description="Oracle text contains"),
+    oracle: Optional[List[str]] = Query(
+        None, description="Oracle text contains; repeatable — terms AND together "
+                          "(same semantics as the CLI's repeatable --oracle)"),
     name: Optional[str] = Query(None, description="Card name contains"),
     mv_gte: Optional[float] = Query(None, ge=0),
     mv_lte: Optional[float] = Query(None, ge=0),
@@ -44,7 +46,7 @@ def cards_search(
 
     extra = empty_parsed()
     if oracle:
-        extra["oracle_terms"] = [oracle]
+        extra["oracle_terms"] = [t.strip() for t in oracle if t.strip()]
     if name:
         extra["name_terms"] = [name]
     extra["mana_value_gte"] = mv_gte
@@ -74,6 +76,41 @@ def cards_search(
         # exact flag (incl. the curated overrides), not just "legendary creature"
         results = [c for c in results if c.get("can_be_commander")]
 
+    page = results[offset:offset + limit]
+    has_more = len(results) > offset + limit
+    return SearchResponse(count=len(page), offset=offset, has_more=has_more,
+                          results=page)
+
+
+@router.get("/cards/search-tags", response_model=SearchResponse)
+def cards_search_tags(
+    tags: List[str] = Query(..., description="Functional tags (card_tags keys / role names); repeatable — phrases UNION, results ranked by tag_match_count"),
+    colors: Optional[str] = Query(None, description="Color identity letters, e.g. WUG"),
+    type: Optional[str] = Query(None, description="Broad type filter (creature, instant, ...)"),
+    mv_lte: Optional[int] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, gt=0),
+    limit: int = Query(15, ge=1, le=50),
+    offset: int = Query(0, ge=0, le=_MAX_SCAN),
+    _repo: CardRepository = Depends(get_repo),  # 503 when the DB is missing
+) -> SearchResponse:
+    """Function-first search (the CLI's `mtg search-tags`): union the tags'
+    phrases, rank by how many the card hits. Powers the deck-gaps 'Apply
+    filter' flow in the workspace."""
+    from mtgcli.cards.search import search_by_tags
+
+    clean = [t.strip() for t in tags if t.strip()]
+    if not clean:
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation", "message": "Provide at least one tag."}})
+    try:
+        type_filter = normalize_type_filter(type) if type else None
+    except UnknownTypeFilterError as e:
+        raise HTTPException(status_code=422,
+                            detail={"error": {"type": "usage", "message": str(e)}})
+    results = search_by_tags(
+        clean, colors=colors, limit=min(offset + limit + 1, _MAX_SCAN),
+        max_price=max_price, max_mana_value=mv_lte,
+        type_filter=type_filter, rank=True)
     page = results[offset:offset + limit]
     has_more = len(results) > offset + limit
     return SearchResponse(count=len(page), offset=offset, has_more=has_more,

@@ -556,6 +556,7 @@ def preflight(
     commander: Optional[str] = typer.Option(None, "--commander", help="Commander (overrides deck metadata)"),
     partner: Optional[str] = typer.Option(None, "--partner", help="Partner commander, if any"),
     budget_limit: Optional[float] = typer.Option(None, "--budget", help="If set, also gate on this USD budget"),
+    overage: float = typer.Option(10.0, "--overage", help="Allowed overage percent above --budget (default 10; pass 0 for a strict ceiling) — same flag as `mtg budget`"),
     no_bulk: bool = typer.Option(False, "--no-bulk", help="Ignore the user-bulk collection in the budget gate (owned cards count full price) — same flag as `mtg budget`"),
     json_output: bool = typer.Option(False, "--json-output", help="Output the checklist as JSON"),
 ):
@@ -625,7 +626,7 @@ def preflight(
         from mtgcli.deckbuilder.user_bulk import load_user_bulk, owned_lookup
         _owned = None if no_bulk else owned_lookup(load_user_bulk())
         bsum = build_budget_summary(hydrated, budget_limit=budget_limit,
-                                    owned=_owned)
+                                    overage_percent=overage, owned=_owned)
         ok = bsum.get("budget_status") in ("under_budget", "within_overage")
         budget_check = {
             "check": f"Within budget (${budget_limit})",
@@ -687,120 +688,17 @@ def deck_gaps(
         print(f"[red]Deck file not found: {deck_path}[/red]")
         raise typer.Exit(code=1)
 
-    import json as _json
-    from mtgcli.config import SEED_DATA_DIR as _SD
-    from mtgcli.deckbuilder.deck_check import _get_category_phrases
-    from mtgcli.cards.search import _load_role_definitions
-    from mtgcli.deckbuilder.oracle_hooks import extract_hooks
+    # Single source with the GUI API: deckbuilder.deck_gaps.compute_deck_gaps
+    # (the multi-consumer drift lesson — one audit implementation, many presenters).
+    from mtgcli.deckbuilder.deck_gaps import compute_deck_gaps
 
     repo = CardRepository(str(SQLITE_PATH))
     entries = load_deck_file(deck_path)["main_deck"]
-    # Hydrate so we can match phrases against real oracle text.
-    deck_cards = []
-    for e in entries:
-        cd = repo.get_card_by_exact_name(e.get("name", "")) if e.get("name") else None
-        if cd:
-            cd = dict(cd); cd["quantity"] = e.get("quantity", 1)
-            deck_cards.append(cd)
-
-    tag_defs = _json.load(open(_SD / "card_tags.json", encoding="utf-8"))
-    role_defs = _load_role_definitions()
-
-    from mtgcli.utils.phrase_match import any_phrase_matches as _any_pm
-
-    def _matching(phrases):
-        """(count, names) of deck cards matching any phrase — names let deck-gaps SHOW
-        what it counted (full build #3 friction: 'only 4 cards serve it' without saying
-        which 4 made the fix-or-justify decision guesswork)."""
-        n, names = 0, []
-        for c in deck_cards:
-            text = " ".join([c.get("name", "") or "", c.get("type_line", "") or "", c.get("oracle_text", "") or ""]).lower()
-            if _any_pm(phrases, text):
-                n += c.get("quantity", 1)
-                names.append(c.get("name", ""))
-        return n, names
-
-    def _count_matching(phrases):
-        return _matching(phrases)[0]
-
-    cc = calculate_category_counts(commander, archetype, partner_name=partner,
-                                   power_level=power_level, db_path=str(SQLITE_PATH))
-
-    gaps = []
-    for rec in cc.get("category_recommendations", []):
-        cat = rec["category"]
-        min_count = rec.get("min_count", 0)
-        phrases = _get_category_phrases(cat, tag_defs, role_defs)
-        if not phrases:
-            continue
-        have = _count_matching(phrases)
-        if have < min_count:
-            gaps.append({
-                "category": cat,
-                "display_name": rec.get("display_name", cat),
-                "have": have,
-                "want_at_least": min_count,
-                "recommended_range": rec.get("recommended_range"),
-                "need_score": rec.get("need_score", 0),
-                "fill_command": f'mtg search-tags {cat} --colors {"".join((repo.get_card_by_exact_name(commander) or {}).get("color_identity", []))} --json-output',
-            })
-
-    # Oracle-hook signal gaps: things the commander's text specifically wants.
-    cmd_card = repo.get_card_by_exact_name(commander)
-    hook_gaps = []
-    if cmd_card:
-        hooks = extract_hooks(cmd_card.get("oracle_text", "") or "")
-        custom = [c for c in hooks["named_counters"] if c not in ("+1/+1", "-1/-1")]
-        if custom and _count_matching(_get_category_phrases("proliferate", tag_defs, role_defs)) == 0:
-            hook_gaps.append(f"Commander uses '{', '.join(custom)}' counters but the deck has no proliferate — add proliferate (search-tags proliferate).")
-
-    # ── M2 consumer #2: audit the deck against the ANALYZER's read of the commander ──
-    # For every high/very_high band in analyzer.archetype_support, count how many deck
-    # cards serve that plan. The plan→function map is the analyzer's OWN vocabulary
-    # (mapping._ARCHETYPE_RULES defining+supporting tokens that are card_tags names), so
-    # no new curation can drift out of sync with the archetype system. Tribal bands count
-    # by creature type. Guarded: an analyzer failure only drops this section.
-    analyzer_support = []
-    plan_gaps = []
-    _colors = "".join((cmd_card or {}).get("color_identity", []))
-    if cmd_card:
-        try:
-            # Single source with deck-power's synergy density: deckbuilder.plan_coverage
-            # (the multi-consumer drift lesson — one band-matching implementation).
-            from mtgcli.deckbuilder.plan_coverage import plan_coverage
-            _pc = plan_coverage(cmd_card, deck_cards, tag_defs)
-            analyzer_support = []
-            _PLAN_MIN = 5  # fewer than this many cards serving a detected plan = thin
-            for b in (_pc["bands"] if _pc else []):
-                arch = b["archetype"]
-                if arch.endswith(" Tribal"):
-                    ttype = arch[: -len(" Tribal")].lower()
-                    fill = f"mtg search --subtype {ttype} --type creature --colors {_colors}"
-                elif not b["plan_tags"]:
-                    analyzer_support.append({"archetype": arch, "band": b["band"]})
-                    continue
-                else:
-                    fill = f"mtg search-tags {' '.join(b['plan_tags'][:3])} --colors {_colors}"
-                # Every audited band exposes WHICH cards were counted, gap or not — the
-                # fix-or-justify decision needs the list, not just the number.
-                analyzer_support.append({"archetype": arch, "band": b["band"],
-                                         "have": b["have"], "cards": b["cards"]})
-                if b["have"] < _PLAN_MIN:
-                    plan_gaps.append({
-                        "archetype": arch,
-                        "band": b["band"],
-                        "have": b["have"],
-                        "cards": b["cards"],
-                        "want_at_least": _PLAN_MIN,
-                        "fill_command": fill,
-                    })
-        except Exception:
-            analyzer_support = []
-            plan_gaps = []
-
-    gaps.sort(key=lambda g: -g["need_score"])
-    result = {"commander": commander, "archetype": archetype, "gaps": gaps, "hook_gaps": hook_gaps,
-              "analyzer_support": analyzer_support, "plan_gaps": plan_gaps}
+    result = compute_deck_gaps(commander, entries, repo, archetype=archetype,
+                               partner=partner, power_level=power_level)
+    gaps, hook_gaps = result["gaps"], result["hook_gaps"]
+    plan_gaps, analyzer_support = result["plan_gaps"], result["analyzer_support"]
+    _colors = result["colors"]
 
     if json_output:
         print_json(result)

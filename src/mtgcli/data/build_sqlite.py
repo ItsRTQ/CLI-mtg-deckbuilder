@@ -101,6 +101,26 @@ def _to_row(norm: Dict[str, Any]) -> tuple:
     )
 
 
+def _iter_raw_cards(f):
+    """Yield card dicts from the raw bulk file, whichever format it is in.
+
+    Scryfall's bulk export used to be one big JSON array; the current API
+    serves JSONL (one card object per line). Sniff the first non-whitespace
+    byte to pick the parser.
+    """
+    first = f.read(1)
+    while first and first.isspace():
+        first = f.read(1)
+    f.seek(0)
+    if first == b"[":
+        yield from ijson.items(f, "item")
+    else:
+        for line in f:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
+
+
 def build_sqlite_database() -> Dict[str, Any]:
     """
     Phase 1: stream all Scryfall printings, group by oracle_id, aggregate prices
@@ -116,7 +136,7 @@ def build_sqlite_database() -> Dict[str, Any]:
     cards_processed = 0
 
     with open(RAW_CARDS_PATH, "rb") as f:
-        for raw_card in ijson.items(f, "item"):
+        for raw_card in _iter_raw_cards(f):
             # Tokens/emblems/art-series/etc. are not deck cards and token names SHADOW
             # real cards in exact-name lookups (the Timeless Witness bug).
             if (raw_card.get("layout") or "") in NONPLAYABLE_LAYOUTS:

@@ -13,6 +13,8 @@ export default function BuildWizard() {
   const nav = useNavigate();
   const [commander, setCommander] = useState("");
   const [budget, setBudget] = useState("150");
+  const [budgetMode, setBudgetMode] = useState("soft");
+  const [overagePct, setOveragePct] = useState(25);
   const [bracket, setBracket] = useState("n/a");
   const [rankTarget, setRankTarget] = useState("n/a");
   const [theme, setTheme] = useState("");
@@ -22,6 +24,18 @@ export default function BuildWizard() {
   const [busy, setBusy] = useState(false);
   const [activeBuild, setActiveBuild] = useState<JobSummary | null>(null);
   const [confirming, setConfirming] = useState(false);
+
+  const hasBudget = budget.trim() !== "" && budget.trim().toLowerCase() !== "n/a";
+  const budgetNum = parseFloat(budget.trim().replace(/^\$/, ""));
+  const overCeiling = !isNaN(budgetNum)
+    ? ` → ceiling $${(budgetNum * (1 + overagePct / 100)).toFixed(2)}`
+    : "";
+  const modeSummary: Record<string, string> = {
+    soft: "soft ±7%",
+    hard: "hard cap",
+    lower: "under-budget ~70%",
+    over: `up to +${overagePct}%${overCeiling}`,
+  };
 
   // ONE build at a time (the backend enforces it with a 409; this is the UX):
   // poll while locked so the wizard unlocks itself when the build finishes.
@@ -59,6 +73,8 @@ export default function BuildWizard() {
       const jobId = await startBuild({
         commander,
         budget: budget.trim() || "n/a",
+        budget_mode: hasBudget ? budgetMode : "soft",
+        budget_overage_pct: hasBudget && budgetMode === "over" ? overagePct : null,
         bracket,
         rank_target: rankTarget,
         theme: theme.trim() || null,
@@ -136,6 +152,35 @@ export default function BuildWizard() {
             </select>
           </div>
         </div>
+        {hasBudget && (
+          <div className="row">
+            <div style={{ flex: 1 }}>
+              <label>Budget mode</label>
+              <select value={budgetMode} onChange={(e) => setBudgetMode(e.target.value)}>
+                <option value="soft">Soft — budget ±7% wiggle room</option>
+                <option value="hard">Hard — as close as possible, never over</option>
+                <option value="lower">Lower — under budget (~70%, never below 50%)</option>
+                <option value="over">Over — allow going past the budget…</option>
+              </select>
+            </div>
+            {budgetMode === "over" && (
+              <div style={{ flex: 1 }}>
+                <label>Allowed overage: {overagePct}%</label>
+                <input
+                  type="range"
+                  min={5}
+                  max={100}
+                  step={5}
+                  value={overagePct}
+                  onChange={(e) => setOveragePct(Number(e.target.value))}
+                />
+                <span className="muted">
+                  {overagePct}% over{overCeiling}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
         <label>Theme / direction (optional)</label>
         <input
           value={theme}
@@ -163,7 +208,7 @@ export default function BuildWizard() {
         {confirming && (
           <AgentConfirm
             action={`Build a "${commander}" deck` +
-                    (budget.trim() && budget.trim() !== "n/a" ? ` · budget $${budget.trim()}` : "")}
+                    (hasBudget ? ` · budget $${budget.trim()} (${modeSummary[budgetMode]})` : "")}
             onClose={() => setConfirming(false)}
             onConfirm={() => {
               setConfirming(false);

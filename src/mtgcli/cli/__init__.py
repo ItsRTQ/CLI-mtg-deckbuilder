@@ -39,7 +39,7 @@ from mtgcli.cli.commands import (  # noqa: E402,F401 -- imported for registratio
 _COMMAND_ORDER = [
     "status", "init_data", "update_data", "card", "search", "search_tags", "suggest",
     "commander_analyze", "validate", "deck_write", "deck_fill_lands", "enrich",
-    "export", "suggest_lands", "deck_check", "themes", "theme_info",
+    "export", "export_tcgplayer", "suggest_lands", "deck_check", "themes", "theme_info",
     "temp_clean", "final_build", "price", "cards", "cards_batch", "prices",
     "prices_batch", "budget", "category_counts", "deck_swap",
     "preflight", "similar", "complements", "deck_gaps", "analyze_card", "report",

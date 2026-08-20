@@ -8,7 +8,7 @@ standard build flow.
 ## The user's answered build contract (BUILDER §5 — do NOT re-ask; these ARE the answers)
 
 - Commander: {commander}{partner_line}
-- Budget: {budget}
+- Budget: {budget}{budget_mode_block}
 - Bracket: {bracket}
 - Target power RANK: {rank_target}
 - Theme / direction: {theme}

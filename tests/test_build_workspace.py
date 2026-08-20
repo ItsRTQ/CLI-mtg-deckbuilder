@@ -67,6 +67,42 @@ def test_prompt_bulk_mode_follows_the_checkbox(tmp_path):
     assert "--no-bulk" in no_bulk and "FULL prices" in no_bulk
 
 
+def test_prompt_budget_mode_soft_is_the_default(tmp_path):
+    # REQ has no budget_mode key (jobs pass raw dicts) -> soft, with computed dollars
+    prompt = render_agent_prompt(REQ, tmp_path)
+    assert "Budget mode: SOFT" in prompt
+    assert "$139.50" in prompt and "$160.50" in prompt  # 150 ±7%
+    assert "--overage 7" in prompt
+    assert "--set-config budget_mode=soft" in prompt
+
+
+def test_prompt_budget_mode_hard(tmp_path):
+    prompt = render_agent_prompt(dict(REQ, budget_mode="hard"), tmp_path)
+    assert "Budget mode: HARD" in prompt and "never exceed $150.00" in prompt
+    assert "--overage 0" in prompt and "--set-config budget_mode=hard" in prompt
+
+
+def test_prompt_budget_mode_lower(tmp_path):
+    prompt = render_agent_prompt(dict(REQ, budget_mode="lower"), tmp_path)
+    assert "Budget mode: LOWER" in prompt
+    assert "$105.00" in prompt   # 70% target
+    assert "$75.00" in prompt    # 50% floor
+    assert "--set-config budget_mode=lower" in prompt
+
+
+def test_prompt_budget_mode_over(tmp_path):
+    prompt = render_agent_prompt(
+        dict(REQ, budget_mode="over", budget_overage_pct=25), tmp_path)
+    assert "Budget mode: OVER" in prompt and "$187.50" in prompt and "+25%" in prompt
+    assert "--overage 25" in prompt and "--set-config budget_mode=over" in prompt
+
+
+def test_prompt_budget_mode_absent_without_numeric_budget(tmp_path):
+    for na in ("n/a", "", None):
+        prompt = render_agent_prompt(dict(REQ, budget=na, budget_mode="hard"), tmp_path)
+        assert "Budget mode" not in prompt
+
+
 def test_prompt_partner_line_only_when_partner(tmp_path):
     assert "Partner commander" not in render_agent_prompt(REQ, tmp_path)
     with_partner = dict(REQ, partner="Toothy, Imaginary Friend")

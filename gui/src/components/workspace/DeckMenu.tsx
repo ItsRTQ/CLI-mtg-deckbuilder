@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openTcgplayer } from "../../api/decks";
 import { useDeckWorkspace } from "../../state/DeckWorkspaceContext";
 import { DECK_VIEWS } from "./deckViews";
 
@@ -10,13 +11,19 @@ interface Props {
   onPickView: (id: string) => void;
   onImport: () => void;
   onStats: () => void;
+  onTestHand: () => void;
+  onGaps: () => void;
+  onAdvise: () => void;
 }
 
-export default function DeckMenu({ viewId, onPickView, onImport, onStats }: Props) {
+export default function DeckMenu({
+  viewId, onPickView, onImport, onStats, onTestHand, onGaps, onAdvise,
+}: Props) {
   const { deck, clearDeck, closeDeck } = useDeckWorkspace();
   const [open, setOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [buyFailed, setBuyFailed] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -25,6 +32,7 @@ export default function DeckMenu({ viewId, onPickView, onImport, onStats }: Prop
     if (!open) return;
     setConfirmClear(false);
     setCopied(false);
+    setBuyFailed(false);
     menuRef.current?.querySelector<HTMLElement>("[role=menuitem],[role=menuitemradio]")?.focus();
     const onDoc = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
@@ -66,6 +74,16 @@ export default function DeckMenu({ viewId, onPickView, onImport, onStats }: Prop
     }
   }
 
+  async function buyOnTcgplayer() {
+    if (!deck) return;
+    try {
+      await openTcgplayer(deck.name);
+      close(false);
+    } catch {
+      setBuyFailed(true); // menu stays open so the failure is visible
+    }
+  }
+
   if (!deck) return null;
   return (
     <div className="deck-menu-wrap" ref={wrapRef} onKeyDown={onKeyDown}>
@@ -95,8 +113,23 @@ export default function DeckMenu({ viewId, onPickView, onImport, onStats }: Prop
                   onClick={() => { close(false); onStats(); }}>
             📊 Statistics…
           </button>
+          <button role="menuitem"
+                  onClick={() => { close(false); onTestHand(); }}>
+            🎴 Test hand…
+          </button>
+          <button role="menuitem"
+                  onClick={() => { close(false); onGaps(); }}>
+            🧭 Recommendations…
+          </button>
+          <button role="menuitem"
+                  onClick={() => { close(false); onAdvise(); }}>
+            🤖 Agent advice…
+          </button>
           <button role="menuitem" onClick={copyList}>
             {copied ? "✓ Copied" : "📋 Copy decklist"}
+          </button>
+          <button role="menuitem" onClick={buyOnTcgplayer}>
+            {buyFailed ? "✗ Couldn't build link" : "🛒 Buy on TCGplayer"}
           </button>
           <hr />
           {!confirmClear ? (

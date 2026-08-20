@@ -78,6 +78,61 @@ def evaluate_budget(
     }
 
 
+def parse_budget_value(value: Any) -> Optional[float]:
+    """Parse a user-facing budget string ("150", "n/a", "", None) to a float.
+    Returns None when no numeric budget was given."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text or text.lower() == "n/a":
+        return None
+    try:
+        return float(text.lstrip("$"))
+    except ValueError:
+        return None
+
+
+BUDGET_MODES = ("soft", "hard", "lower", "over")
+
+
+def budget_mode_bounds(
+    budget: float,
+    mode: str = "soft",
+    overage_pct: Optional[int] = None,
+) -> Dict[str, Any]:
+    """The single source of truth for what each budget MODE means in dollars.
+
+    Returns {"ceiling", "target", "floor", "agent_overage"}:
+      soft  — budget ±7% wiggle: ceiling = budget*1.07, floor = budget*0.93
+      hard  — never exceed the budget: ceiling = budget, aim just under it
+      lower — build under budget: target = budget*0.70, floor = budget*0.50,
+              ceiling = budget
+      over  — user-approved overage: ceiling = budget*(1 + pct/100)
+
+    `ceiling` is the mechanically enforced bound (preflight --budget). `floor`
+    (lower's 50%, soft's 93%) is prompt-instruction-only — preflight can only
+    check a ceiling. `agent_overage` is the --overage percent the agent should
+    pass to `mtg budget` so its own checks match the ceiling.
+    """
+    if mode not in BUDGET_MODES:
+        raise ValueError(f"Unknown budget mode: {mode!r} (expected one of {BUDGET_MODES})")
+    if mode == "soft":
+        return {"ceiling": round(budget * 1.07, 2), "target": round(budget, 2),
+                "floor": round(budget * 0.93, 2), "agent_overage": 7}
+    if mode == "hard":
+        return {"ceiling": round(budget, 2), "target": round(budget, 2),
+                "floor": None, "agent_overage": 0}
+    if mode == "lower":
+        return {"ceiling": round(budget, 2), "target": round(budget * 0.70, 2),
+                "floor": round(budget * 0.50, 2), "agent_overage": 0}
+    # over
+    pct = 25 if overage_pct is None else int(overage_pct)
+    return {"ceiling": round(budget * (1 + pct / 100), 2), "target": None,
+            "floor": None, "agent_overage": pct}
+
+
 def build_budget_summary(
     deck_entries: List[Dict[str, Any]],
     *,

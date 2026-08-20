@@ -5,6 +5,9 @@ import { deckViewById } from "./deckViews";
 import DeckMenu from "./DeckMenu";
 import ImportModal from "./ImportModal";
 import DeckStatsModal from "./DeckStatsModal";
+import TestHandModal from "./TestHandModal";
+import GapsModal from "./GapsModal";
+import AdviseModal from "./AdviseModal";
 
 // The Deck Builder container: header (commander, name, count, menu), one
 // general drop zone (sections are type-derived — the server sections the card
@@ -16,6 +19,9 @@ export default function DeckPanel() {
   const [viewId, setViewId] = useState(() => loadWorkspacePrefs().deckView);
   const [importOpen, setImportOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [testHandOpen, setTestHandOpen] = useState(false);
+  const [gapsOpen, setGapsOpen] = useState(false);
+  const [adviseOpen, setAdviseOpen] = useState(false);
   const [dropState, setDropState] = useState<"" | "drop-ok" | "drop-bad">("");
   const depth = useRef(0);                 // dragenter/leave nest across children
 
@@ -74,6 +80,9 @@ export default function DeckPanel() {
             onPickView={pickView}
             onImport={() => setImportOpen(true)}
             onStats={() => setStatsOpen(true)}
+            onTestHand={() => setTestHandOpen(true)}
+            onGaps={() => setGapsOpen(true)}
+            onAdvise={() => setAdviseOpen(true)}
           />
         </div>
       </div>
@@ -90,6 +99,9 @@ export default function DeckPanel() {
       <View />
       {importOpen && <ImportModal onClose={() => setImportOpen(false)} />}
       {statsOpen && <DeckStatsModal onClose={() => setStatsOpen(false)} />}
+      {testHandOpen && <TestHandModal onClose={() => setTestHandOpen(false)} />}
+      {gapsOpen && <GapsModal onClose={() => setGapsOpen(false)} />}
+      {adviseOpen && <AdviseModal onClose={() => setAdviseOpen(false)} />}
     </div>
   );
 }

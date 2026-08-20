@@ -24,7 +24,9 @@ function DeckPane() {
 }
 
 function SearchPane() {
-  const { deck, addCard, removeCard, membershipFor, setDragCard } = useDeckWorkspace();
+  const {
+    deck, addCard, removeCard, membershipFor, setDragCard, searchRequest,
+  } = useDeckWorkspace();
   // Deck→search drag = quick remove (the inverse of search→deck add). Deck
   // cards travel under their own MIME type so the deck's add-zone ignores them.
   const [removeReady, setRemoveReady] = useState(false);
@@ -63,6 +65,8 @@ function SearchPane() {
         onAdd={deck ? (c) => { addCard(c.name); } : undefined}
         membership={deck ? membershipFor : undefined}
         onDragCard={setDragCard}
+        request={searchRequest}
+        identityColors={deck?.color_identity}
       />
     </div>
   );

@@ -14,6 +14,8 @@ export interface WorkspacePrefs {
   deckView: string;              // deckViews registry id
   lastDeckName: string | null;
   narrowTab: "deck" | "search";  // active tab in narrow (stacked-tabs) mode
+  // last advise job per deck — lets the modal resume/reshow after a close/reload
+  adviseJob: { deck: string; jobId: string } | null;
 }
 
 const KEY = "mtg.gui.workspace.v1";
@@ -24,6 +26,7 @@ export const DEFAULT_PREFS: WorkspacePrefs = {
   deckView: "grid",
   lastDeckName: null,
   narrowTab: "deck",
+  adviseJob: null,
 };
 
 const LAYOUTS: WorkspaceLayout[] = [
@@ -46,6 +49,11 @@ export function loadWorkspacePrefs(): WorkspacePrefs {
         : DEFAULT_PREFS.deckView,
       lastDeckName: typeof p.lastDeckName === "string" ? p.lastDeckName : null,
       narrowTab: p.narrowTab === "search" ? "search" : "deck",
+      adviseJob:
+        p.adviseJob && typeof p.adviseJob.deck === "string"
+          && typeof p.adviseJob.jobId === "string"
+          ? { deck: p.adviseJob.deck, jobId: p.adviseJob.jobId }
+          : null,
     };
   } catch {
     return { ...DEFAULT_PREFS };

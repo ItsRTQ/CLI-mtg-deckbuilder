@@ -1,8 +1,8 @@
 """Build endpoints: POST /api/builds, GET /api/builds/{job_id}, POST .../cancel."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mtgcli.cards.repository import CardRepository
 from mtgcli.gui_api.deps import get_repo
@@ -16,6 +16,8 @@ class BuildRequest(BaseModel):
     commander: str
     partner: Optional[str] = None
     budget: Optional[str] = None       # "150" | "n/a"
+    budget_mode: Literal["soft", "hard", "lower", "over"] = "soft"
+    budget_overage_pct: Optional[int] = Field(None, ge=5, le=100)  # only for mode=over
     bracket: Optional[str] = None      # "1-2" | "3" | "4-5" | "n/a"
     rank_target: Optional[str] = None  # "1".."7" | "n/a"
     theme: Optional[str] = None
@@ -23,6 +25,17 @@ class BuildRequest(BaseModel):
     use_bulk: bool = True              # owned cards cost $0 (uncheck = full prices)
     provider: Optional[str] = None     # default: the selected/detected provider
     timeout_seconds: int = Field(900, ge=60, le=3600)
+
+    @model_validator(mode="after")
+    def _check_budget_mode(self) -> "BuildRequest":
+        from mtgcli.deckbuilder.pricing import parse_budget_value
+
+        if self.budget_mode == "over":
+            if parse_budget_value(self.budget) is not None and self.budget_overage_pct is None:
+                raise ValueError("budget_mode 'over' requires budget_overage_pct (5-100)")
+        else:
+            self.budget_overage_pct = None  # only meaningful for mode=over
+        return self
 
 
 class JobStatusOut(BaseModel):
@@ -44,6 +57,7 @@ class JobSummaryOut(BaseModel):
     elapsed_seconds: int
     provider: str
     commander: str
+    kind: str = "build"            # "build" | "explain" | "advise"
 
 
 def get_registry(request: Request) -> JobRegistry:
@@ -138,7 +152,7 @@ def list_builds(request: Request) -> List[JobSummaryOut]:
     return [
         JobSummaryOut(job_id=j.id, status=j.status, phase=j.phase,
                       elapsed_seconds=j.elapsed_seconds, provider=j.provider_name,
-                      commander=j.request.get("commander", "?"))
+                      commander=j.request.get("commander", "?"), kind=j.kind)
         for j in get_registry(request).list()
     ]
 

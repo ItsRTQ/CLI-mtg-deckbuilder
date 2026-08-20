@@ -135,3 +135,96 @@ export function previewDeckList(
 export function getDeckStats(name: string): Promise<DeckRichStats> {
   return api<DeckRichStats>(`/api/decks/${enc(name)}/stats`);
 }
+
+// deck-gaps audit (single source with `mtg deck-gaps`). `fill` is the
+// structured search spec the workspace turns into a prefilled card search.
+export interface GapFill {
+  tags: string[];
+  query: string | null;
+  type: string | null;
+  colors: string;
+}
+export interface CategoryGap {
+  category: string;
+  display_name: string;
+  have: number;
+  want_at_least: number;
+  recommended_range: string | null;
+  need_score: number;
+  fill: GapFill;
+}
+export interface PlanGap {
+  archetype: string;
+  band: string;
+  have: number;
+  cards: string[];
+  want_at_least: number;
+  fill: GapFill;
+}
+export interface DeckGaps {
+  commander: string;
+  archetype: string;
+  colors: string;
+  gaps: CategoryGap[];
+  hook_gaps: string[];
+  hook_gap_fills: { message: string; fill: GapFill }[];
+  analyzer_support: { archetype: string; band: string; have?: number; cards?: string[] }[];
+  plan_gaps: PlanGap[];
+}
+
+export function getDeckGaps(name: string, archetype = "midrange"): Promise<DeckGaps> {
+  return api<DeckGaps>(`/api/decks/${enc(name)}/gaps?archetype=${enc(archetype)}`);
+}
+
+// Agent advisory pass (Tier 2): a batch job — start it, poll /api/builds/{id}.
+// Every suggested card comes back DB-verified (valid/issue set server-side).
+export interface AdviseCard {
+  name: string;
+  why: string;
+  price_usd: number | null;
+  valid?: boolean;
+  issue?: string;
+  image_url?: string | null;
+}
+export interface AdviseRecommendation {
+  title: string;
+  priority: "high" | "medium" | "low";
+  reason: string;
+  cards: AdviseCard[];
+  fill: GapFill | null;
+}
+export interface AdviseResult {
+  deck_name: string | null;
+  summary: string;
+  recommendations: AdviseRecommendation[];
+}
+
+export function startAdvise(
+  name: string,
+  opts: { theme?: string | null; budget?: string | null; notes?: string | null } = {},
+): Promise<{ job_id: string }> {
+  return api<{ job_id: string }>(`/api/decks/${enc(name)}/advise`, {
+    method: "POST",
+    body: JSON.stringify(opts),
+  });
+}
+
+export function exportTcgplayerUrl(name: string) {
+  return api<{ url: string; entries: number }>(
+    `/api/decks/${enc(name)}/export/tcgplayer`,
+  );
+}
+
+/** Open the deck on TCGplayer Mass Entry. Opens the tab synchronously (before the
+ * await) so popup blockers see it inside the user gesture, then navigates it. */
+export async function openTcgplayer(name: string): Promise<void> {
+  const w = window.open("", "_blank");
+  try {
+    const { url } = await exportTcgplayerUrl(name);
+    if (w) w.location.href = url;
+    else window.open(url, "_blank");
+  } catch (e) {
+    w?.close();
+    throw e;
+  }
+}

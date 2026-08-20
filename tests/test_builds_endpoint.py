@@ -103,8 +103,8 @@ def _client(provider, monkeypatch, tmp_path, preflight_exit=0, validation_errors
     monkeypatch.setattr(gs_mod, "load_gui_settings",
                         lambda **k: {"builds_save_dir": str(save_dir) if save_dir else None})
     monkeypatch.setattr(jobs_mod, "_run_preflight",
-                        lambda deck, cmd: {"ready": preflight_exit == 0,
-                                           "exit_code": preflight_exit})
+                        lambda deck, cmd, **kw: {"ready": preflight_exit == 0,
+                                                 "exit_code": preflight_exit})
     # validate_commander_deck is imported inside run_build_job — patch at source.
     import mtgcli.validator.deck_validator as dv
     monkeypatch.setattr(dv, "validate_commander_deck",
@@ -133,6 +133,42 @@ def _start(client, **over):
     r = client.post("/api/builds", json=payload)
     assert r.status_code == 202, r.text
     return r.json()["job_id"]
+
+
+def test_budget_mode_defaults_to_soft(monkeypatch, tmp_path):
+    # Old callers that omit the field still work; the payload records soft.
+    c = _client(FakeProvider(), monkeypatch, tmp_path)
+    job_id = _start(c)  # no budget_mode in payload
+    body = _wait_terminal(c, job_id)
+    assert body["status"] == "succeeded"
+
+
+def test_budget_mode_rejects_unknown(monkeypatch, tmp_path):
+    c = _client(FakeProvider(), monkeypatch, tmp_path)
+    r = c.post("/api/builds", json={"commander": KIKI, "budget": "150",
+                                    "bracket": "n/a", "budget_mode": "banana"})
+    assert r.status_code == 422
+
+
+def test_budget_mode_over_requires_pct(monkeypatch, tmp_path):
+    c = _client(FakeProvider(), monkeypatch, tmp_path)
+    base = {"commander": KIKI, "budget": "150", "bracket": "n/a",
+            "budget_mode": "over"}
+    assert c.post("/api/builds", json=base).status_code == 422           # missing
+    assert c.post("/api/builds", json={**base, "budget_overage_pct": 3}).status_code == 422
+    assert c.post("/api/builds", json={**base, "budget_overage_pct": 150}).status_code == 422
+    ok = c.post("/api/builds", json={**base, "budget_overage_pct": 25})
+    assert ok.status_code == 202, ok.text
+    _wait_terminal(c, ok.json()["job_id"])
+
+
+def test_budget_mode_over_without_numeric_budget_is_inert(monkeypatch, tmp_path):
+    # budget n/a -> the mode can't bind to anything; no pct required.
+    c = _client(FakeProvider(), monkeypatch, tmp_path)
+    r = c.post("/api/builds", json={"commander": KIKI, "budget": "n/a",
+                                    "bracket": "n/a", "budget_mode": "over"})
+    assert r.status_code == 202, r.text
+    _wait_terminal(c, r.json()["job_id"])
 
 
 def test_happy_path_succeeds_with_result(monkeypatch, tmp_path):

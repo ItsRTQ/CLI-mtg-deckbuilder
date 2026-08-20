@@ -71,6 +71,12 @@ def test_search_params_passthrough_and_limit_cap(monkeypatch):
     assert seen["limit"] == 31                      # chunk = offset + limit + 1
     assert seen["extra"]["oracle_terms"] == ["haste"]
     assert seen["extra"]["mana_value_lte"] == 5
+    # repeatable oracle: fragments AND together (the GUI's "+" chips)
+    r2 = c.get("/api/cards/search",
+               params=[("q", "kiki"), ("oracle", "human"), ("oracle", "draw"),
+                       ("oracle", "  ")])
+    assert r2.status_code == 200
+    assert seen["extra"]["oracle_terms"] == ["human", "draw"]   # blanks dropped
     # limit is capped by validation, not clamped silently
     assert c.get("/api/cards/search", params={"q": "x", "limit": 500}).status_code == 422
 

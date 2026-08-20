@@ -143,6 +143,88 @@ def export(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def export_tcgplayer(
+    input_path: Path = typer.Argument(..., help="Deck file: structured .json or plain-text .txt decklist"),
+    print_url: bool = typer.Option(False, "--print-url", help="Print the URL instead of opening the browser"),
+    json_output: bool = typer.Option(False, "--json-output", help="Emit a machine-readable result summary"),
+):
+    """Export a deck to TCGplayer Mass Entry: builds the pre-filled URL and opens it
+    in the default browser (or prints it with --print-url). No API key needed."""
+    from mtgcli.export.tcgplayer import (
+        build_tcgplayer_mass_entry_url, normalize_deck_for_tcgplayer,
+    )
+    from mtgcli.utils.deck_io import load_deck_file
+
+    if not input_path.exists():
+        if json_output:
+            print_json({"ok": False, "error": "input_not_found", "input": str(input_path)})
+        else:
+            print(f"[red]Input file not found: {input_path}[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        normalized = load_deck_file(input_path)
+    except Exception as e:
+        if json_output:
+            print_json({"ok": False, "error": str(e)})
+        else:
+            print(f"[red]Failed to load deck: {e}[/red]")
+        raise typer.Exit(code=1)
+
+    # Layout lookup (best-effort): split/aftermath cards must keep "A // B" in the
+    # export while other multi-face layouts reduce to the front face. No DB → the
+    # exporter falls back to front-face for every "//" name.
+    layout_lookup = None
+    try:
+        repo = CardRepository(str(SQLITE_PATH))
+
+        def layout_lookup(name):  # noqa: F811
+            return (repo.get_card_by_exact_name(name) or {}).get("layout")
+    except Exception:
+        pass
+
+    cards, skipped = normalize_deck_for_tcgplayer(
+        normalized["main_deck"], commanders=normalized.get("commanders"),
+        layout_lookup=layout_lookup,
+    )
+    if not cards:
+        _msg = "No valid cards were found to export."
+        if json_output:
+            _emit_json_error({"error": {"type": "validation", "message": _msg}})
+        else:
+            print(f"[red]Error: {_msg}[/red]")
+        raise typer.Exit(code=1)
+
+    url = build_tcgplayer_mass_entry_url(cards)
+    card_count = sum(c["quantity"] for c in cards)
+
+    opened = False
+    if not print_url:
+        try:
+            import webbrowser
+            opened = bool(webbrowser.open(url))
+        except Exception:
+            opened = False
+
+    if json_output:
+        print_json({
+            "ok": True, "url": url, "card_count": card_count,
+            "skipped": skipped, "opened_browser": opened,
+        })
+        return
+
+    print(f"[green]TCGplayer export created for {card_count} cards.[/green]")
+    if skipped:
+        print(f"[yellow]Skipped {len(skipped)} invalid entries.[/yellow]")
+    if print_url:
+        typer.echo(url)  # plain echo: rich would soft-wrap the URL mid-line
+    elif opened:
+        print("Opening TCGplayer Mass Entry...")
+    else:
+        print("[yellow]TCGplayer URL generated successfully, but the browser could not be opened.[/yellow]")
+        typer.echo(url)
+
 
 @app.command()
 def final_build(

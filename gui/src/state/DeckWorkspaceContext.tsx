@@ -43,6 +43,18 @@ interface DeckWorkspaceValue {
   canUndo: boolean;
   dragCard: CardResult | null;     // set by the search pane on dragstart/dragend
   setDragCard: (c: CardResult | null) => void;
+  // Recommendations → search pane bridge: a gap's "find candidates" publishes a
+  // prefilled search here; CardSearch consumes it (seq disambiguates repeats).
+  searchRequest: SearchRequest | null;
+  requestSearch: (f: Omit<SearchRequest, "seq">) => void;
+}
+
+export interface SearchRequest {
+  tags?: string[];
+  query?: string;
+  type?: string;
+  colors?: string;
+  seq: number;
 }
 
 const Ctx = createContext<DeckWorkspaceValue | null>(null);
@@ -65,6 +77,8 @@ export function DeckWorkspaceProvider({ children }: { children: React.ReactNode 
   const [pendingNames, setPendingNames] = useState<ReadonlySet<string>>(new Set());
   const [canUndo, setCanUndo] = useState(false);
   const [dragCard, setDragCard] = useState<CardResult | null>(null);
+  const [searchRequest, setSearchRequest] = useState<SearchRequest | null>(null);
+  const searchSeq = useRef(0);
 
   const deckRef = useRef<DeckDetail | null>(null);   // latest snapshot for queued jobs
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -378,6 +392,11 @@ export function DeckWorkspaceProvider({ children }: { children: React.ReactNode 
     openDeck, closeDeck, createNewDeck,
     addCard, removeCard, changeQty, mergeCards, replaceList, clearDeck,
     undo, canUndo, dragCard, setDragCard,
+    searchRequest,
+    requestSearch: useCallback((f: Omit<SearchRequest, "seq">) => {
+      searchSeq.current += 1;
+      setSearchRequest({ ...f, seq: searchSeq.current });
+    }, []),
   };
 
   return (

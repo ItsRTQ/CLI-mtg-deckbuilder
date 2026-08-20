@@ -33,7 +33,7 @@ class Job:
     request: Dict[str, Any]
     provider_name: str
     workspace: Path
-    kind: str = "build"            # "build" | "explain"
+    kind: str = "build"            # "build" | "explain" | "advise"
     status: str = "pending"
     phase: str = "created"
     created_at: float = field(default_factory=time.monotonic)
@@ -62,15 +62,26 @@ def _fail(job: Job, err_type: str, message: str, *, status: str = "failed",
                  "log_tail": job.log_tail(), **extra}
 
 
-def _run_preflight(deck_path: Path, commander: str) -> Dict[str, Any]:
+def _run_preflight(deck_path: Path, commander: str, *,
+                   budget_ceiling: Optional[float] = None,
+                   use_bulk: bool = True) -> Dict[str, Any]:
     """The blessed 'are we done' gate, via the pinned CLI (the preflight logic is
-    inline in the command — extraction to core is the REFACTOR_MAP follow-up)."""
+    inline in the command — extraction to core is the REFACTOR_MAP follow-up).
+
+    `budget_ceiling` is the budget-mode ceiling (already includes the mode's
+    allowed overage), so it is enforced strictly (--overage 0). Mode floors
+    (lower's 50%) are prompt-only — preflight can only gate a ceiling."""
     mtg = shutil.which("mtg")
     if not mtg:
         return {"error": "mtg CLI not on PATH for postflight"}
+    cmd = [mtg, "preflight", "--deck", str(deck_path), "--commander", commander,
+           "--json-output"]
+    if budget_ceiling is not None:
+        cmd += ["--budget", str(budget_ceiling), "--overage", "0"]
+    if not use_bulk:
+        cmd.append("--no-bulk")
     proc = subprocess.run(
-        [mtg, "preflight", "--deck", str(deck_path), "--commander", commander,
-         "--json-output"],
+        cmd,
         capture_output=True, text=True, timeout=120,
     )
     try:
@@ -136,7 +147,19 @@ def run_build_job(job: Job, provider: AgentProvider) -> None:
             return
 
         job.phase = "preflight gate"
-        preflight = _run_preflight(deck_path, commander)
+        from mtgcli.deckbuilder.pricing import budget_mode_bounds, parse_budget_value
+        _budget = parse_budget_value(job.request.get("budget"))
+        _ceiling = None
+        if _budget is not None:
+            try:
+                _ceiling = budget_mode_bounds(
+                    _budget, job.request.get("budget_mode") or "soft",
+                    job.request.get("budget_overage_pct"))["ceiling"]
+            except ValueError:
+                pass  # unknown mode from an old/raw request: no budget gate
+        preflight = _run_preflight(deck_path, commander,
+                                   budget_ceiling=_ceiling,
+                                   use_bulk=job.request.get("use_bulk", True))
         if preflight.get("exit_code") != 0:
             _fail(job, "preflight", "Deck is NOT READY per mtg preflight.",
                   preflight=preflight)
@@ -246,6 +269,85 @@ def run_explain_job(job: Job, provider: AgentProvider) -> None:
         _fail(job, "internal", f"{type(e).__name__}: {e}")
 
 
+def run_advise_job(job: Job, provider: AgentProvider) -> None:
+    """Thread target: read-only ADVISORY pass on an in-progress draft. The
+    deliverable is output/recommendations.json; every suggested card is verified
+    against the DB here (existence + color identity) — the agent's judgment
+    ships, its hallucinations don't."""
+    try:
+        job.status = "running"
+        job.phase = "agent analyzing the draft (watch the live log)"
+        res = provider.build(job.workspace, job.workspace / "agent_prompt.md",
+                             timeout=int(job.request.get("timeout_seconds") or 600),
+                             cancel_event=job.cancel_event)
+        if res.error == "cancelled" or job.cancel_event.is_set():
+            _fail(job, "cancelled", "Advise job cancelled by the user.",
+                  status="cancelled")
+            return
+        if res.error and "timeout" in res.error:
+            _fail(job, "timeout", f"Agent did not finish in time ({res.error}).",
+                  status="timeout")
+            return
+        if not res.ok:
+            _fail(job, "provider", res.error or "provider failed",
+                  exit_code=res.exit_code)
+            return
+
+        job.status = "validating"
+        job.phase = "checking recommendations"
+        from mtgcli.core.build_workspace import RECOMMENDATIONS_REL
+        rec_path = job.workspace / RECOMMENDATIONS_REL
+        if not rec_path.exists():
+            _fail(job, "finish_contract",
+                  "Agent finished without output/recommendations.json")
+            return
+        try:
+            data = json.loads(rec_path.read_text(encoding="utf-8",
+                                                 errors="replace"))
+        except ValueError as e:
+            _fail(job, "finish_contract", f"recommendations.json is not valid JSON: {e}")
+            return
+        recs = data.get("recommendations")
+        if not isinstance(recs, list) or not recs:
+            _fail(job, "finish_contract",
+                  "recommendations.json has no recommendations list.")
+            return
+
+        # Deterministic gate on the agent's card names: exists + color identity.
+        from mtgcli.cards.repository import CardRepository
+        from mtgcli.config import SQLITE_PATH
+        repo = CardRepository(str(SQLITE_PATH))
+        cmd = repo.get_card_by_exact_name(job.request["commander"]) or {}
+        identity = set(cmd.get("color_identity") or [])
+        for rec in recs:
+            for card in (rec.get("cards") or []):
+                found = repo.get_card_by_exact_name(str(card.get("name", "")))
+                if not found:
+                    card["valid"] = False
+                    card["issue"] = "not found in the card DB"
+                    continue
+                card["name"] = found["name"]  # canonical casing/DFC name
+                if set(found.get("color_identity") or []) - identity:
+                    card["valid"] = False
+                    card["issue"] = "outside the commander's color identity"
+                    continue
+                card["valid"] = True
+                if card.get("price_usd") is None:
+                    card["price_usd"] = found.get("usd_price")
+                card["image_url"] = found.get("image_url")
+
+        job.result = {
+            "deck_name": job.request.get("_deck_name"),
+            "summary": data.get("summary") or "",
+            "recommendations": recs,
+            "workspace": str(job.workspace),
+        }
+        job.status = "succeeded"
+        job.phase = "done"
+    except Exception as e:
+        _fail(job, "internal", f"{type(e).__name__}: {e}")
+
+
 class JobRegistry:
     def __init__(self):
         self._jobs: Dict[str, Job] = {}
@@ -274,6 +376,22 @@ class JobRegistry:
         job = Job(id=job_id, request=request, provider_name=provider.name,
                   workspace=workspace, kind="explain")
         job.thread = threading.Thread(target=run_explain_job, args=(job, provider),
+                                      daemon=True)
+        with self._lock:
+            self._jobs[job_id] = job
+        job.thread.start()
+        return job
+
+    def create_advise(self, request: Dict[str, Any], deck_data: Dict[str, Any],
+                      provider: AgentProvider, *,
+                      base_dir: Optional[Path] = None) -> Job:
+        from mtgcli.core.build_workspace import create_advise_workspace
+        job_id = uuid.uuid4().hex[:12]
+        workspace = create_advise_workspace(job_id, request, deck_data,
+                                            base_dir=base_dir)
+        job = Job(id=job_id, request=request, provider_name=provider.name,
+                  workspace=workspace, kind="advise")
+        job.thread = threading.Thread(target=run_advise_job, args=(job, provider),
                                       daemon=True)
         with self._lock:
             self._jobs[job_id] = job

@@ -23,7 +23,7 @@ runner = CliRunner()
 EXPECTED_COMMANDS = [
     "status", "init-data", "update-data", "card", "search", "search-tags", "suggest",
     "commander-analyze", "validate", "deck-write", "deck-fill-lands", "enrich",
-    "export", "suggest-lands", "deck-check", "themes", "theme-info",
+    "export", "export-tcgplayer", "suggest-lands", "deck-check", "themes", "theme-info",
     "temp-clean", "final-build", "price", "cards", "cards-batch", "prices",
     "prices-batch", "budget", "category-counts", "deck-swap",
     "preflight", "similar", "complements", "deck-gaps", "analyze-card", "report",
@@ -39,6 +39,8 @@ EXPECTED_COMMANDS = [
     "deck-rank", "note",
     # v0.9.0 localhost GUI: + gui -> 42.
     "gui",
+    # v0.9.0 TCGplayer Mass Entry export (one-click buy URL): + export-tcgplayer -> 43
+    # (registered right after export in _COMMAND_ORDER, listed above).
 ]
 
 

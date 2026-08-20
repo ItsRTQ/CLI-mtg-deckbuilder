@@ -683,6 +683,80 @@ def explain_deck(name: str, body: ExplainIn, request: Request,
     return {"job_id": job.id, "status_url": f"/api/builds/{job.id}"}
 
 
+class AdviseIn(BaseModel):
+    # Optional context for the advisory pass; the deck may be an incomplete draft.
+    theme: Optional[str] = None
+    budget: Optional[str] = None
+    notes: Optional[str] = None
+    provider: Optional[str] = None
+    timeout_seconds: int = 600
+
+
+@router.post("/decks/{name}/advise", status_code=202)
+def advise_deck(name: str, body: AdviseIn, request: Request,
+                repo: CardRepository = Depends(get_repo)) -> dict:
+    """Start a headless agent job that ADVISES on an in-progress draft: read-only
+    analysis, deck-size/preflight explicitly out of scope (it's a draft). Poll it
+    via GET /api/builds/{job_id}; the result carries recommendations.json with
+    every suggested card DB-verified."""
+    import json as _json
+
+    from mtgcli.gui_api.jobs import TERMINAL
+    from mtgcli.gui_api.routers.builds import get_registry
+    from mtgcli.gui_api.routers.data import data_refresh_running
+    from mtgcli.gui_api.routers.providers import get_manager, selected_provider
+
+    d = _deck_dir_or_404(name)
+    dl = d / "deck_list.json"
+    if not dl.exists():
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation",
+            "message": "This deck has no deck_list.json to analyze."}})
+    try:
+        deck_data = _json.loads(dl.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation", "message": f"Unreadable deck_list.json: {e}"}})
+    commander = ((deck_data.get("commanders") or [None])[0]
+                 or deck_data.get("commander"))
+    if not commander:
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation", "message": "Deck has no commander metadata."}})
+
+    if data_refresh_running(request):
+        raise HTTPException(status_code=409, detail={"error": {
+            "type": "conflict", "message": "The card database is being refreshed — "
+                                           "wait for it to finish."}})
+    registry = get_registry(request)
+    running = next((j for j in registry.list() if j.status not in TERMINAL), None)
+    if running is not None:
+        raise HTTPException(status_code=409, detail={"error": {
+            "type": "conflict",
+            "message": "An agent job is already running — wait or cancel it.",
+            "job_id": running.id}})
+
+    mgr = get_manager(request)
+    provider_name = body.provider or selected_provider(request, mgr)
+    provider = mgr.get(provider_name) if provider_name else None
+    if provider is None or not provider.supports_build:
+        raise HTTPException(status_code=409, detail={"error": {
+            "type": "environment",
+            "message": "No build-capable provider selected — configure one in Settings."}})
+    info = provider.detect()
+    if not info.installed:
+        raise HTTPException(status_code=409, detail={"error": {
+            "type": "environment",
+            "message": f"Provider '{provider_name}' is not installed ({info.detail})."}})
+
+    payload = body.model_dump()
+    payload["commander"] = commander
+    payload["_deck_name"] = name
+    cmd_card = repo.get_card_by_exact_name(commander) or {}
+    payload["_colors"] = "".join(cmd_card.get("color_identity") or [])
+    job = registry.create_advise(payload, deck_data, provider)
+    return {"job_id": job.id, "status_url": f"/api/builds/{job.id}"}
+
+
 @router.delete("/decks/{name}")
 def delete_deck(name: str) -> dict:
     """Delete a deck folder from the library (the GUI confirms first)."""
@@ -693,23 +767,19 @@ def delete_deck(name: str) -> dict:
     return {"deleted": name}
 
 
-@router.get("/decks/{name}", response_model=DeckDetailOut)
-def deck_detail(name: str, repo=Depends(get_repo_optional)) -> DeckDetailOut:
-    d = _deck_dir_or_404(name)
+def _read_deck_entries(d, name: str):
+    """Read a deck folder's commanders + main-deck entries: prefer the annotated
+    deck_list.json; fall back to the .txt list (commanders stay empty there).
+    Returns (commanders, entries) with entries as (name, quantity) tuples."""
     import json as _json
 
     txt = d / f"{name}.txt"
-    expl = d / f"{name}.explanation.md"
-
-    # Entries: prefer the annotated deck_list.json; fall back to the .txt list.
-    commander = None
     commanders: List[str] = []
     entries = []
     dl = d / "deck_list.json"
     if dl.exists():
         try:
             data = _json.loads(dl.read_text(encoding="utf-8"))
-            commander = ((data.get("commanders") or [None])[0] or data.get("commander"))
             commanders = [c for c in (data.get("commanders") or [data.get("commander")]) if c]
             entries = [(e.get("name"), int(e.get("quantity", 1)))
                        for e in data.get("main_deck", []) if e.get("name")]
@@ -725,6 +795,75 @@ def deck_detail(name: str, repo=Depends(get_repo_optional)) -> DeckDetailOut:
                 entries.append((head[1], int(head[0])))
             else:
                 entries.append((ln, 1))
+    return commanders, entries
+
+
+class DeckExportUrlOut(BaseModel):
+    url: str
+    entries: int
+
+
+@router.get("/decks/{name}/export/tcgplayer", response_model=DeckExportUrlOut)
+def export_deck_tcgplayer(name: str, repo=Depends(get_repo_optional)) -> DeckExportUrlOut:
+    """Build the TCGplayer Mass Entry URL for a saved deck (commander included).
+    The GUI opens it in a new tab — nothing is written to disk."""
+    from mtgcli.export.tcgplayer import (build_tcgplayer_mass_entry_url,
+                                         normalize_deck_for_tcgplayer)
+
+    d = _deck_dir_or_404(name)
+    commanders, raw_entries = _read_deck_entries(d, name)
+    layout_lookup = None
+    if repo is not None:
+        def layout_lookup(cname):  # noqa: F811
+            return (repo.get_card_by_exact_name(cname) or {}).get("layout")
+    cards, _skipped = normalize_deck_for_tcgplayer(
+        [{"name": n, "quantity": q} for n, q in raw_entries],
+        commanders=commanders,
+        layout_lookup=layout_lookup,
+    )
+    if not cards:
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation",
+            "message": "This deck has no cards to export."}})
+    return DeckExportUrlOut(
+        url=build_tcgplayer_mass_entry_url(cards),
+        entries=len(cards),
+    )
+
+
+@router.get("/decks/{name}/gaps")
+def deck_gaps_endpoint(name: str, archetype: str = "midrange",
+                       repo: CardRepository = Depends(get_repo)) -> dict:
+    """Audit a library deck against its commander's plan (deck-gaps core).
+    Same single-source audit as `mtg deck-gaps`; each gap carries a structured
+    `fill` spec the workspace can turn into a prefilled card search."""
+    d = _deck_dir_or_404(name)
+    commanders, entries = _read_deck_entries(d, name)
+    if not commanders:
+        raise HTTPException(status_code=422, detail={"error": {
+            "type": "validation",
+            "message": "This deck has no commander metadata — gaps need the "
+                       "commander's plan to audit against."}})
+    from mtgcli.deckbuilder.deck_gaps import compute_deck_gaps
+    return compute_deck_gaps(
+        commanders[0],
+        [{"name": n, "quantity": q} for n, q in entries],
+        repo,
+        archetype=archetype,
+        partner=commanders[1] if len(commanders) > 1 else None,
+    )
+
+
+@router.get("/decks/{name}", response_model=DeckDetailOut)
+def deck_detail(name: str, repo=Depends(get_repo_optional)) -> DeckDetailOut:
+    d = _deck_dir_or_404(name)
+
+    txt = d / f"{name}.txt"
+    expl = d / f"{name}.explanation.md"
+
+    commanders, entries = _read_deck_entries(d, name)
+    commander = commanders[0] if commanders else None
+    dl = d / "deck_list.json"
 
     from mtgcli.core.print_prefs import (load_deck_print_prefs,
                                          load_print_prefs, resolve_pref)
